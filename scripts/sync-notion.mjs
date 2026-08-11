@@ -135,6 +135,7 @@ async function pageToFile(page, usedSlugs) {
     `title: ${JSON.stringify(title)}`,
     ...(description ? [`description: ${JSON.stringify(description)}`] : []),
     `pubDate: ${pubDate}`,
+    `createdAt: ${page.created_time}`,
     `notionId: ${page.id}`,
     "---",
   ].join("\n");

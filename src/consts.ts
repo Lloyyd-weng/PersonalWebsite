@@ -19,6 +19,17 @@ export const LINKS = [
   { label: "instagram", href: "https://www.instagram.com/ssslloyd/" },
 ] as const;
 
+// 新文章在前;pubDate 只精确到天,同一天的用 Notion created_time(createdAt)区分
+export function comparePosts(
+  a: { data: { pubDate: Date; createdAt?: Date } },
+  b: { data: { pubDate: Date; createdAt?: Date } },
+): number {
+  return (
+    b.data.pubDate.valueOf() - a.data.pubDate.valueOf() ||
+    (b.data.createdAt?.valueOf() ?? 0) - (a.data.createdAt?.valueOf() ?? 0)
+  );
+}
+
 export function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
     year: "numeric",

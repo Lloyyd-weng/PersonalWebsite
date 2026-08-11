@@ -7,6 +7,8 @@ const blog = defineCollection({
     title: z.string(),
     description: z.string().optional(),
     pubDate: z.coerce.date(),
+    // Notion 的 created_time,同一天发布的文章靠它区分先后
+    createdAt: z.coerce.date().optional(),
     draft: z.boolean().default(false),
   }),
 });

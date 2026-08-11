@@ -42,7 +42,7 @@ const isHome = pathname === "/";
     {
       /* 首页不放页眉,链接都在页面里;子页面给一条最小的返回导航 */
       !isHome && (
-        <header class="flex items-baseline gap-8 px-12 pt-16 font-mono text-xs uppercase tracking-widest sm:px-24">
+        <header class="mx-auto flex w-full max-w-3xl items-baseline gap-8 px-6 pt-16 font-mono text-xs uppercase tracking-widest">
           <a href="/" class="underline-offset-4 hover:underline">
             {SITE.name}
           </a>

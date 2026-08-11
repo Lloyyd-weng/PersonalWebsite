@@ -2,6 +2,7 @@
 title: "Hello from Notion"
 description: "第一篇从 Notion 自动同步到 lloyyd.com 的测试文章。"
 pubDate: 2026-08-11
+createdAt: 2026-08-11T09:24:56.000Z
 notionId: 3b96eb17-14b7-81f5-ad64-d94e3d4091d7
 ---
 
