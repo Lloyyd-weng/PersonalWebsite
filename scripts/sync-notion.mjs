@@ -97,6 +97,24 @@ async function fetchPublishedPages() {
   return pages;
 }
 
+// Fill in PubDate on the Notion page itself when the author left it empty,
+// so the value is visible in the database. Requires the connection to have
+// the "Update content" capability; failures are non-fatal because the
+// markdown generation falls back to created_time anyway.
+async function backfillPubDate(page) {
+  if (page.properties.PubDate?.date?.start) return;
+  const start = page.created_time.slice(0, 10);
+  try {
+    await notion.pages.update({
+      page_id: page.id,
+      properties: { PubDate: { date: { start } } },
+    });
+    console.log(`[sync-notion] backfilled PubDate ${start} on Notion page ${page.id}`);
+  } catch (err) {
+    console.warn(`[sync-notion] PubDate backfill failed (connection lacks update permission?): ${err.message}`);
+  }
+}
+
 async function pageToFile(page, usedSlugs) {
   const props = page.properties;
   const title = plain(props.Title?.title) || "Untitled";
@@ -130,7 +148,10 @@ async function main() {
 
   const usedSlugs = new Set();
   const files = [];
-  for (const page of pages) files.push(await pageToFile(page, usedSlugs));
+  for (const page of pages) {
+    await backfillPubDate(page);
+    files.push(await pageToFile(page, usedSlugs));
+  }
 
   await fs.mkdir(CONTENT_DIR, { recursive: true });
   const keepFiles = new Set();
