@@ -1,8 +1,7 @@
 export const SITE = {
   name: "lloyyd",
   url: "https://lloyyd.com",
-  // TODO(lloyyd): 首页大标题,一句话,替换成你想说的
-  headline: "I'm Lloyyd. Nice to meet you.",
+  headline: "Lloyd is building his own app.",
   // TODO(lloyyd): 大标题下方的小字状态行
   tagline: "Designer & maker — building Panda Basket.",
   description: "Personal site of Lloyyd — design, apps, and notes.", // TODO(lloyyd): 站点描述
