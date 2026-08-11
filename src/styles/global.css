@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* 纯黑白灰,参照 ryo.lu 的静态样式;暗色跟随系统 */
+:root {
+  --bg: #ffffff;
+  --fg: #141414;
+  --muted: #8a8a8a;
+  --line: #e5e5e5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0b0b;
+    --fg: #e8e8e8;
+    --muted: #7a7a7a;
+    --line: #242424;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --font-sans: system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 3px;
+}
+
+/* Prose — 只保留博客需要的最小样式 */
+.prose {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+.prose > * + * {
+  margin-block-start: 1.25em;
+}
+
+.prose h2,
+.prose h3 {
+  font-weight: 500;
+  margin-block-start: 2em;
+}
+
+.prose h2 {
+  font-size: 1.25rem;
+}
+
+.prose h3 {
+  font-size: 1.0625rem;
+}
+
+.prose a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prose a:hover {
+  color: var(--muted);
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.prose pre {
+  border: 1px solid var(--line);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.prose blockquote {
+  border-inline-start: 2px solid var(--line);
+  padding-inline-start: 1.25rem;
+  color: var(--muted);
+}
+
+.prose ul,
+.prose ol {
+  padding-inline-start: 1.5rem;
+}
+
+.prose ul {
+  list-style: disc;
+}
+
+.prose ol {
+  list-style: decimal;
+}
+
+.prose li + li {
+  margin-block-start: 0.375em;
+}
+
+.prose img {
+  max-width: 100%;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin-block: 2.5rem;
+}

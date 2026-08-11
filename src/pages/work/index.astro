@@ -1,0 +1,39 @@
+---
+import Base from "../../layouts/Base.astro";
+
+// 作品以后会多,先用数组管理;每一项指向站内详情页,不外跳。
+const projects = [
+  {
+    title: "Panda Basket",
+    href: "/work/panda-basket",
+    // TODO(lloyyd): 一句话描述 app 是做什么的
+    blurb: "An iOS app — full story coming soon.",
+    meta: "iOS app",
+  },
+];
+---
+
+<Base title="work" description="Selected work by Lloyyd.">
+  <main class="max-w-2xl px-6 pb-24 pt-16 sm:px-12">
+    <h1 class="text-2xl font-medium tracking-tight">Work</h1>
+
+    <ul class="mt-12 flex flex-col gap-8">
+      {
+        projects.map((project) => (
+          <li>
+            <a
+              href={project.href}
+              class="underline underline-offset-4 hover:text-muted"
+            >
+              {project.title}
+            </a>
+            <span class="ml-3 font-mono text-xs uppercase tracking-widest text-muted">
+              {project.meta}
+            </span>
+            <p class="mt-1.5 text-muted">{project.blurb}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</Base>

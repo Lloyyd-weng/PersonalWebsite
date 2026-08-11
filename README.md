@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# lloyyd.com
 
-## Getting Started
+个人网站。Astro 5 + Tailwind CSS 4 + MDX,纯静态输出,部署在 Vercel。
 
-First, run the development server:
+## 常用命令
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev       # 本地开发 http://localhost:4321
+npm run build     # 构建到 dist/
+npm run preview   # 预览构建产物
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 写博客
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+往 `src/content/blog/` 丢一个 `.md` 或 `.mdx` 文件即可:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```markdown
+---
+title: "文章标题"
+description: "可选的摘要"
+pubDate: 2026-08-11
+draft: false # true 则不发布
+---
 
-## Learn More
+正文,中英文都行。
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 待替换的占位内容
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+全局搜索 `TODO(lloyyd)`:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `src/consts.ts` — 一句话身份介绍、站点描述、Dribbble / LinkedIn 链接
+- `src/pages/index.astro` — 首页简介段落
+- `src/pages/work/panda-basket.astro` — Panda Basket 介绍、截图、App Store 链接
+- `src/content/blog/rebuilding-lloyyd-com.md` — 示例文章,改写或删除
 
-## Deploy on Vercel
+## 结构备忘
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 导航在 `src/consts.ts` 的 `NAV` 数组;以后上线网页艺术页面,加一行 `{ label: "lab", href: "/lab" }` 即可
+- 旧版站点(create-next-app + 登录页)归档在 git tag `v0-archive`

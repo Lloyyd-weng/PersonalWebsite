@@ -1,0 +1,44 @@
+---
+import Base from "../../layouts/Base.astro";
+
+// TODO(lloyyd): 这一页是 Panda Basket 的占位详情页,等你细化内容:
+// - 补一段真实介绍
+// - 加截图(放 public/,直接用 <img> 引)
+// - 上架后把 App Store 链接填进 appStoreUrl
+const appStoreUrl = ""; // TODO(lloyyd): App Store 链接
+---
+
+<Base title="Panda Basket" description="Panda Basket — an iOS app by Lloyyd.">
+  <main class="max-w-2xl px-6 pb-24 pt-16 sm:px-12">
+    <h1 class="text-2xl font-medium tracking-tight">Panda Basket</h1>
+    <p class="mt-2 font-mono text-xs uppercase tracking-widest text-muted">
+      design & development · iOS · in progress
+    </p>
+
+    <div class="prose mt-10">
+      <!-- TODO(lloyyd): 占位介绍,替换成真实内容 -->
+      <p>
+        Panda Basket is an app I'm designing and building. The full story —
+        what it does, why I made it, and how it came together — will live on
+        this page.
+      </p>
+    </div>
+
+    <p class="mt-10 font-mono text-sm text-muted">
+      Screenshots and the full case study are on their way.
+    </p>
+
+    {
+      appStoreUrl && (
+        <a
+          href={appStoreUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="mt-10 inline-block font-mono text-sm uppercase tracking-widest underline underline-offset-4 hover:text-muted"
+        >
+          app store
+        </a>
+      )
+    }
+  </main>
+</Base>

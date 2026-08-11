@@ -1,0 +1,67 @@
+---
+import "../styles/global.css";
+import { SITE, NAV } from "../consts";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description = SITE.description } = Astro.props;
+const pageTitle = title ? `${title} · ${SITE.name}` : SITE.name;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const pathname = Astro.url.pathname;
+const isHome = pathname === "/";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={SITE.name}
+      href={new URL("rss.xml", Astro.site)}
+    />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0b0b" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta name="generator" content={Astro.generator} />
+  </head>
+  <body class="min-h-dvh">
+    {
+      /* 首页不放页眉,链接都在页面里;子页面给一条最小的返回导航 */
+      !isHome && (
+        <header class="flex items-baseline gap-8 px-6 pt-8 font-mono text-xs uppercase tracking-widest sm:px-12">
+          <a href="/" class="underline-offset-4 hover:underline">
+            {SITE.name}
+          </a>
+          <nav class="flex gap-6">
+            {NAV.map((item) => (
+              <a
+                href={item.href}
+                class:list={[
+                  "underline-offset-4 hover:underline",
+                  pathname.startsWith(item.href) ? "underline" : "text-muted",
+                ]}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        </header>
+      )
+    }
+    <slot />
+  </body>
+</html>
