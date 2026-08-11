@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "sync": "node scripts/sync-notion.mjs",
+    "build": "node scripts/sync-notion.mjs && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },
@@ -16,5 +17,9 @@
     "@tailwindcss/vite": "^4.1.0",
     "astro": "^5.12.0",
     "tailwindcss": "^4.1.0"
+  },
+  "devDependencies": {
+    "@notionhq/client": "^2.3.0",
+    "notion-to-md": "^3.1.9"
   }
 }
