@@ -15,10 +15,8 @@ export const NAV = [
 ] as const;
 
 export const LINKS = [
-  { label: "github", href: "https://github.com/Lloyyd-weng" },
-  { label: "dribbble", href: "#" }, // TODO(lloyyd): 填 Dribbble 主页链接
-  { label: "linkedin", href: "#" }, // TODO(lloyyd): 填 LinkedIn 主页链接
-  { label: "email", href: "mailto:lloyyd.weng@gmail.com" }, // 沿用旧站公开邮箱,可改
+  { label: "x", href: "https://x.com/SSSLloyd3152" },
+  { label: "instagram", href: "https://www.instagram.com/ssslloyd/" },
 ] as const;
 
 export function formatDate(date: Date): string {
