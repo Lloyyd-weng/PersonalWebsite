@@ -38,3 +38,12 @@ draft: false # true 则不发布
 
 - 导航在 `src/consts.ts` 的 `NAV` 数组;以后上线网页艺术页面,加一行 `{ label: "lab", href: "/lab" }` 即可
 - 旧版站点(create-next-app + 登录页)归档在 git tag `v0-archive`
+
+## 相关仓库
+
+给客户确认用的 landing 页**不在这个仓库**,在
+[`client-landings`](https://github.com/Lloyyd-weng/client-landings)(部署在 `demo.lloyyd.com`,
+本地 `~/Documents/Coding/client-landings`)。
+
+分开是刻意的:本仓库构建时会先同步 Notion,两边混在一起会互相拖累发布。
+详细边界规则见 [CLAUDE.md](./CLAUDE.md)。
