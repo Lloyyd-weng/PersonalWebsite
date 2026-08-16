@@ -17,6 +17,8 @@ export const NAV = [
 export const LINKS = [
   { label: "x", href: "https://x.com/SSSLloyd3152" },
   { label: "instagram", href: "https://www.instagram.com/ssslloyd/" },
+  // 客户确认页,仓库在 client-landings;根路径不列任何客户
+  { label: "demo", href: "https://demo.lloyyd.com" },
 ] as const;
 
 // 新文章在前;pubDate 只精确到天,同一天的用 Notion created_time(createdAt)区分
