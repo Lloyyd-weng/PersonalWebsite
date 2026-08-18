@@ -1,0 +1,23 @@
+---
+// 每个小节配一张插画。位图版(codex image_gen 生成的 Notion 风格线描),放在
+// public/ 下直接引用——不像早先的内联 SVG 版本,它不跟随亮/暗色模式,而是自带
+// 暖白纸底,所以在 global.css 里当成一块「插页」处理:恒定浅底 + 描边,暗色下压暗。
+interface Props {
+  name: string;
+  caption?: string;
+}
+
+const { name, caption } = Astro.props;
+---
+
+<figure class="illo">
+  <img
+    src={`/work/panda-basket/illo/${name}.webp`}
+    alt={caption ?? name}
+    width="1440"
+    height="960"
+    loading="lazy"
+    decoding="async"
+  />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

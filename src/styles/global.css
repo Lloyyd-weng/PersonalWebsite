@@ -118,3 +118,31 @@ body {
   border-top: 1px solid var(--line);
   margin-block: 2.5rem;
 }
+
+/* 小节插画 —— 位图,自带暖白纸底,当成一块插页而非随主题变色的线稿 */
+.illo {
+  margin-block: 2.5rem;
+}
+
+.illo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+
+/* 纸底在暗色下会发光,压一档亮度让它退回页面里 */
+@media (prefers-color-scheme: dark) {
+  .illo img {
+    filter: brightness(0.78) contrast(1.04);
+  }
+}
+
+.illo figcaption {
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
