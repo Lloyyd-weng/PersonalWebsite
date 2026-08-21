@@ -1,0 +1,49 @@
+---
+// Artifact 详情页的外壳:站点页眉 + 标题块 + 返回链接,
+// 排版规格与 blog/[...id].astro 保持一致,正文由各 artifact 自己的 slot 填。
+import Base from "./Base.astro";
+import { formatDate } from "../consts";
+
+interface Props {
+  title: string;
+  description?: string;
+  meta?: string;
+  pubDate: Date;
+  lang?: string;
+}
+
+const { title, description, meta, pubDate, lang = "en" } = Astro.props;
+---
+
+<Base title={title} description={description} lang={lang}>
+  <main class="mx-auto w-full max-w-3xl px-6 pb-48 pt-16">
+    <article>
+      <header>
+        <time
+          datetime={pubDate.toISOString()}
+          class="font-mono text-sm text-muted"
+        >
+          {formatDate(pubDate)}
+        </time>
+        <h1 class="mt-2 text-2xl font-medium tracking-tight sm:text-3xl">
+          {title}
+        </h1>
+        {
+          meta && (
+            <p class="mt-2 font-mono text-xs uppercase tracking-widest text-muted">
+              {meta}
+            </p>
+          )
+        }
+      </header>
+      <div class="mt-10">
+        <slot />
+      </div>
+    </article>
+    <a
+      href="/artifact"
+      class="mt-16 inline-block font-mono text-sm text-muted underline-offset-4 hover:underline"
+      >← all artifacts</a
+    >
+  </main>
+</Base>

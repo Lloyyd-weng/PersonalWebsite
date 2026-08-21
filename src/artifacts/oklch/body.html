@@ -1,0 +1,441 @@
+<header class="hero">
+  <div class="wrap"><div class="col">
+    <p class="lede">HSL 里把色相从蓝转到黄，亮度数字没变，眼睛看到的亮度却差了一倍。OKLCH 修好的就是这件事——它的三个轴对应人眼实际感知到的三件事，所以你改一个轴，只有那一件事会变。</p>
+    <p>这份手册按「先看见问题 → 再理解坐标 → 再落到 CSS」的顺序排。每一节的演示都是活的，可以拖；文中所有数值都由 Oklab 官方转换矩阵实算得出，包括几个和流传说法不一致的地方，我在正文里标了出来。</p>
+    <div class="hero-meta">
+      <span><b>提出者</b> Björn Ottosson · 2020 年 12 月</span>
+      <span><b>进入 CSS</b> 2021 年 12 月草案</span>
+      <span><b>浏览器</b> Chrome 111 / Safari 15.4 / Firefox 113</span>
+    </div>
+  </div></div>
+</header>
+<nav class="toc" aria-label="目录">
+    <ol>
+      <li><a href="#s1" class="on"><span class="n">01</span>问题</a></li>
+      <li><a href="#s2"><span class="n">02</span>三个轴</a></li>
+      <li><a href="#s3"><span class="n">03</span>色域</a></li>
+      <li><a href="#s4"><span class="n">04</span>渐变</a></li>
+      <li><a href="#s5"><span class="n">05</span>语法</a></li>
+      <li><a href="#s6"><span class="n">06</span>建色阶</a></li>
+      <li><a href="#s7"><span class="n">07</span>坑</a></li>
+      <li><a href="#s8"><span class="n">08</span>工具</a></li>
+    </ol>
+</nav>
+
+<div class="doc-main">
+<!-- ============ 01 ============ -->
+<section id="s1"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">01</span>先看见问题</p>
+    <h2>同一个亮度数字，两种亮度</h2>
+    <p class="lede">下面两条色带，色相都从 0° 扫到 360°，亮度参数全程锁死不动。右边是把它们去色后的样子——去色暴露真实的感知亮度。</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-hd">
+      <h4>色相扫描：HSL 与 OKLCH 对照</h4>
+      <span class="hint">灰度镜像 = 感知亮度</span>
+    </div>
+    <div class="demo-bd">
+      <div class="strip-row">
+        <div class="strip-lb"><b>HSL</b>L 锁 50%<br>S 锁 100%</div>
+        <div class="strip tall"><canvas id="c-hsl"></canvas></div>
+      </div>
+      <div class="strip-row">
+        <div class="strip-lb">↑ 去色后</div>
+        <div class="strip"><canvas id="c-hsl-g"></canvas></div>
+      </div>
+      <div class="strip-row" style="margin-top:20px">
+        <div class="strip-lb"><b>OKLCH</b>L 锁 0.70<br>C 锁 0.12</div>
+        <div class="strip tall"><canvas id="c-okl"></canvas></div>
+      </div>
+      <div class="strip-row">
+        <div class="strip-lb">↑ 去色后</div>
+        <div class="strip"><canvas id="c-okl-g"></canvas></div>
+      </div>
+      <p class="gray-note" id="sweep-stat">正在计算…</p>
+    </div>
+    <div class="demo-ft">
+      HSL 那条灰度带像斑马线：黄色区亮得刺眼，蓝色区暗成一块。<b>这就是为什么 <code>lighten()</code> 之类的函数在不同色相上结果完全不可控</b>——HSL 的 L 是「红绿蓝三个数的中点」，一个纯数学量，和眼睛无关。OKLCH 那条灰度带是一整片平的。
+    </div>
+  </div>
+
+  <div class="col">
+    <p>这个差异不是审美问题，是<strong>工程问题</strong>。设计系统里但凡有「hover 时变亮 5%」「danger 色和 primary 色要看起来一样重」这类规则，在 HSL 下就必须为每个色相手工微调，而且改一个色就要重调一遍。</p>
+    <p>HSL 还有第二个毛病：调饱和度会顺带改色相。Evil Martians 举过一个例子，把 <code>lch(0.35 C 300)</code> 的饱和度从 110 降到 40，蓝色一路漂成了紫色。而 OKLCH 的 C 轴是正交的——降饱和只是降饱和。</p>
+  </div>
+</div></section>
+
+<!-- ============ 02 ============ -->
+<section id="s2"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">02</span>坐标系</p>
+    <h2>L、C、H 各管一件事</h2>
+    <p class="lede">OKLCH 是 Oklab 的柱坐标写法：同一根 L 轴，把 Oklab 的 a/b 直角坐标换成了「离轴多远（C）+ 朝哪个方向（H）」。三个轴分别对应人描述颜色时会说的三件事。</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-hd">
+      <h4>拆解器</h4>
+      <span class="hint">拖动任一轴，观察另外两个维度是否被牵动</span>
+    </div>
+    <div class="demo-bd">
+      <div class="picker">
+        <div class="swatch" id="sw">
+          <span class="cs" id="sw-css">oklch(0.70 0.12 250)</span>
+          <span class="cs" id="sw-hex" style="opacity:0.75">#6da3da</span>
+        </div>
+        <div>
+          <div class="sliders">
+            <div class="sl">
+              <div class="sl-top">
+                <span class="sl-name">L <span>感知亮度</span></span>
+                <span class="sl-val" id="v-l">0.700</span>
+              </div>
+              <input type="range" id="r-l" min="0" max="1" step="0.005" value="0.7" aria-label="亮度 L">
+            </div>
+            <div class="sl">
+              <div class="sl-top">
+                <span class="sl-name">C <span>色度／浓度</span></span>
+                <span class="sl-val" id="v-c">0.120</span>
+              </div>
+              <input type="range" id="r-c" min="0" max="0.37" step="0.002" value="0.12" aria-label="色度 C">
+            </div>
+            <div class="sl">
+              <div class="sl-top">
+                <span class="sl-name">H <span>色相角</span></span>
+                <span class="sl-val" id="v-h">250°</span>
+              </div>
+              <input type="range" id="r-h" min="0" max="360" step="1" value="250" aria-label="色相 H">
+            </div>
+          </div>
+          <div class="readout" id="ro"></div>
+        </div>
+      </div>
+    </div>
+    <div class="demo-ft" id="pick-ft">
+      滑块轨道会实时重绘成「另外两轴不动时，这一轴的全部取值」，超出 sRGB 的部分画成斜纹。
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>轴</th><th>范围</th><th>含义</th><th>拿它做什么</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="num"><b>L</b></td>
+            <td class="num">0 – 1<br><span style="color:var(--ink-faint)">或 0% – 100%</span></td>
+            <td>感知亮度。0 是黑，1 是白</td>
+            <td>整套明暗阶梯、深浅模式互换、对比度的第一近似</td>
+          </tr>
+          <tr>
+            <td class="num"><b>C</b></td>
+            <td class="num">0 – 0.4<br><span style="color:var(--ink-faint)">百分比时 100% = 0.4</span></td>
+            <td>离灰轴的距离。0 就是纯灰</td>
+            <td>主色／柔和色／禁用态的浓淡差别</td>
+          </tr>
+          <tr>
+            <td class="num"><b>H</b></td>
+            <td class="num">0 – 360<br><span style="color:var(--ink-faint)">可写 deg / rad</span></td>
+            <td>色相角。0° 与 360° 同色</td>
+            <td>配色关系：互补 +180°，三分 ±120°</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <p class="hd">色相角不通用</p>
+      <p>OKLCH 的 0° 不是红色，是<strong>洋红</strong>；红大约在 29°，黄 90°，绿 142°，蓝 264°，紫 328°。把 HSL 的角度直接搬过来一定错位。</p>
+    </div>
+
+    <h3>C 的上限为什么写不死</h3>
+    <p>规范说 C 理论上无上限，MDN 给的实用区间是 0 到 0.4。真实上限取决于「这个 L 和这个 H 组合下，屏幕还能不能显示出这么浓的颜色」——每个色相的天花板都不一样，下一节就在讲这件事。</p>
+    <p>我用二分法把 sRGB 立方体扫了一遍：<strong>sRGB 内能达到的最大 C 是 0.321</strong>（洋红方向，L≈0.70），Display P3 内是 <strong>0.363</strong>（绿色方向，L≈0.85）。所以你在 CSS 里写 <code>oklch(0.7 0.35 264)</code> 这种值，浏览器只会把它映射回能显示的最近颜色。</p>
+  </div>
+</div></section>
+
+<!-- ============ 03 ============ -->
+<section id="s3"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">03</span>色域</p>
+    <h2>天花板是波浪形的</h2>
+    <p class="lede">色域（gamut）是「能显示哪些颜色」的范围，色彩空间（color space）是「怎么给这些颜色编号」的坐标系。OKLCH 是坐标系，sRGB 和 P3 是范围——坐标系能写出范围之外的编号。</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-hd">
+      <h4>各色相的色度天花板</h4>
+      <span class="hint">横轴色相 0–360°</span>
+    </div>
+    <div class="demo-bd">
+      <div class="ctl-row">
+        <div class="ctl">
+          <div class="sl-top">
+            <span class="sl-name">切片亮度 L</span>
+            <span class="sl-val" id="v-gl">0.70</span>
+          </div>
+          <input type="range" id="r-gl" min="0.1" max="0.95" step="0.01" value="0.7" aria-label="切片亮度">
+        </div>
+      </div>
+      <canvas id="c-gamut" class="plot" width="1040" height="320"></canvas>
+    </div>
+    <div class="demo-ft" id="gamut-ft">—</div>
+  </div>
+
+  <div class="col">
+    <p>两条曲线的形状说明了一切：<strong>天花板随色相剧烈起伏</strong>。在 L=0.70 这一层，绿色方向（142°）能到 C=0.236，而青色方向（180°）只能到 0.127——差了将近一倍。这就是为什么「所有主色都用 C=0.2」这种规则会翻车：一部分色相根本达不到。</p>
+    <p>P3 那条线整体更高，红、绿、洋红方向的增益最明显。这部分多出来的颜色，在 Mac、iPhone、新款 iPad 上是真能看到的，在老式 sRGB 屏上会被压回边界。</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>色域</th><th>覆盖</th><th>典型设备</th><th>CSS 写法</th></tr></thead>
+        <tbody>
+          <tr><td><b>sRGB</b></td><td class="num">基准</td><td>大多数外接显示器、Windows 笔记本</td><td><code>#hex</code> <code>rgb()</code> <code>hsl()</code></td></tr>
+          <tr><td><b>Display P3</b></td><td class="num">约 +25~30%</td><td>Apple 全系、多数旗舰安卓、OLED</td><td><code>color(display-p3 …)</code></td></tr>
+          <tr><td><b>Rec.2020</b></td><td class="num">更大</td><td>HDR 电视、专业监视器</td><td><code>color(rec2020 …)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><code>oklch()</code> 本身<strong>不绑定任何色域</strong>——它只是坐标。写下的值落在哪个范围内，由数值决定；超出显示设备能力时，浏览器做色域映射（gamut mapping），把它压到边界上最接近的颜色。</p>
+
+    <h3>要不要为 P3 单独写一套</h3>
+    <p>多数情况下不必：直接写 OKLCH，让宽色域屏自然吃到更浓的颜色，窄色域屏自动降级。只有当你要在 P3 屏上刻意做得更艳、同时保证 sRGB 屏不失真时，才分开写：</p>
+    <pre><span class="c">/* 兜底在前，支持者用后面这条 */</span>
+color: <span class="k">#c8342a</span>;
+color: <span class="k">oklch</span>(0.55 0.19 27);
+
+<span class="c">/* 只在宽色域屏上加浓 */</span>
+<span class="k">@media</span> (color-gamut: p3) {
+  .brand { color: <span class="k">oklch</span>(0.55 0.24 27); }
+}</pre>
+  </div>
+</div></section>
+
+<!-- ============ 04 ============ -->
+<section id="s4"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">04</span>插值</p>
+    <h2>渐变里的灰死区</h2>
+    <p class="lede">两个颜色之间怎么过渡，取决于在哪个坐标系里画直线。同样的两端，坐标系不同，中间段可以差出一个「泥浆色」。</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-hd">
+      <h4>同两端，四种插值路径</h4>
+      <span class="hint">留意中段</span>
+    </div>
+    <div class="demo-bd">
+      <div class="ctl-row">
+        <div class="ctl">
+          <div class="sl-top"><span class="sl-name">起点色相</span><span class="sl-val" id="v-h1">264°</span></div>
+          <input type="range" id="r-h1" min="0" max="360" step="1" value="264" aria-label="起点色相">
+        </div>
+        <div class="ctl">
+          <div class="sl-top"><span class="sl-name">终点色相</span><span class="sl-val" id="v-h2">90°</span></div>
+          <input type="range" id="r-h2" min="0" max="360" step="1" value="90" aria-label="终点色相">
+        </div>
+      </div>
+      <div id="grad-rows"></div>
+    </div>
+    <div class="demo-ft">
+      <b>sRGB 插值</b>把两端的 R/G/B 数字直接线性混合，中间常常掉进一片发灰的低饱和区（蓝→黄尤其明显）。<b>HSL</b> 沿色环走，会扫过一堆无关色相。<b>OKLCH</b> 沿感知均匀的路径走，中段既不发灰也不跑色，亮度全程线性。
+    </div>
+  </div>
+
+  <div class="col">
+    <p>CSS 里可以直接指定插值空间，语法是在渐变方向后面加 <code>in &lt;space&gt;</code>：</p>
+    <pre><span class="c">/* 默认：sRGB 插值，中段可能发灰 */</span>
+background: <span class="k">linear-gradient</span>(90deg, blue, yellow);
+
+<span class="c">/* 感知均匀插值 */</span>
+background: <span class="k">linear-gradient</span>(<span class="k">in oklch</span> 90deg, blue, yellow);
+
+<span class="c">/* 指定色相走短弧还是长弧 */</span>
+background: <span class="k">linear-gradient</span>(<span class="k">in oklch longer hue</span> 90deg, blue, yellow);</pre>
+    <p>同一套规则也适用于 <code>color-mix()</code>：</p>
+    <pre>color: <span class="k">color-mix</span>(<span class="k">in oklch</span>, var(--brand) 70%, white);</pre>
+    <div class="note">
+      <p class="hd">用 oklab 还是 oklch 插值</p>
+      <p><code>in oklab</code> 走直角坐标的直线，中段会经过更低的饱和度，过渡最平顺；<code>in oklch</code> 走极坐标，绕着色环转，饱和度全程保持。做柔和过渡用前者，做彩虹／色环用后者。</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 05 ============ -->
+<section id="s5"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">05</span>语法</p>
+    <h2>写进 CSS</h2>
+    <p class="lede">函数形式 <code>oklch(L C H / A)</code>，分量之间用空格，透明度用斜杠分隔。</p>
+  </div>
+  <div class="col">
+    <pre><span class="c">/* 基本形 */</span>
+color: <span class="k">oklch</span>(0.7 0.12 250);
+color: <span class="k">oklch</span>(70% 0.12 250);        <span class="c">/* L 可用百分比 */</span>
+color: <span class="k">oklch</span>(70% 30% 250deg);      <span class="c">/* C 用百分比时 100% = 0.4 */</span>
+color: <span class="k">oklch</span>(0.7 0.12 250 / 0.5);  <span class="c">/* 半透明 */</span>
+color: <span class="k">oklch</span>(0.7 0.12 250 / 50%);
+
+<span class="c">/* none：该通道无值，参与插值时行为不同于 0 */</span>
+color: <span class="k">oklch</span>(0.7 0 none);</pre>
+
+    <h3>相对色语法：真正省事的地方</h3>
+    <p><code>from</code> 把一个已有颜色拆成 <code>l</code>／<code>c</code>／<code>h</code>／<code>alpha</code> 四个变量，然后你只改想改的那个。这是 OKLCH 在设计系统里最大的实用价值——一个基色派生出整套状态色。</p>
+    <pre>:root { --brand: <span class="k">#3b82f6</span>; }
+
+<span class="c">/* 只提亮，色相与浓度原样保留 */</span>
+.btn:hover  { background: <span class="k">oklch</span>(<span class="k">from</span> var(--brand) <span class="k">calc</span>(l + 0.08) c h); }
+.btn:active { background: <span class="k">oklch</span>(<span class="k">from</span> var(--brand) <span class="k">calc</span>(l - 0.06) c h); }
+
+<span class="c">/* 只抽掉浓度，做禁用态 */</span>
+.btn[disabled] { background: <span class="k">oklch</span>(<span class="k">from</span> var(--brand) l <span class="k">calc</span>(c * 0.25) h); }
+
+<span class="c">/* 只转色相，做互补强调色 */</span>
+.accent { background: <span class="k">oklch</span>(<span class="k">from</span> var(--brand) l c <span class="k">calc</span>(h + 180)); }
+
+<span class="c">/* 只改透明度，做焦点环 */</span>
+.btn:focus-visible { outline-color: <span class="k">oklch</span>(<span class="k">from</span> var(--brand) l c h / 0.4); }</pre>
+    <div class="note caution">
+      <p class="hd">calc 里不能混百分比</p>
+      <p><code>from</code> 拆出的 <code>l</code> 是 0–1 的数值，不是百分比。写 <code>calc(l - 10%)</code> 无效，必须写 <code>calc(l - 0.1)</code>。</p>
+    </div>
+
+    <h3>兼容性与兜底</h3>
+    <p>Chrome 111、Edge 111、Safari 15.4、Firefox 113 起支持，2023 年 5 月进入 Baseline。兜底最省事的办法就是利用层叠——把旧写法放前面，不认识 <code>oklch()</code> 的浏览器会跳过后一行：</p>
+    <pre>.card {
+  background: <span class="k">#6da3da</span>;               <span class="c">/* 旧浏览器停在这 */</span>
+  background: <span class="k">oklch</span>(0.7 0.12 250);   <span class="c">/* 新浏览器覆盖 */</span>
+}</pre>
+    <p>需要按能力分支时用 <code>@supports</code>；相对色语法的支持面比 <code>oklch()</code> 本身窄一些，值得单独探测：</p>
+    <pre><span class="k">@supports</span> (color: <span class="k">oklch</span>(<span class="k">from</span> red l c h)) {
+  <span class="c">/* 这里才用 from */</span>
+}</pre>
+  </div>
+</div></section>
+
+<!-- ============ 06 ============ -->
+<section id="s6"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">06</span>实战</p>
+    <h2>用一个公式生成整套色阶</h2>
+    <p class="lede">OKLCH 最直接的产出：固定色相、固定一条 L 阶梯，色阶就自己长出来了，而且换任何色相都保持同样的明暗节奏。Tailwind v4 的默认调色板就是这么重做的。</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-hd">
+      <h4>色阶生成器</h4>
+      <span class="hint">L 阶梯固定，只换色相与浓度</span>
+    </div>
+    <div class="demo-bd">
+      <div class="ctl-row">
+        <div class="ctl">
+          <div class="sl-top"><span class="sl-name">色相 H</span><span class="sl-val" id="v-rh">250°</span></div>
+          <input type="range" id="r-rh" min="0" max="360" step="1" value="250" aria-label="色阶色相">
+        </div>
+        <div class="ctl">
+          <div class="sl-top"><span class="sl-name">峰值浓度 C</span><span class="sl-val" id="v-rc">0.15</span></div>
+          <input type="range" id="r-rc" min="0.02" max="0.30" step="0.005" value="0.15" aria-label="色阶浓度">
+        </div>
+      </div>
+      <div class="ramp" id="ramp"></div>
+      <p class="gray-note">每格上方是级数，下方是该色与<strong>白字</strong>的 WCAG 对比度；达到 4.5 的加下划线。浓度按中段最浓、两端收窄的钟形分布——两端本来就接近黑白，硬堆浓度只会溢出色域。</p>
+    </div>
+    <div class="demo-ft" id="ramp-ft">—</div>
+  </div>
+
+  <div class="col">
+    <p>落到代码里，一套色阶就是一行 hue 变量加一张 L/C 表：</p>
+    <pre>:root {
+  --h: 250;
+  --c-50: 0.03;  --l-50: 0.97;
+  --c-500: 0.15; --l-500: 0.62;
+  --c-900: 0.07; --l-900: 0.26;
+}
+.a { background: <span class="k">oklch</span>(var(--l-50)  var(--c-50)  var(--h)); }
+.b { background: <span class="k">oklch</span>(var(--l-500) var(--c-500) var(--h)); }
+.c { background: <span class="k">oklch</span>(var(--l-900) var(--c-900) var(--h)); }</pre>
+    <p>换主题色只要改 <code>--h</code> 一个数，整套色阶的明暗关系原样保留。这是 HSL 做不到的——HSL 换色相，明暗关系会整体走样。</p>
+    <h3>深色模式的一个便利</h3>
+    <p>因为 L 是感知量，深浅模式的映射可以写成一条规则：把 L 沿 0.5 翻转、并适度压低 C（暗背景上高浓度色更刺眼）。比逐个手挑深色版省事得多。</p>
+  </div>
+</div></section>
+
+<!-- ============ 07 ============ -->
+<section id="s7"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">07</span>别踩</p>
+    <h2>四个常见误解</h2>
+    <p class="lede">OKLCH 解决了很多问题，但它不是万能的，有几处流传的说法需要修正。</p>
+  </div>
+  <div class="col">
+
+    <h3>一、L 相同 ≠ 对比度相同</h3>
+    <p>这是最值得记住的一条。WCAG 对比度算的是 <strong>sRGB 相对亮度</strong>（一个加权的物理光量），和 Oklab 的感知亮度 L 是两把不同的尺子。同一个 L，不同色相，对比度实测能差 13%：</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>颜色（均为 L=0.62, C=0.14）</th><th>色相</th><th>对白字的对比度</th></tr></thead>
+        <tbody>
+          <tr><td><span class="dot" style="background:oklch(0.62 0.14 20)"></span>红方向</td><td class="num">20°</td><td class="num">3.90</td></tr>
+          <tr><td><span class="dot" style="background:oklch(0.62 0.14 90)"></span>黄方向</td><td class="num">90°</td><td class="num">3.66</td></tr>
+          <tr><td><span class="dot" style="background:oklch(0.62 0.14 264)"></span>蓝方向</td><td class="num">264°</td><td class="num">3.70</td></tr>
+          <tr><td><span class="dot" style="background:oklch(0.62 0.14 142)"></span>绿方向</td><td class="num">142°</td><td class="num">3.45</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>所以 OKLCH 让对比度<strong>更可预测</strong>（同 L 的结果聚在一个窄带里，不像 HSL 那样发散），但不能替代对比度计算。卡在 4.5 边缘的组合仍然必须实测。</p>
+
+    <h3>二、L=0.5 不是中灰</h3>
+    <p><code>oklch(0.5 0 0)</code> 渲染出来是 <code>#636363</code>，而不是 <code>#808080</code>。反过来，sRGB 的中点灰 <code>#808080</code> 在 Oklab 里的 L 是 <strong>0.60</strong>。原因是 L 追的是人眼感知——人眼对暗部更敏感，所以「感知一半亮」的物理亮度远低于一半。从 HSL 迁移时按数字直接搬会整体偏暗。</p>
+
+    <h3>三、色域映射各家实现不一致</h3>
+    <p>当你写的颜色超出屏幕色域，规范推荐了一套映射算法，但 Chrome 和 Safari 目前用的是更快但更粗糙的做法。<strong>后果是超出色域的高浓度颜色在不同浏览器上可能不完全一致</strong>。想要跨浏览器像素级一致，就把颜色控制在 sRGB 范围内——上面第 03 节的天花板图可以用来检查。</p>
+
+    <h3>四、Oklab 本身也不完美</h3>
+    <p>Raph Levien 做过一次系统评测，结论是 Oklab 在色相线性和亮度预测上都显著优于 CIELAB（CIELAB 在蓝色区有严重色相偏移），但也指出<strong>传递函数在暗部的对比分辨还有改进空间</strong>。它是目前工程上最好用的折中，不是终极答案。</p>
+
+    <div class="note caution">
+      <p class="hd">迁移建议</p>
+      <p>不要用转换工具把现有 hex 一键换成 OKLCH——那只是换了个写法，不会带来任何好处。真正的收益来自<strong>重新用 L/C/H 的语言定义色阶</strong>：定一条 L 阶梯、定色相、让色值自己算出来。</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 08 ============ -->
+<section id="s8"><div class="wrap">
+  <div class="col sec-head">
+    <p class="eyebrow"><span class="num">08</span>接下来</p>
+    <h2>工具与原始资料</h2>
+  </div>
+  <div class="col">
+    <h3>动手工具</h3>
+    <ul class="tight">
+      <li><b>oklch.com</b> — Evil Martians 的取色器，能直接看到色域边界在哪，是最常用的一个</li>
+      <li><b>huetone.ardov.me</b> — 基于 Oklab 生成整套无障碍色阶，带对比度矩阵</li>
+      <li><b>npx convert-to-oklch</b> — 批量转换现有代码库的 CLI</li>
+      <li><b>stylelint-gamut</b> — lint 阶段拦截超出色域的值</li>
+      <li><b>OkColor</b> — Figma 插件，把 OKLCH 带进设计稿（Figma 尚无原生支持）</li>
+      <li><b>Color.js / culori</b> — JS 端做转换与色域检测的库</li>
+    </ul>
+
+    <h3>值得读的原文</h3>
+    <ul class="tight">
+      <li><a href="https://bottosson.github.io/posts/oklab/">Ottosson《A perceptual color space for image processing》</a> — Oklab 的原始提案，含推导与转换矩阵</li>
+      <li><a href="https://evilmartians.com/chronicles/oklch-in-css-why-quit-rgb-hsl">Evil Martians《OKLCH in CSS: why we moved from RGB and HSL》</a> — 最好的工程视角入门</li>
+      <li><a href="https://developer.mozilla.org/en-US/docs/Web/CSS/color_value/oklch">MDN <code>oklch()</code></a> — 语法权威，相对色语法示例最全</li>
+      <li><a href="https://www.smashingmagazine.com/2023/08/oklch-color-spaces-gamuts-css/">Smashing《Falling For Oklch》</a> — 色域与渐进增强讲得最细</li>
+      <li><a href="https://raphlinus.github.io/color/2021/01/18/oklab-critique.html">Levien《An interactive review of Oklab》</a> — 批判视角，了解局限性</li>
+      <li><a href="https://www.smashingmagazine.com/2024/10/interview-bjorn-ottosson-creator-oklab-color-space/">Smashing 对 Ottosson 的访谈</a> — 设计动机与取舍</li>
+    </ul>
+
+    <p class="src">本页所有色块由浏览器原生 <code>oklch()</code> 渲染；色域边界、对比度与 hex 数值由页内 JS 用 Ottosson 转换矩阵实算，转换结果已对红／绿／蓝／白四个基准点校验通过。</p>
+  </div>
+</div></section>
+</div>
+
+<footer><div class="wrap"><div class="col">
+  <h3>一句话收束</h3>
+  <p>OKLCH 的价值不在于它是「更新的颜色写法」，而在于它把「亮度、浓度、色相」变成了三个<strong>真正互不干扰</strong>的旋钮。一旦色值可以被公式生成而不是被手工挑选，设计系统的颜色部分就从手艺变成了工程。</p>
+</div></div></footer>

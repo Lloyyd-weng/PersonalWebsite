@@ -41,6 +41,46 @@ node scripts/sync-notion.mjs && astro build
 - 布局 `src/layouts/Base.astro`;首页不出页眉,子页面出一条最小返回导航
 - 旧版站点(create-next-app + 登录页)归档在 git tag `v0-archive`
 
+## artifact 栏目
+
+`/artifact` 放交互式研究页面 —— 自带 JS 演示、一页讲一件事的那种。跟 blog 平行,但不走
+Notion:内容是手写/生成的 HTML,直接进仓库,**不受 Notion 可用性影响**。
+
+加第二篇不用改结构,三步:
+
+1. `src/artifacts/<slug>/` 放 `body.html` + 样式 + 脚本
+2. `src/pages/artifact/<slug>.astro` 套 `src/layouts/Artifact.astro`,正文用 `?raw` 导入后
+   `set:html` 注入 —— 生成的 HTML 里常有 `{}`,走 Astro 模板会被当表达式吃掉
+3. `src/consts.ts` 的 `ARTIFACTS` 数组补一条,列表页和排序自动跟上
+
+每篇的样式表自带 token、选择器收在自己的作用域类里(见 `oklch.css` 的 `.oklch-doc`),
+彼此不串味。**注意这跟「客户 landing 页」是两回事** —— 客户确认页仍然去 client-landings
+仓库,理由见上一节;artifact 是自己的东西,放这里没问题。
+
 ## 已知技术债
 
 依赖里的 Astro 5 有一批已披露的 XSS 公告(`npm audit` 可见,最新版是 Astro 7)。本站纯静态、未使用 `define:vars`、spread props、server islands 等受影响特性,实际风险很低,但升级这件事一直挂着。升级时注意 Notion 同步脚本和 MDX/RSS/sitemap 集成的兼容性。
+
+### 全站颜色改用 OKLCH —— 条件性待办,别无条件动手
+
+2026-08-21 评估过一次,结论是**当时不做**,但条件一到就该做。挂在这里免得忘。
+
+现状:全站颜色字面量只有 10 处 —— `src/styles/global.css` 里 8 个 token,
+`src/layouts/Base.astro` 里 2 个 `theme-color` meta。那 8 个 token **R=G=B 全部成立,
+chroma 恰好为 0**。所以现在换只是记法替换:`oklch(0.191 0 0)` 和 `#141414` 是同一个像素,
+OKLCH 的三个卖点(跨色相等亮度、C/H 正交、色阶可公式生成)在纯中性灰上全部失效。
+
+工具链没有障碍(Tailwind v4 自带调色板本身就是 oklch 写的),唯一实打实的代价是:
+**全站没有 `@supports` 兜底的话,不支持 oklch 的浏览器拿到的是整站无样式**,
+而不是像 `/artifact/oklch` 那样只退化一个页面。所以迁移必须连兜底一起做,
+8 行变 22 行,换来零视觉收益 —— 这就是当时判断不划算的原因。
+
+**触发条件**(任意一条成立就值得做):
+
+1. 站点第一次要加彩色(链接强调色、品牌色之类)
+2. 需要一套灰阶梯,而不是现在这 4 个手挑的灰
+3. 想把深浅色映射写成「L 沿 0.5 翻转」一条规则,而不是维护两张手写表
+
+**工作量**:只改 `global.css` 一个文件,8 个值加一段 `@supports not (color: oklch(0 0 0))`
+兜底,约 25 行;`theme-color` meta 留 hex(那里没有兜底机制);跑一次 build 目视核对。
+20–30 分钟。`src/artifacts/oklch/oklch.css` 里已经有一份写好的 `@supports` 兜底块可以照抄。

@@ -12,7 +12,33 @@ export const SITE = {
 export const NAV = [
   { label: "work", href: "/work" },
   { label: "blog", href: "/blog" },
+  { label: "artifact", href: "/artifact" },
 ] as const;
+
+// Artifact —— 自成一页的交互式研究页面。每一篇是 src/pages/artifact/<slug>.astro,
+// 自带 src/artifacts/<slug>/ 下的 body.html + css + js;加新的一篇只要建那两处再往
+// 这个数组里补一行,列表页和导航自动跟上,不用改结构。
+export interface Artifact {
+  slug: string;
+  title: string;
+  blurb: string; // 列表页那句话
+  description: string; // <meta name="description">
+  meta: string; // 详情页标题下的那行小字
+  pubDate: Date;
+}
+
+export const ARTIFACTS: Artifact[] = [
+  {
+    slug: "oklch",
+    title: "OKLCH：让「调亮一点」真的只是调亮一点",
+    blurb:
+      "OKLCH 色彩模型的交互式学习手册。五个可以拖的演示:色相扫描对照、L/C/H 拆解器、色域天花板图、渐变插值对比、色阶生成器。",
+    description:
+      "OKLCH 色彩模型的交互式学习手册:从感知均匀性讲到 CSS 落地,含色相扫描对照、L/C/H 拆解器、色域天花板图与色阶生成器。",
+    meta: "interactive · css color level 4 · 8 sections",
+    pubDate: new Date("2026-08-21"),
+  },
+];
 
 export const LINKS = [
   { label: "x", href: "https://x.com/SSSLloyd3152" },

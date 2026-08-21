@@ -5,9 +5,11 @@ import { SITE, NAV } from "../consts";
 interface Props {
   title?: string;
   description?: string;
+  // 站点默认英文;artifact 里有中文长文,单页覆盖 lang 供屏幕阅读器与断行使用
+  lang?: string;
 }
 
-const { title, description = SITE.description } = Astro.props;
+const { title, description = SITE.description, lang = "en" } = Astro.props;
 const pageTitle = title ? `${title} · ${SITE.name}` : SITE.name;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const pathname = Astro.url.pathname;
@@ -15,7 +17,7 @@ const isHome = pathname === "/";
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -1,0 +1,25 @@
+---
+// 正文用 ?raw 原样注入:源文件是生成出来的 HTML,里头有 CSS 代码块和大括号,
+// 走 Astro 模板会被当成表达式;保持 .html 原封不动,以后加新的 artifact 也照这个办。
+import ArtifactLayout from "../../layouts/Artifact.astro";
+import { ARTIFACTS } from "../../consts";
+import body from "../../artifacts/oklch/body.html?raw";
+import "../../artifacts/oklch/oklch.css";
+
+const entry = ARTIFACTS.find((a) => a.slug === "oklch")!;
+---
+
+<ArtifactLayout
+  title={entry.title}
+  description={entry.description}
+  meta={entry.meta}
+  pubDate={entry.pubDate}
+  lang="zh-Hans"
+>
+  <div class="oklch-doc" set:html={body} />
+
+  <!-- 五个演示全靠这段实时算 Oklab↔sRGB/P3;去掉页面就废了一大半 -->
+  <script>
+    import "../../artifacts/oklch/oklch.js";
+  </script>
+</ArtifactLayout>

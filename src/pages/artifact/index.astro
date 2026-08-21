@@ -1,0 +1,44 @@
+---
+import Base from "../../layouts/Base.astro";
+import { ARTIFACTS, formatDate } from "../../consts";
+
+const items = [...ARTIFACTS].sort(
+  (a, b) => b.pubDate.valueOf() - a.pubDate.valueOf(),
+);
+---
+
+<Base
+  title="artifact"
+  description="Interactive research pages by Lloyyd — one subject each, built to be poked at."
+>
+  <main class="mx-auto w-full max-w-3xl px-6 pb-48 pt-16">
+    <h1 class="text-2xl font-medium tracking-tight">Artifact</h1>
+    <p class="mt-4 text-muted">
+      Self-contained pages on one subject each — built to be poked at rather
+      than read.
+    </p>
+
+    {
+      items.length === 0 ? (
+        <p class="mt-12 text-muted">Nothing here yet.</p>
+      ) : (
+        <ul class="mt-12 flex flex-col gap-8">
+          {items.map((item) => (
+            <li>
+              <a
+                href={`/artifact/${item.slug}/`}
+                class="underline underline-offset-4 hover:text-muted"
+              >
+                {item.title}
+              </a>
+              <span class="ml-3 font-mono text-xs uppercase tracking-widest text-muted">
+                {formatDate(item.pubDate)}
+              </span>
+              <p class="mt-1.5 text-muted">{item.blurb}</p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </main>
+</Base>
