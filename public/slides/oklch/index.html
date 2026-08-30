@@ -193,7 +193,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .browsers b{display:block;font-size:26px;margin-bottom:2px}
 /* 色域の立体 */
 .g3-stage{position:relative;flex:1;min-height:0}
-.g3-stage canvas{position:absolute;left:0;top:0;width:1112px;height:408px;
+.g3-stage canvas{position:absolute;left:0;top:0;width:1112px;height:520px;
   cursor:grab;touch-action:none}
 .g3-panel{position:absolute;right:0;top:10px;width:330px}
 .g3-cur{min-height:80px;padding:10px 16px;border-radius:12px;border:1px solid oklch(1 0 0/.12);
@@ -271,7 +271,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 <section class="slide">
   <div class="chead"><p class="eyebrow">OKLCH とは</p><span class="t">L=高さ・C=軸からの距離・H=角度</span></div>
   <div class="g3-stage no-nav">
-    <canvas id="g3-cv" width="2224" height="816"></canvas>
+    <canvas id="g3-cv" width="2224" height="1040"></canvas>
     <div class="g3-panel">
       <div class="g3-cur" id="g3-cur">
         <span class="cs" id="g3-css">oklch(0.70 0.120 250)</span>
@@ -284,6 +284,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
       <div class="sl-top"><span><b>H</b>　角度（0–360°）</span><span class="v" id="g3v-h">250°</span></div>
       <input type="range" id="g3r-h" min="0" max="360" step="1" value="250" aria-label="色相 H">
       <p class="g3-note">ドラッグで回転。いまの色相のところで<br>切り開いてあります — H を回すと切り口も回る。</p>
+      <p class="g3-note">sRGB の外の値は<b>各チャンネルを 0–1 に切り詰めた色</b>で表示されます(チャンネルクリップ方式)— 白い実点がその位置。</p>
     </div>
   </div>
 </section>
@@ -515,7 +516,7 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
 
 /* ============ 色域の立体 ============ */
 (()=>{const cv=document.getElementById('g3-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
-  const CX=W*.33,CY=Hh*.5,RSf=1500,VSf=720,CUT=90; /* CUT=切り欠きの角度 */
+  const CX=W*.33,CY=Hh*.5,RSf=1900,VSf=910,CUT=90; /* CUT=切り欠きの角度 */
   /* 境界判定の下限は厳密に:黒付近では線形 RGB が 1e-5 級になり、±1e-4 の
      許容誤差が相対的に巨大化して C を数倍過大評価する(裾が広がって見えた原因) */
   const inGB=rgb=>rgb.every(c=>c>=-1e-9&&c<=1+1e-4);
@@ -679,7 +680,15 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.setLineDash([6,7]);
     ctx.beginPath();ctx.moveTo(ax.x,ax.y);ctx.lineTo(pp.x,pp.y);ctx.stroke();ctx.setLineDash([]);
     ctx.beginPath();ctx.arc(pp.x,pp.y,13,0,7);
-    if(out){ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([])}
+    if(out){ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
+      /* Chrome の実挙動どおり「各チャンネルを 0–1 に切り詰めた色」の位置を実点で示す。
+         切り詰めは色相・明度もずらすので、点はいまの色相の断面から外れて滑る */
+      const cl=okToLin(cur.L,cur.C,cur.h).map(c=>Math.max(0,Math.min(1,c))),
+            pc=okFromLin(cl[0],cl[1],cl[2]),pm=proj(pc[0],pc[1],pc[2]);
+      ctx.strokeStyle='oklch(1 0 0/.55)';ctx.lineWidth=1.5;ctx.setLineDash([3,6]);
+      ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(pm.x,pm.y);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(pm.x,pm.y,10,0,7);ctx.fillStyle='#fff';ctx.fill();
+      ctx.strokeStyle='oklch(0 0 0/.4)';ctx.lineWidth=2;ctx.stroke()}
     else{ctx.fillStyle=`oklch(${cur.L} ${cur.C} ${cur.h})`;ctx.fill();
       ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.stroke()}};
   const upd=()=>{cur={L:+document.getElementById('g3r-l').value,
