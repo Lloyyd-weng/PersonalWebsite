@@ -533,6 +533,42 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     const rgb=okToLin(Lm,Cm,hm).map(gam).map(c=>Math.max(0,Math.min(1,c)));
     quads.push({v:[[hi,li],[h2,li],[h2,li+1],[hi,li+1]],hm,
       sh:[1,.82,.64,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`)})}
+  /* ---- 真の稜線:この立体は RGB 立方体の像なので、稜は立方体 12 辺の像で尽きる ----
+     下 3 本(黒→R/G/B)・中腰 6 本(R→Y→G→C→B→M→R、各色相の最大彩度の尾根)・上 3 本(Y/C/M→白) */
+  const okFromLin=(r,g,bl)=>{const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*bl),
+      m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*bl),
+      s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*bl),
+      L=.2104542553*l+.793617785*m-.0040720468*s,
+      a=1.9779984951*l-2.428592205*m+.4505937099*s,
+      b=.0259040371*l+.7827717662*m-.808675766*s;
+    let h=Math.atan2(b,a)*180/Math.PI;if(h<0)h+=360;
+    return [L,Math.hypot(a,b),h]};
+  /* 各サンプルに「隣接 2 面へ少し入った点」q1/q2 と「内部へ入った点」r を持たせ、
+     描画時の可視判定(隣接面が視線側を向くか)に使う */
+  const EPS=.03,edges12=[];
+  for(const [ef,pw] of [
+      [t=>[t,0,0],3],[t=>[0,t,0],3],[t=>[0,0,t],3],
+      [t=>[1,t,0],1],[t=>[t,1,0],1],[t=>[0,1,t],1],
+      [t=>[0,t,1],1],[t=>[t,0,1],1],[t=>[1,0,t],1],
+      [t=>[1,1,t],-3],[t=>[t,1,1],-3],[t=>[1,t,1],-3]]){
+    const mid=ef(.5),bnd=[0,1,2].filter(k=>mid[k]===0||mid[k]===1);
+    const relax=(c,ks)=>c.map((v,k)=>ks.includes(k)?(v===0?EPS:1-EPS):v);
+    const pl=[]; /* 特異端(黒・白)寄りを密に採る */
+    for(let i=0;i<=96;i++){let u=i/96;u=pw>0?u**pw:1-(1-u)**(-pw);
+      const c=ef(u),p=okFromLin(...c);
+      if(p[0]<L0||p[0]>.995)continue;
+      pl.push({p,q1:okFromLin(...relax(c,[bnd[0]])),q2:okFromLin(...relax(c,[bnd[1]])),
+               r:okFromLin(...relax(c,bnd))})}
+    if(pl.length>1)edges12.push(pl)}
+  /* 6 つの色の頂点(黒・白は軸ラベルが兼ねる)。pj=各面へ入った点、r=内部点 */
+  const corner6=[[1,0,0],[0,1,0],[0,0,1],[0,1,1],[1,0,1],[1,1,0]].map(c=>({
+    p:okFromLin(...c),
+    pj:[0,1,2].map(k=>okFromLin(...c.map((v,i)=>i===k?(v===0?EPS:1-EPS):v))),
+    r:okFromLin(...c.map(v=>v===0?EPS:1-EPS)),
+    fill:`rgb(${c.map(x=>Math.round(gam(x)*255)).join(' ')})`}));
+  /* 線種:0=真の稜線、1=奥側の切り口の縁。暗線+明線の二度描きで明暗どちらの面でも読める */
+  const EST=[[['oklch(0.15 0 0/.32)',4],['oklch(0.97 0.005 275/.72)',1.8]],
+             [['oklch(0.15 0 0/.28)',3.4],['oklch(0.78 0.012 275/.65)',1.6]]];
   const align=h=>(90-(h+CUT-5))*Math.PI/180; /* 主断面がほぼ正面を向く yaw */
   const caps=[];
   for(let hi=0;hi<HN;hi++){const h=(hi+.5)*HS,
@@ -569,8 +605,44 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
           faces.push(face(c,dim?`oklch(${(Lm*.55).toFixed(3)} ${(Cm*.7).toFixed(3)} ${h})`
                             :`oklch(${Lm.toFixed(3)} ${Cm.toFixed(3)} ${h})`))}}};
     wall(cur.h,false);wall((cur.h+CUT)%360,true);
+    /* 稜線と切り口の縁:面と同じ深度ソートに乗せ、奥側は殻に隠れさせる(+4 は面との z-fighting よけ) */
+    /* 面 (P0,Pa,Pb) が視線側を向くか。向きは内部点 Pr で外向きに揃える */
+    const vc=(P0,Pa,Pb,Pr)=>{const ax=Pa.x-P0.x,ay=Pa.y-P0.y,ad=Pa.d-P0.d,
+        bx=Pb.x-P0.x,by=Pb.y-P0.y,bd=Pb.d-P0.d,
+        nx=ay*bd-ad*by,ny=ad*bx-ax*bd,nd=ax*by-ay*bx;
+      /* すれすれ(掠射)は隠れ線が透けやすいので、視線側 7° 以上を要求 */
+      return (nx*(Pr.x-P0.x)+ny*(Pr.y-P0.y)+nd*(Pr.d-P0.d)>0?-nd:nd)>.15*Math.hypot(nx,ny,nd)};
+    const pj3=p=>proj(p[0],p[1],p[2]);
+    const pushLine=(pl,st,clip,top)=>{let run=null,dm=0;
+      const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:top?1e9:dm+18,st})};
+      for(let i=0;i<pl.length;i++){const s=pl[i];
+        if(clip&&((s.p[2]-cur.h+360)%360)<=CUT){fl();run=null;continue}
+        const q=pj3(s.p);
+        if(s.q1){ /* 稜線:隣接 2 面がどちらも裏向きなら描かない */
+          const t=pl[i+1]||pl[i-1];
+          if(!vc(q,pj3(t.p),pj3(s.q1),pj3(s.r))&&
+             !vc(q,pj3(t.p),pj3(s.q2),pj3(s.r))){fl();run=null;continue}}
+        if(!run){run=[q];dm=q.d;continue}
+        run.push(q);dm=Math.max(dm,q.d);
+        if(run.length>3){fl();run=[q];dm=q.d}}
+      fl()};
+    for(const pl of edges12)pushLine(pl,0,true,true); /* 可視判定済みなので最前面 */
+    {const h2=(cur.h+CUT)%360,pl2=[{p:[.02,0,h2]}]; /* 奥側の切り口の縁(手前は既存の白い縁) */
+     for(let L=.04;L<=.975;L+=.019)pl2.push({p:[L,cmaxLH(L,h2),h2]});
+     pl2.push({p:[.99,0,h2]});pushLine(pl2,1,false)}
+    for(const cn of corner6){if(((cn.p[2]-cur.h+360)%360)<=CUT)continue;
+      const P0=pj3(cn.p),R=pj3(cn.r),J=cn.pj.map(pj3);
+      if(!vc(P0,J[1],J[2],R)&&!vc(P0,J[0],J[2],R)&&!vc(P0,J[0],J[1],R))continue;
+      faces.push({dot:P0,d:1e9,fill:cn.fill})}
     faces.sort((a,b)=>a.d-b.d);
-    for(const f of faces){ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
+    ctx.lineJoin='round';
+    for(const f of faces){
+      if(f.pts){for(const [ss,lw] of EST[f.st]){ctx.strokeStyle=ss;ctx.lineWidth=lw;
+          ctx.beginPath();ctx.moveTo(f.pts[0].x,f.pts[0].y);
+          for(let i=1;i<f.pts.length;i++)ctx.lineTo(f.pts[i].x,f.pts[i].y);ctx.stroke()}continue}
+      if(f.dot){ctx.beginPath();ctx.arc(f.dot.x,f.dot.y,9,0,7);
+        ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='oklch(0.97 0 0/.8)';ctx.lineWidth=2;ctx.stroke();continue}
+      ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
       for(let i=1;i<4;i++)ctx.lineTo(f.c[i].x,f.c[i].y);ctx.closePath();
       ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
     /* L 軸（切り欠きから覗く） */
