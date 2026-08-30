@@ -133,11 +133,6 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .cmp .lb{display:block;font-size:18px;color:var(--dim);margin-bottom:6px;font-family:ui-monospace,Menlo,monospace}
 .cmp-sw{height:62px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
-/* 番地・天井 */
-.hue-dots{display:flex;gap:10px;margin:16px 0 0;flex-wrap:wrap}
-.hue-dots span{display:flex;align-items:center;gap:7px;font-size:20px;color:var(--dim)}
-.hue-dots i{width:26px;height:26px;border-radius:50%;display:inline-block;
-  border:1px solid oklch(1 0 0/.18)}
 /* グラデーション */
 .grad-row{display:grid;grid-template-columns:210px 1fr;gap:16px;align-items:center;margin-bottom:12px}
 .grad-lb{font-size:21px;color:var(--dim);text-align:right}
@@ -213,6 +208,91 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .g4-lg{display:grid;grid-template-columns:104px 1fr;gap:10px;align-items:center;margin-bottom:9px}
 .g4-lg span{font-size:17px;color:var(--dim);text-align:right;white-space:nowrap}
 .g4-lg div{height:24px;border-radius:6px}
+/* なぜこの形?/どうやって測った? 章 */
+.g5-keys{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.g5-keys div{display:flex;align-items:center;gap:10px;font-size:17px;color:var(--dim)}
+.g5-keys i{width:22px;height:22px;border-radius:6px;flex:none;border:1px solid oklch(1 0 0/.15)}
+.g5-keys b{margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+/* 輝度の内訳 */
+.lum-cap{font-size:19px;color:var(--dim);margin-bottom:12px}
+.lum-bar{display:flex;height:58px;border-radius:10px;overflow:hidden;gap:2px}
+.lum-bar div{display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;
+  color:#fff;text-shadow:0 1px 3px oklch(0 0 0/.5);min-width:0}
+.lamp-row{display:grid;grid-template-columns:232px 110px 1fr 150px;gap:16px;align-items:center;margin-top:20px}
+.lamp-btns{display:flex;gap:10px}
+.lamp-btns button{width:66px;padding:11px 0;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg3);color:var(--faint);font-size:21px;font-weight:800;cursor:pointer;font-family:inherit}
+.lamp-btns button:focus-visible{outline:3px solid var(--acc)}
+.lamp-btns button.on{color:#fff}
+.lamp-btns button.on[data-c="0"]{background:oklch(0.5 0.19 29);border-color:transparent}
+.lamp-btns button.on[data-c="1"]{background:oklch(0.52 0.16 145);border-color:transparent}
+.lamp-btns button.on[data-c="2"]{background:oklch(0.45 0.23 264);border-color:transparent}
+.lamp-sw{height:46px;border-radius:8px;border:1px solid oklch(1 0 0/.14)}
+.lamp-tr{height:22px;border-radius:6px;background:var(--bg3);overflow:hidden}
+.lamp-tr i{display:block;height:100%;background:var(--ink);border-radius:6px;transition:width .15s}
+.lamp-v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.4;color:var(--dim)}
+.lamp-note{font-size:17px;color:var(--faint);margin-top:14px}
+/* CIE 色度図ページ */
+.cie-wrap{display:grid;grid-template-columns:440px 1fr;gap:32px;flex:1;min-height:0;align-items:center}
+.cie-wrap .card,.mu-wrap .card{padding:15px 20px}
+.cie-wrap .card h3,.mu-wrap .card h3{font-size:22px;margin-bottom:7px}
+.cie-wrap .card p,.mu-wrap .card p{font-size:19px;line-height:1.55}
+.cie-wrap canvas{width:440px;height:402px;display:block}
+/* 天井のダンベル図 */
+.db{display:flex;flex-direction:column;gap:13px;justify-content:center}
+.db-hd{display:flex;gap:20px;font-size:16px;color:var(--faint);justify-content:flex-end}
+.db-row{display:grid;grid-template-columns:156px 1fr 88px;gap:14px;align-items:center}
+.db-lb{display:flex;align-items:center;gap:9px;font-size:19px;color:var(--dim);justify-content:flex-end;white-space:nowrap}
+.db-lb i{width:20px;height:20px;border-radius:50%;flex:none;border:1px solid oklch(1 0 0/.15)}
+.db-tr{position:relative;height:30px}
+.db-tr .ln{position:absolute;top:50%;left:0;right:0;height:2px;margin-top:-1px;background:var(--bg3)}
+.db-tr .rg{position:absolute;top:50%;height:3px;margin-top:-1.5px;background:var(--faint);border-radius:2px}
+.db-tr .d1{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--ink)}
+.db-tr .dp{position:absolute;top:50%;width:3px;height:14px;margin:-7px 0 0 -1.5px;background:var(--dim)}
+.db-tr .d2{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
+  border:2.5px solid var(--ink);background:var(--bg);box-sizing:border-box}
+.db-dv{font-size:19px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+.db-dv.hot{color:var(--acc)}
+.db-note{font-size:17px;color:var(--faint);line-height:1.6;margin:10px 0 0}
+/* Munsell 色票 */
+.mu-wrap{display:grid;grid-template-columns:1fr 330px;gap:32px;flex:1;min-height:0;align-items:center}
+.mu-grid{display:flex;flex-direction:column;gap:5px}
+.mu-row{display:flex;gap:5px;align-items:center}
+.mu-row span{width:30px;font-size:15px;color:var(--faint);text-align:right;margin-right:8px;font-variant-numeric:tabular-nums}
+.mu-row i{width:38px;height:31px;border-radius:5px}
+.mu-cap{font-size:16px;color:var(--faint);margin:10px 0 0 43px}
+/* 明度スケーリング */
+.sc-ramp{display:grid;grid-template-columns:190px 1fr;gap:16px;align-items:center;margin-bottom:12px}
+.sc-ramp .lb{font-size:18px;color:var(--dim);text-align:right;line-height:1.45}
+.sc-ramp .lb b{color:var(--ink)}
+.sc-cells{display:flex;height:46px;border-radius:8px;overflow:hidden;gap:2px}
+.sc-cells i{flex:1}
+.sc-ctl{display:grid;grid-template-columns:1fr 280px;gap:30px;align-items:center;margin-top:18px}
+.sc-out{display:flex;align-items:center;gap:16px}
+.sc-out .sw{width:86px;height:58px;border-radius:10px;border:1px solid oklch(1 0 0/.14);flex:none}
+.sc-out .num{font-size:19px;color:var(--dim);line-height:1.45}
+.sc-out b{color:var(--ink);font-size:27px}
+/* 年表 */
+.tl{position:relative;display:flex;margin-top:10px}
+.tl:before{content:"";position:absolute;left:26px;right:26px;top:8px;height:2px;background:var(--line)}
+.tl div{position:relative;flex:1;text-align:center}
+.tl i{display:block;width:17px;height:17px;border-radius:50%;background:var(--bg3);
+  border:3px solid var(--dim);margin:0 auto 10px;box-sizing:border-box}
+.tl div.hot i{background:var(--acc);border-color:var(--acc)}
+.tl b{display:block;font-size:20px}
+.tl div.hot b{color:var(--acc)}
+.tl span{display:block;font-size:15px;color:var(--faint);line-height:1.45;margin-top:3px}
+/* H-K 投票 */
+.hk-q{font-size:25px;font-weight:700;text-align:center;margin-bottom:10px}
+.hk-pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.hk-pt{height:108px;border-radius:14px}
+.hk-ans{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;opacity:0;transition:opacity .3s}
+.hk-ans.on{opacity:1}
+.hk-ans div{font-size:19px;color:var(--dim);text-align:center}
+.hk-ans b{color:var(--ink)}
+.hk-btn{display:block;margin:12px auto 0;padding:8px 28px;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg3);color:var(--ink);font-size:20px;cursor:pointer;font-family:inherit}
+.hk-btn:focus-visible{outline:3px solid var(--acc)}
 /* 結び */
 .finale .reveal{margin-top:44px;background:var(--bg2);border:1px solid var(--line);
   border-radius:16px;padding:24px 30px;width:820px;box-sizing:border-box}
@@ -303,32 +383,197 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   </div>
 </section>
 
-<!-- 7. 引っ越しの注意（L3） -->
-<section class="slide">
-  <div class="hd"><p class="eyebrow">ただし</p>
-    <h2>HSL から「そのまま引っ越し」はできない</h2></div>
-  <div class="twocol">
-    <div class="card">
-      <h3>色相の番地が違う</h3>
-      <p>0° は赤じゃなくて<b>マゼンタ</b>。HSL の角度をそのまま持ってくると全部ずれる。</p>
-      <div class="hue-dots">
-        <span><i style="background:oklch(0.62 0.2 29)"></i>赤 29°</span>
-        <span><i style="background:oklch(0.8 0.16 90)"></i>黄 90°</span>
-        <span><i style="background:oklch(0.62 0.18 142)"></i>緑 142°</span>
-        <span><i style="background:oklch(0.62 0.18 264)"></i>青 264°</span>
-        <span><i style="background:oklch(0.62 0.22 328)"></i>マゼンタ 328°</span>
-      </div>
-    </div>
-    <div class="card">
-      <h3>C の天井は波打っている</h3>
-      <p>出せる鮮やかさの上限は<b>色相ごとに全然違う</b>（L=0.7 のとき、緑 0.236 / シアン 0.127）。</p>
-      <canvas id="c-gamut" width="470" height="148" style="width:100%;margin-top:10px"></canvas>
-    </div>
-  </div>
-  <div class="takeaway">「全部の色を C=0.2 で統一」は物理的に無理な色相がある<small>足りない分はブラウザが勝手に近い色へ丸める（エラーにはならない）</small></div>
+<!-- 7. 標題頁・なぜこの形？（L2） -->
+<section class="slide tpage">
+  <p class="eyebrow">なぜこの形？</p>
+  <h2 class="t2">この歪みは、<br>箱と目の合作</h2>
+  <div class="rule"></div>
+  <p class="lede">ディスプレイがくれるのは、ただの四角い箱。それを人間の目のレンズ越しに見ると、角の高さが揺れ、太さが波打つ。<br>どこまでが箱のせいで、どこからが目のせいか——切り分けて見ていきます。</p>
 </section>
 
-<!-- 8. 標題頁（L2） -->
+<!-- 8. cusp 稜線（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">なぜこの形？</p><span class="t">「一番鮮やか」をつなぐ稜線は、ジェットコースター</span></div>
+  <div class="g3-stage no-nav">
+    <canvas id="g5-cv" width="2224" height="1040"></canvas>
+    <div class="g3-panel">
+      <div class="g3-mode" id="g5-mode" role="group" aria-label="モデル切り替え">
+        <button class="on" data-m="0" type="button">OKLCH</button>
+        <button data-m="1" type="button">HSL</button>
+        <button data-m="2" type="button">RGB</button>
+      </div>
+      <div class="g5-keys">
+        <div><i style="background:oklch(0.968 0.211 110)"></i>黄<b>L 0.968</b></div>
+        <div><i style="background:oklch(0.905 0.155 195)"></i>シアン<b>L 0.905</b></div>
+        <div><i style="background:oklch(0.866 0.295 142)"></i>緑<b>L 0.866</b></div>
+        <div><i style="background:oklch(0.702 0.322 328)"></i>マゼンタ<b>L 0.702</b></div>
+        <div><i style="background:oklch(0.628 0.258 29)"></i>赤<b>L 0.628</b></div>
+        <div><i style="background:oklch(0.452 0.313 264)"></i>青<b>L 0.452</b></div>
+      </div>
+      <p class="g3-note">光っているのは各色相の「一番鮮やかな色」。高さ(=明るさ)は 0.45〜0.97 まで波打つ。HSL に切り替えると、同じ色たちがまっ平らな「彩度 100% の輪」に化ける。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 9. 輝度の内訳（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">なぜこの形？</p>
+    <h2>黄は明るい 2 本を全開、青は一番暗い 1 本だけ</h2></div>
+  <div class="demo no-nav">
+    <div class="lum-cap">「白」の明るさの内訳 — 3 本のライトの持ち分は平等じゃない</div>
+    <div class="lum-bar">
+      <div style="flex:21.26;background:oklch(0.55 0.19 29)">R 21%</div>
+      <div style="flex:71.52;background:oklch(0.62 0.17 145)">G 72%</div>
+      <div style="flex:7.22;background:oklch(0.46 0.23 264)">B 7%</div>
+    </div>
+    <div class="lamp-row">
+      <div class="lamp-btns" id="lp-btns">
+        <button class="on" data-c="0" type="button">R</button>
+        <button class="on" data-c="1" type="button">G</button>
+        <button class="on" data-c="2" type="button">B</button>
+      </div>
+      <div class="lamp-sw" id="lp-sw"></div>
+      <div class="lamp-tr"><i id="lp-bar"></i></div>
+      <div class="lamp-v" id="lp-v"></div>
+    </div>
+    <div class="lamp-note">ライトを点け外しして、「その色で出せる明るさの上限」を確かめてみて — 黄 = R+G で 93%、青 = B だけで 7%</div>
+  </div>
+  <div class="takeaway">ジャガイモの縦の歪みは、ディスプレイではなく目の性質<small>Y = 0.2126R + 0.7152G + 0.0722B — 目の感度は黄緑(555nm)でピーク、青の端で急落する。この係数がそのまま稜線の高低差になる</small></div>
+</section>
+
+<!-- 10. 色度図と色域比較（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">なぜこの形？</p><span class="t">横の凸凹はディスプレイの都合 — 箱を替えると太る</span></div>
+  <div class="cie-wrap no-nav">
+    <canvas id="cie-g" width="940" height="860"></canvas>
+    <div class="db">
+      <div class="db-hd"><span>● sRGB</span><span>▎P3</span><span>○ Rec.2020</span><span>→ C の天井</span></div>
+      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.63 0.26 30)"></i>赤 30°</div>
+        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:60.5%;width:16.4%"></div><div class="d1" style="left:60.5%"></div><div class="dp" style="left:70.2%"></div><div class="d2" style="left:76.9%"></div></div>
+        <div class="db-dv">+27%</div></div>
+      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.97 0.21 110)"></i>黄 110°</div>
+        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:50.2%;width:10.0%"></div><div class="d1" style="left:50.2%"></div><div class="dp" style="left:58.3%"></div><div class="d2" style="left:60.2%"></div></div>
+        <div class="db-dv">+20%</div></div>
+      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.87 0.29 142)"></i>緑 142°</div>
+        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:70.0%;width:16.9%"></div><div class="d1" style="left:70.0%"></div><div class="dp" style="left:82.1%"></div><div class="d2" style="left:86.9%"></div></div>
+        <div class="db-dv">+24%</div></div>
+      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.91 0.15 195)"></i>シアン 195°</div>
+        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:36.9%;width:36.4%"></div><div class="d1" style="left:36.9%"></div><div class="dp" style="left:48.3%"></div><div class="d2" style="left:73.3%"></div></div>
+        <div class="db-dv hot">+99%</div></div>
+      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.45 0.31 264)"></i>青 264°</div>
+        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:74.5%;width:5.0%"></div><div class="d1" style="left:74.5%"></div><div class="dp" style="left:76.9%"></div><div class="d2" style="left:79.5%"></div></div>
+        <div class="db-dv hot">+7%</div></div>
+      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.70 0.32 328)"></i>マゼンタ 328°</div>
+        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:76.9%;width:16.7%"></div><div class="d1" style="left:76.9%"></div><div class="dp" style="left:84.0%"></div><div class="d2" style="left:93.6%"></div></div>
+        <div class="db-dv">+22%</div></div>
+      <p class="db-note">物差し(OKLab)はそのまま、箱だけ交換。シアンは 2 倍、青はほぼそのまま — sRGB の青はもう光の限界近くにいる。</p>
+    </div>
+  </div>
+  <div class="takeaway">縦の歪みは目、横の凸凹は箱<small>sRGB の三角形は馬蹄形の「シアンの膨らみ」を大きく削る。紫の縁はもともと直線なのでマゼンタはほぼ無傷 — 天井 1 位はマゼンタ 0.322、最下位はシアン寄りの 0.145</small></div>
+</section>
+
+<!-- 11. 標題頁・どうやって測った？（L2） -->
+<section class="slide tpage">
+  <p class="eyebrow">どうやって測った？</p>
+  <h2 class="t2">その「均等」、<br>誰がどう決めた？</h2>
+  <div class="rule"></div>
+  <p class="lede">「知覚的に均等」は物理からは導けません。人に色を見せて「同じ？」「どれくらい違う？」と聞き続ける——<br>100 年ぶんのその答えの上に、OKLCH は座っています。</p>
+</section>
+
+<!-- 12. Munsell（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">どうやって測った？ ①</p><span class="t">Munsell（1905）— 並べるのが先、測るのが後</span></div>
+  <div class="mu-wrap no-nav">
+    <div>
+      <div class="mu-grid" id="mu-grid"></div>
+      <div class="mu-cap">縦 = 明度 Value(下が暗い)・横 = 彩度 Chroma(左端が無彩色)</div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px"><h3>目視で等間隔に並べる</h3>
+        <p>色票を<b>見た目の間隔が均等</b>になるまで並べ替える。測るのはそのあと。</p></div>
+      <div class="card" style="margin-bottom:18px"><h3>1943 年、座標に翻訳</h3>
+        <p>膨大な目視判定を平均し、<b>2,734 枚</b>を CIE 座標へ翻訳。以後の均等空間の教師データに。</p></div>
+      <div class="sl-top"><span>ページ(色相)をめくる</span><span class="v" id="mu-v">29°</span></div>
+      <input type="range" id="mu-h" min="0" max="360" step="1" value="29" aria-label="色相">
+    </div>
+  </div>
+  <div class="takeaway">色票の右端のギザギザ ＝ さっきのジャガイモの断面<small>ASTM D1535 の Value→輝度変換で配置した再現図。ムンセルは 120 年前からこの形と付き合っていた</small></div>
+</section>
+
+<!-- 13. MacAdam（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">どうやって測った？ ②</p><span class="t">MacAdam（1942）— 「手ブレの範囲」が 1 目盛り</span></div>
+  <div class="cie-wrap no-nav">
+    <canvas id="cie-m" width="940" height="860"></canvas>
+    <div>
+      <div class="card" style="margin-bottom:16px"><h3>同じ色を何百回も合わせる</h3>
+        <p>ダイヤルで色を合わせては記録。答えの<b>散らばり</b>が楕円になる — 楕円の中は「区別がつかない範囲」。</p></div>
+      <div class="card" style="margin-bottom:16px"><h3>場所によって 10 倍違う</h3>
+        <p>緑では大きく、青では小さい。<b>この地図の上では、距離が色の差にならない</b>ことの証明になった。</p></div>
+      <p class="g3-note">楕円は慣例どおり 10 倍に拡大(MacAdam 1942・観察者 PGN・25 点、Wyszecki &amp; Stiles の表より)。白い三角形は sRGB。</p>
+    </div>
+  </div>
+  <div class="takeaway">1931 年の馬蹄形は、「ものさし」としては壊れている<small>この発見が、そのあと 80 年つづく「均等な空間づくり」の出発点になった</small></div>
+</section>
+
+<!-- 14. 明度スケーリング（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">どうやって測った？ ③</p>
+    <h2>「この灰色、白の何%の明るさに見える？」</h2></div>
+  <div class="demo no-nav">
+    <div class="sc-ramp"><div class="lb">光の量で等間隔<br><b>(物理)</b></div><div class="sc-cells" id="sc-phys"></div></div>
+    <div class="sc-ramp"><div class="lb">見た目で等間隔<br><b>(知覚)</b></div><div class="sc-cells" id="sc-perc"></div></div>
+    <div class="sc-ctl">
+      <div><div class="sl-top"><span>見た目の明るさ</span><span class="v" id="sc-v">50%</span></div>
+        <input type="range" id="sc-r" min="1" max="100" value="50" aria-label="見た目の明るさ"></div>
+      <div class="sc-out"><div class="sw" id="sc-sw"></div><div class="num">物理の光量<br><b id="sc-y">18.4%</b></div></div>
+    </div>
+  </div>
+  <div class="takeaway">「見た目のちょうど半分」は、物理ではたった 2 割<small>暗いほうに敏感な目を打ち消すのが立方根カーブ。LUTCHI(1991)は延べ 43,332 回の「見た目採点」を集めた — 人どうしのばらつきは明度で ±13%</small></div>
+</section>
+
+<!-- 15. OKLab の組み立て（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">どうやって測った？ ④</p>
+    <h2>100 年ぶんの実験を、行列 2 回に蒸留する</h2></div>
+  <div class="tl no-nav">
+    <div><i></i><b>1905</b><span>Munsell<br>色票</span></div>
+    <div><i></i><b>1931</b><span>CIE XYZ<br>「同じ」の地図</span></div>
+    <div><i></i><b>1942</b><span>MacAdam<br>楕円</span></div>
+    <div><i></i><b>1976</b><span>CIELAB<br>立方根</span></div>
+    <div><i></i><b>1998</b><span>IPT・等色相<br>データ</span></div>
+    <div><i></i><b>2017</b><span>CAM16-UCS</span></div>
+    <div class="hot"><i></i><b>2020</b><span>OKLab</span></div>
+  </div>
+  <div class="twocol">
+    <div class="card"><h3>「入れ替えテスト」で最適化</h3>
+      <p>明度が同じはずの 2 色の <b>L を入れ替えても何も変わらなければ合格</b>。「予測が当たる」より L・C・H の独立を優先した。</p></div>
+    <div class="card"><h3>立方根 1/3 の正体</h3>
+      <p>最適化の答えは <b>0.323</b>。青が内側に折れるのを直すため<b>手で 1/3 に固定</b> — 誤差はほぼ変わらず。整形手術済み。</p></div>
+  </div>
+  <div class="takeaway">OKLCH は「発見」ではなく「蒸留」<small>CAM16 の予測と Ebner–Fairchild(1998)の等色相データを、行列→立方根→行列の速い形に押し込んだから CSS で気軽に使える</small></div>
+</section>
+
+<!-- 16. H-K 効果（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">正直な話</p>
+    <h2>L が同じ ＝ 同じ明るさ、とは限らない</h2></div>
+  <div class="demo no-nav">
+    <div class="hk-q">この 2 枚、どっちが明るく見える？</div>
+    <div class="hk-pair">
+      <div class="hk-pt" style="background:oklch(0.452 0.3132 264)"></div>
+      <div class="hk-pt" style="background:oklch(0.452 0 0)"></div>
+    </div>
+    <div class="hk-ans" id="hk-ans">
+      <div>OKLab L <b>0.452</b> ・ 物理の光量 <b>7.2%</b></div>
+      <div>OKLab L <b>0.452</b> ・ 物理の光量 <b>9.2%</b></div>
+    </div>
+    <button class="hk-btn" id="hk-btn" type="button">答え合わせ</button>
+  </div>
+  <div class="takeaway">「観察条件と背景色に依存しない、完全に均等な明度スケールは存在し得ない」— Björn Ottosson<small>物理は灰のほうが 28% 明るいのに、多くの人には青が明るく見える(Helmholtz–Kohlrausch 効果、OKLab は非対応)</small></div>
+</section>
+
+<!-- 17. 標題頁（L2） -->
 <section class="slide tpage">
   <p class="eyebrow">今日から使える ①</p>
   <h2 class="t2">グラデーションの<br>「泥ゾーン」が消える</h2>
@@ -336,7 +581,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <p class="lede">同じ 2 色でも、あいだの通り道はブラウザ任せ。<br>通り道を OKLCH に変えるだけで、中間の濁りが消えます。</p>
 </section>
 
-<!-- 9. グラデーション（内容頁・chead） -->
+<!-- 18. グラデーション（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">グラデーションの泥ゾーン</span></div>
   <div class="demo no-nav">
@@ -353,7 +598,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">書き足すのは <span class="mono">in oklch</span> の 8 文字だけ<small>color-mix() にも同じ指定ができる：color-mix(in oklch, var(--brand) 70%, white)</small></div>
 </section>
 
-<!-- 10. グラデーションの軌跡（内容頁・chead） -->
+<!-- 19. グラデーションの軌跡（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">泥ゾーンを立体で見る</span></div>
   <div class="g3-stage no-nav">
@@ -377,7 +622,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   </div>
 </section>
 
-<!-- 11. from構文（L3） -->
+<!-- 20. from構文（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">今日から使える ②</p>
     <h2>1 色から、状態色を全部「計算」する</h2></div>
@@ -402,7 +647,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">ブランド色を差し替えても、hover も disabled も勝手についてくる<small>注意：l は 0–1 の数値。calc(l - 10%) は無効、calc(l - 0.1) と書く</small></div>
 </section>
 
-<!-- 12. テーマ着せ替え（L3） -->
+<!-- 21. テーマ着せ替え（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">本命はこれ</p>
     <h2>色相を 1 個変える ＝ テーマが丸ごと変わる</h2></div>
@@ -435,7 +680,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">明暗の設計（L の階段）はそのまま、色だけ着せ替わる<small>Tailwind v4 のデフォルトパレットもこの方式で再設計された</small></div>
 </section>
 
-<!-- 13. 落とし穴（L3） -->
+<!-- 22. 落とし穴（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">ハマりどころ</p>
     <h2>覚えて帰るのは 2 つだけ</h2></div>
@@ -464,7 +709,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">OKLCH は「予測しやすくする」道具で、検証を省く道具ではない</div>
 </section>
 
-<!-- 14. 対応状況（L3） -->
+<!-- 23. 対応状況（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">で、使えるの？</p>
     <h2>もう普通に使える（Baseline 2023）</h2></div>
@@ -481,7 +726,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">道具はまず <span class="mono">oklch.com</span> だけ覚えれば OK<small>Evil Martians 製のピッカー。色域の崖がどこにあるかも見える</small></div>
 </section>
 
-<!-- 15. 結び（L1） -->
+<!-- 24. 結び（L1） -->
 <section class="slide sec finale">
   <h2>色選びが、<br><em>手作業から工学になる。</em></h2>
   <div class="reveal no-nav">
@@ -863,24 +1108,6 @@ const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
     requestAnimationFrame(loop)};
   upd();requestAnimationFrame(loop)})();
 
-/* ============ Cの天井 ============ */
-(()=>{const cv=document.getElementById('c-gamut'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
-  const cmax=h=>{let lo=0,hi=.4;for(let k=0;k<18;k++){const m=(lo+hi)/2;
-    inGamut(okToLin(.7,m,h))?lo=m:hi=m}return lo};
-  ctx.strokeStyle='oklch(0.4 0.02 275)';ctx.lineWidth=1;
-  ctx.strokeRect(0,0,W,Hh);
-  ctx.beginPath();
-  for(let x=0;x<=W;x++){const y=Hh-6-cmax(x/W*360)/0.33*(Hh-16);
-    x?ctx.lineTo(x,y):ctx.moveTo(x,y)}
-  ctx.strokeStyle='oklch(0.82 0.13 85)';ctx.lineWidth=3;ctx.stroke();
-  const Y=h=>Hh-6-cmax(h)/0.33*(Hh-16);
-  ctx.fillStyle='oklch(0.94 0.008 275)';ctx.font='15px ui-monospace,Menlo';
-  [[142,'緑',-14,-10],[180,'シアン',-24,26]].forEach(([h,t,dx,dy])=>{
-    ctx.beginPath();ctx.arc(W*h/360,Y(h),4.5,0,7);ctx.fill();
-    ctx.fillText(t+h+'°',W*h/360+dx,Y(h)+dy)});
-  ctx.fillStyle='oklch(0.62 0.015 275)';
-  ctx.fillText('0°',4,Hh-8);ctx.fillText('360°',W-38,Hh-8)})();
-
 /* ============ グラデーション ============ */
 const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.getElementById('r-h2').value;
   document.getElementById('v-h1').textContent=h1+'°';
@@ -1017,6 +1244,214 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
   ['r-h1','r-h2'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
     sync('r-','g4r-');rebuild();dirty=true}));
   rebuild();draw();requestAnimationFrame(idle)})();
+
+/* ============ cusp の稜線(8 枚目:切り欠き無しの立体+最鮮鋭リング) ============ */
+(()=>{const cv=document.getElementById('g5-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  const CX=W*.33,CY=Hh*.5;
+  let yaw=(90-187)*Math.PI/180,pitch=.33,drag=null,
+      mode=0,m0=0,m1=0,mt=1,t0=0,cyw=1,syw=0,cpt=1,spt=0;
+  const anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const mixW=w=>{if(mt>=1)return w[m1];if(mt<=0)return w[m0];
+    const a=w[m0],b=w[m1];
+    return[a[0]+(b[0]-a[0])*mt,a[1]+(b[1]-a[1])*mt,a[2]+(b[2]-a[2])*mt]};
+  const projW=p=>{const x1=p[0]*cyw-p[2]*syw,z1=p[0]*syw+p[2]*cyw;
+    return{x:CX+x1,y:CY-(p[1]*cpt-z1*spt),d:p[1]*spt+z1*cpt}};
+  const pjm=w=>projW(mixW(w));
+  /* リング = RGB 立方体の「中腰 6 辺」。各色相の cusp(最鮮鋭点)を一周する */
+  const RIDGE=(()=>{const segs=[u=>[1,u,0],u=>[1-u,1,0],u=>[0,1,u],u=>[0,1-u,1],u=>[u,0,1],u=>[1,0,1-u]],pts=[];
+    for(const f of segs)for(let k=0;k<24;k++){const g=f(k/24),lin=g.map(degam),
+        o=okFromLin(lin[0],lin[1],lin[2]);
+      pts.push({w:[wOk(o[0],o[1],o[2]),wHsl(g),wCube(g)],
+        col:`rgb(${g.map(c=>Math.round(c*255)).join(' ')})`})}
+    pts.push(pts[0]);return pts})();
+  const wYel=[wOk(.968,.211,109.8),wHsl([1,1,0]),wCube([1,1,0])],
+        wBlu=[wOk(.452,.3132,264.1),wHsl([0,0,1]),wCube([0,0,1])];
+  const pushLine=(pl,faces)=>{let run=null;
+    const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:1e9,st:0})};
+    for(let k=0;k<pl.length;k++){const s=pl[k],q=pjm(s.w),t2=pl[k+1]||pl[k-1];
+      if(!vc(q,pjm(t2.w),pjm(s.w1),pjm(s.wr))&&!vc(q,pjm(t2.w),pjm(s.w2),pjm(s.wr))){
+        fl();run=null;continue}
+      if(!run){run=[q];continue}
+      run.push(q);if(run.length>3){fl();run=[q]}}
+    fl()};
+  const draw=()=>{ctx.clearRect(0,0,W,Hh);
+    cyw=Math.cos(yaw);syw=Math.sin(yaw);cpt=Math.cos(pitch);spt=Math.sin(pitch);
+    const DMAX=DM[m0]+(DM[m1]-DM[m0])*Math.max(0,Math.min(1,mt));
+    const P=V.map(col=>col.map(pjm));
+    const faces=[];
+    for(const q of quads){const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
+      f.fill=q.sh[Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
+    const pB=pjm(poleB),pT=pjm(poleT);
+    for(const c2 of caps){const pole=c2.li?pT:pB;
+      faces.push(face([pole,P[c2.hi][c2.li],P[(c2.hi+1)%HN][c2.li],pole],c2.fill))}
+    for(const pl of edges12)pushLine(pl,faces);
+    for(const cn of corner6){const P0=pjm(cn.w),R=pjm(cn.wr),J=cn.wj.map(pjm);
+      if(!vc(P0,J[1],J[2],R)&&!vc(P0,J[0],J[2],R)&&!vc(P0,J[0],J[1],R))continue;
+      faces.push({dot:P0,d:1e9,fill:cn.fill})}
+    faces.sort((a,b)=>a.d-b.d);
+    ctx.lineJoin='round';
+    for(const f of faces){
+      if(f.pts){for(const [ss,lw] of EST[f.st]){ctx.strokeStyle=ss;ctx.lineWidth=lw;
+          ctx.beginPath();ctx.moveTo(f.pts[0].x,f.pts[0].y);
+          for(let k=1;k<f.pts.length;k++)ctx.lineTo(f.pts[k].x,f.pts[k].y);ctx.stroke()}continue}
+      if(f.dot){ctx.beginPath();ctx.arc(f.dot.x,f.dot.y,9,0,7);
+        ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='oklch(0.97 0 0/.8)';ctx.lineWidth=2;ctx.stroke();continue}
+      ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
+      for(let k=1;k<4;k++)ctx.lineTo(f.c[k].x,f.c[k].y);ctx.closePath();
+      ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
+    const tp=pjm(poleT),bp=pjm(poleB);
+    ctx.strokeStyle='oklch(0.6 0.015 275)';ctx.lineWidth=2;ctx.setLineDash([8,8]);
+    ctx.beginPath();ctx.moveTo(bp.x,bp.y);ctx.lineTo(tp.x,tp.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='oklch(0.8 0.01 275)';ctx.font='34px "Hiragino Sans",sans-serif';ctx.textAlign='left';
+    ctx.shadowColor='oklch(0 0 0/.75)';ctx.shadowBlur=8;
+    const lb=mode===2?['白','黒']:['L=1 白','L=0 黒'];
+    ctx.fillText(lb[0],tp.x+30,tp.y+4);ctx.fillText(lb[1],bp.x+30,bp.y+10);
+    ctx.shadowBlur=0;
+    /* リングは最前面(レントゲン式) */
+    const P2=RIDGE.map(s=>pjm(s.w));
+    ctx.lineCap='round';
+    ctx.strokeStyle='oklch(0.1 0 0/.6)';ctx.lineWidth=15;
+    ctx.beginPath();ctx.moveTo(P2[0].x,P2[0].y);
+    for(let k=1;k<P2.length;k++)ctx.lineTo(P2[k].x,P2[k].y);ctx.stroke();
+    ctx.lineWidth=9;
+    for(let k=0;k+1<P2.length;k++){ctx.strokeStyle=RIDGE[k].col;
+      ctx.beginPath();ctx.moveTo(P2[k].x,P2[k].y);ctx.lineTo(P2[k+1].x,P2[k+1].y);ctx.stroke()}
+    if(mt>=1){ctx.font='30px "Hiragino Sans",sans-serif';
+      ctx.shadowColor='oklch(0 0 0/.8)';ctx.shadowBlur=9;ctx.fillStyle='#fff';
+      const py=pjm(wYel),pb2=pjm(wBlu);
+      if(mode===0){ctx.fillText('黄 L=0.97',py.x+26,py.y-16);
+        ctx.fillText('青 L=0.45',pb2.x+26,pb2.y+32)}
+      else if(mode===1){let fr=P2[0];for(const q of P2)if(q.d<fr.d)fr=q;
+        ctx.textAlign='center';ctx.fillText('ぜんぶ「明度 50%」の輪',fr.x,fr.y-28);ctx.textAlign='left'}
+      ctx.shadowBlur=0}};
+  cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};
+    cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;
+    yaw+=(e.clientX-drag.x)*.008;pitch=Math.max(-1.2,Math.min(1.2,pitch+(e.clientY-drag.y)*.006));
+    drag={x:e.clientX,y:e.clientY};draw()});
+  addEventListener('pointerup',()=>{if(drag){drag=null;cv.style.cursor='grab'}});
+  const step=ts=>{if(!t0)t0=ts;mt=easeIO(Math.min(1,(ts-t0)/D2));draw();
+    if(mt<1)requestAnimationFrame(step);else{m0=m1;t0=0}};
+  const setMode=m=>{if(m===mode||mt<1)return;
+    document.querySelectorAll('#g5-mode button').forEach(b=>b.classList.toggle('on',+b.dataset.m===m));
+    if(!anim||!cv.offsetParent){mode=m0=m1=m;mt=1;draw();return}
+    m0=mode;m1=mode=m;mt=0;t0=0;requestAnimationFrame(step)};
+  document.querySelectorAll('#g5-mode button').forEach(b=>
+    b.addEventListener('click',()=>setMode(+b.dataset.m)));
+  draw()})();
+
+/* ============ 輝度の内訳(9 枚目) ============ */
+(()=>{const st=[1,1,1],co=[0.2126,0.7152,0.0722];
+  const sw=document.getElementById('lp-sw'),bar=document.getElementById('lp-bar'),
+        v=document.getElementById('lp-v');
+  const upd=()=>{const Y=st[0]*co[0]+st[1]*co[1]+st[2]*co[2],
+      o=okFromLin(st[0],st[1],st[2]);
+    sw.style.background=`rgb(${st.map(c=>c*255).join(' ')})`;
+    bar.style.width=(Y*100).toFixed(1)+'%';
+    v.innerHTML=`明るさ <b style="color:var(--ink)">${(Y*100).toFixed(1)}%</b><br>OKLab L ${o[0].toFixed(3)}`};
+  document.querySelectorAll('#lp-btns button').forEach(b=>b.addEventListener('click',()=>{
+    const i=+b.dataset.c;st[i]=st[i]?0:1;b.classList.toggle('on',!!st[i]);upd()}));
+  upd()})();
+
+/* ============ CIE 1931 色度図(10・13 枚目共有) ============
+   LOCUS: 2° 標準観察者の 380–700nm/5nm 刻み(CVRL の CMF から算出)
+   MACADAM: MacAdam(1942) 25 楕円 [x,y,a(10^-3),b(10^-3),θ°](Wyszecki & Stiles 表 2(5.4.1) 観測値) */
+const LOCUS=[[0.1741,0.005],[0.174,0.005],[0.1738,0.0049],[0.1736,0.0049],[0.1733,0.0048],[0.173,0.0048],[0.1726,0.0048],[0.1721,0.0048],[0.1714,0.0051],[0.1703,0.0058],[0.1689,0.0069],[0.1669,0.0086],[0.1644,0.0109],[0.1611,0.0138],[0.1566,0.0177],[0.151,0.0227],[0.144,0.0297],[0.1355,0.0399],[0.1241,0.0578],[0.1096,0.0868],[0.0913,0.1327],[0.0687,0.2007],[0.0454,0.295],[0.0235,0.4127],[0.0082,0.5384],[0.0039,0.6548],[0.0139,0.7502],[0.0389,0.812],[0.0743,0.8338],[0.1142,0.8262],[0.1547,0.8059],[0.1929,0.7816],[0.2296,0.7543],[0.2658,0.7243],[0.3016,0.6923],[0.3374,0.6588],[0.3731,0.6245],[0.4087,0.5896],[0.4441,0.5547],[0.4788,0.5202],[0.5125,0.4866],[0.5448,0.4544],[0.5752,0.4242],[0.6029,0.3965],[0.627,0.3725],[0.6482,0.3514],[0.6658,0.334],[0.6801,0.3197],[0.6915,0.3083],[0.7006,0.2993],[0.7079,0.292],[0.714,0.2859],[0.719,0.2809],[0.723,0.2769],[0.726,0.274],[0.7283,0.2717],[0.73,0.27],[0.7311,0.2689],[0.732,0.268],[0.7327,0.2673],[0.7334,0.2666],[0.734,0.266],[0.7344,0.2656],[0.7346,0.2654],[0.7347,0.2653]];
+const MACADAM=[[0.16,0.057,0.85,0.35,62.5],[0.187,0.118,2.2,0.55,77],[0.253,0.125,2.5,0.5,55.5],[0.15,0.68,9.6,2.3,105],[0.131,0.521,4.7,2,112.5],[0.212,0.55,5.8,2.3,100],[0.258,0.45,5,2,92],[0.152,0.365,3.8,1.9,110],[0.28,0.385,4,1.5,75.5],[0.38,0.498,4.4,1.2,70],[0.16,0.2,2.1,0.95,104],[0.228,0.25,3.1,0.9,72],[0.305,0.323,2.3,0.9,58],[0.385,0.393,3.8,1.6,65.5],[0.472,0.399,3.2,1.4,51],[0.527,0.35,2.6,1.3,20],[0.475,0.3,2.9,1.1,28.5],[0.51,0.236,2.4,1.2,29.5],[0.596,0.283,2.6,1.3,13],[0.344,0.284,2.3,0.9,60],[0.39,0.237,2.5,1,47],[0.441,0.198,2.8,0.95,34.5],[0.278,0.223,2.4,0.55,57.5],[0.3,0.163,2.9,0.6,54],[0.365,0.153,3.6,0.95,40]];
+const xyzToLin=(X,Y,Z)=>[3.2404542*X-1.5371385*Y-0.4985314*Z,
+  -0.969266*X+1.8760108*Y+0.041556*Z,0.0556434*X-0.2040259*Y+1.0572252*Z];
+const CIEX0=-0.05,CIEX1=0.89,CIEY0=-0.013,CIEY1=0.847; /* 縦横 1000px/単位の等尺 */
+const drawCIE=(id,o)=>{const cv=document.getElementById(id),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  const px=(x,y)=>[(x-CIEX0)/(CIEX1-CIEX0)*W,Hh-(y-CIEY0)/(CIEY1-CIEY0)*Hh];
+  const path=new Path2D();
+  LOCUS.forEach((p,i)=>{const q=px(p[0],p[1]);i?path.lineTo(q[0],q[1]):path.moveTo(q[0],q[1])});
+  path.closePath();
+  /* 内部の色は粗い解像度で塗り、clip で馬蹄形に切り抜く */
+  const oc=document.createElement('canvas');oc.width=188;oc.height=172;
+  const octx=oc.getContext('2d'),im=octx.createImageData(oc.width,oc.height);
+  for(let j=0;j<oc.height;j++)for(let i=0;i<oc.width;i++){
+    const x=CIEX0+(i+.5)/oc.width*(CIEX1-CIEX0),y=CIEY1-(j+.5)/oc.height*(CIEY1-CIEY0);
+    if(y<=0.001)continue;
+    const rgb=xyzToLin(x/y,1,(1-x-y)/y),m=Math.max(rgb[0],rgb[1],rgb[2]),k=(j*oc.width+i)*4;
+    im.data[k]=Math.round(gam(Math.max(0,rgb[0]/m))*255);
+    im.data[k+1]=Math.round(gam(Math.max(0,rgb[1]/m))*255);
+    im.data[k+2]=Math.round(gam(Math.max(0,rgb[2]/m))*255);
+    im.data[k+3]=255}
+  octx.putImageData(im,0,0);
+  ctx.save();ctx.clip(path);
+  ctx.drawImage(oc,0,0,W,Hh);
+  ctx.fillStyle='oklch(0.15 0.01 275/.22)';ctx.fillRect(0,0,W,Hh); /* deck のトーンに寄せる */
+  ctx.restore();
+  ctx.strokeStyle='oklch(0.72 0.01 275/.85)';ctx.lineWidth=2.5;ctx.stroke(path);
+  ctx.font='26px "Hiragino Sans",sans-serif';ctx.textAlign='left';
+  ctx.shadowColor='oklch(0 0 0/.7)';ctx.shadowBlur=7;
+  ctx.fillStyle='oklch(0.82 0.01 275)';
+  for(const [wl,dx,dy] of [[460,-64,12],[500,12,6],[520,-14,36],[560,28,-10],[600,30,2],[700,28,26]]){
+    const pt2=LOCUS[(wl-380)/5],q=px(pt2[0],pt2[1]);ctx.fillText(wl,q[0]+dx,q[1]+dy)}
+  const TRI={srgb:[[.64,.33],[.30,.60],[.15,.06]],p3:[[.680,.320],[.265,.690],[.150,.060]],
+             r2020:[[.708,.292],[.170,.797],[.131,.046]]};
+  if(o.tris)for(const [k,st,wd,dash,lb2,lx,ly] of o.tris){const t=TRI[k];
+    ctx.strokeStyle=st;ctx.lineWidth=wd;ctx.setLineDash(dash);
+    ctx.beginPath();t.forEach((p,i)=>{const q=px(p[0],p[1]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});
+    ctx.closePath();ctx.stroke();ctx.setLineDash([]);
+    if(lb2){const q=px(lx,ly);ctx.fillStyle=st;ctx.fillText(lb2,q[0],q[1])}}
+  if(o.d65){const q=px(.3127,.329);ctx.beginPath();ctx.arc(q[0],q[1],9,0,7);
+    ctx.fillStyle='#fff';ctx.fill();ctx.fillStyle='oklch(0.92 0 0)';ctx.fillText('D65',q[0]+16,q[1]+34)}
+  ctx.shadowBlur=0;
+  return px};
+/* 10 枚目:三角形 3 つ */
+drawCIE('cie-g',{d65:1,tris:[
+  ['srgb','oklch(0.94 0.008 275)',4,[],'sRGB',.315,.585],
+  ['p3','oklch(0.78 0.03 275)',2.5,[12,9],'P3',.208,.716],
+  ['r2020','oklch(0.62 0.03 275)',2.5,[4,8],'Rec.2020',.075,.83]]});
+/* 13 枚目:MacAdam 楕円(10 倍拡大) */
+(()=>{const px=drawCIE('cie-m',{tris:[['srgb','oklch(0.9 0.008 275/.6)',2.5,[],null,0,0]]});
+  const cv=document.getElementById('cie-m'),ctx=cv.getContext('2d');
+  const sx=cv.width/(CIEX1-CIEX0),sy=cv.height/(CIEY1-CIEY0);
+  ctx.fillStyle='oklch(1 0 0/.16)';ctx.strokeStyle='#fff';ctx.lineWidth=2.5;
+  for(const [x,y,a,b,th] of MACADAM){const q=px(x,y);
+    ctx.beginPath();ctx.ellipse(q[0],q[1],a*.01*sx,b*.01*sy,-th*Math.PI/180,0,7);
+    ctx.fill();ctx.stroke()}
+  ctx.font='26px "Hiragino Sans",sans-serif';ctx.textAlign='left';
+  ctx.shadowColor='oklch(0 0 0/.7)';ctx.shadowBlur=7;ctx.fillStyle='#fff';
+  const q1=px(.245,.735);ctx.fillText('緑:ブレ最大',q1[0],q1[1]);
+  const q2=px(.19,.048);ctx.fillText('青:ごく小さい',q2[0],q2[1]);
+  ctx.shadowBlur=0})();
+
+/* ============ Munsell 色票(12 枚目) ============ */
+(()=>{const grid=document.getElementById('mu-grid'),sl=document.getElementById('mu-h'),
+        vv=document.getElementById('mu-v');
+  const rebuild=()=>{const h=+sl.value;vv.textContent=h+'°';let html='';
+    for(let Vm=9;Vm>=1;Vm--){ /* ASTM D1535: Value → 輝度 Y% */
+      const Yp=1.1914*Vm-0.22533*Vm*Vm+0.23352*Vm**3-0.020484*Vm**4+0.00081939*Vm**5,
+            L=Math.cbrt(Yp/100);
+      let cells='';
+      for(let k=0;k<=10;k++){const C=k*0.03;
+        if(k&&C>cmaxLH(L,h))break; /* 色域の外に出たら行はそこで終わり=ギザギザの端 */
+        cells+=`<i style="background:oklch(${L.toFixed(3)} ${C.toFixed(2)} ${h})"></i>`}
+      html+=`<div class="mu-row"><span>${Vm}</span>${cells}</div>`}
+    grid.innerHTML=html};
+  sl.addEventListener('input',rebuild);rebuild()})();
+
+/* ============ 明度スケーリング(14 枚目) ============ */
+(()=>{const ph=document.getElementById('sc-phys'),pe=document.getElementById('sc-perc');
+  let a='',b='';
+  for(let i=0;i<=20;i++){const t=i/20,g=Math.round(gam(t)*255);
+    a+=`<i style="background:rgb(${g} ${g} ${g})"></i>`;
+    b+=`<i style="background:oklch(${t.toFixed(3)} 0 0)"></i>`}
+  ph.innerHTML=a;pe.innerHTML=b;
+  const r=document.getElementById('sc-r'),v=document.getElementById('sc-v'),
+        sw=document.getElementById('sc-sw'),yv=document.getElementById('sc-y');
+  const upd=()=>{const P=+r.value;v.textContent=P+'%';
+    const Y=P>8?Math.pow((P+16)/116,3):P/903.3, g=Math.round(gam(Y)*255);
+    sw.style.background=`rgb(${g} ${g} ${g})`;
+    yv.textContent=(Y*100).toFixed(1)+'%'};
+  r.addEventListener('input',upd);upd()})();
+
+/* ============ H-K 投票(16 枚目) ============ */
+(()=>{const btn=document.getElementById('hk-btn'),ans=document.getElementById('hk-ans');
+  btn.addEventListener('click',()=>{const on=ans.classList.toggle('on');
+    btn.textContent=on?'隠す':'答え合わせ'})})();
 
 /* ============ ブランド差し替え ============ */
 document.querySelectorAll('.brand-picks button').forEach(b=>b.addEventListener('click',()=>{
