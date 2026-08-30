@@ -209,6 +209,10 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   font-variant-numeric:tabular-nums}
 .g3-cur .cs.sub{font-size:16px;opacity:.85;font-weight:400}
 .g3-note{margin:12px 0 0;font-size:18px;line-height:1.55;color:var(--faint)}
+/* グラデーションの軌跡(10 枚目) */
+.g4-lg{display:grid;grid-template-columns:104px 1fr;gap:10px;align-items:center;margin-bottom:9px}
+.g4-lg span{font-size:17px;color:var(--dim);text-align:right;white-space:nowrap}
+.g4-lg div{height:24px;border-radius:6px}
 /* 結び */
 .finale .reveal{margin-top:44px;background:var(--bg2);border:1px solid var(--line);
   border-radius:16px;padding:24px 30px;width:820px;box-sizing:border-box}
@@ -349,7 +353,31 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">書き足すのは <span class="mono">in oklch</span> の 8 文字だけ<small>color-mix() にも同じ指定ができる：color-mix(in oklch, var(--brand) 70%, white)</small></div>
 </section>
 
-<!-- 10. from構文（L3） -->
+<!-- 10. グラデーションの軌跡（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">泥ゾーンを立体で見る</span></div>
+  <div class="g3-stage no-nav">
+    <canvas id="g4-cv" width="2224" height="1040"></canvas>
+    <div class="g3-panel">
+      <div class="g3-mode" id="g4-mode" role="group" aria-label="モデル切り替え">
+        <button class="on" data-m="0" type="button">OKLCH</button>
+        <button data-m="1" type="button">HSL</button>
+        <button data-m="2" type="button">RGB</button>
+      </div>
+      <div class="g4-lg"><span>sRGB 補間</span><div id="g4b-s"></div></div>
+      <div class="g4-lg"><span>in oklch</span><div id="g4b-o"></div></div>
+      <div class="sl-top"><span>始点の色相</span><span class="v" id="g4v-h1">264°</span></div>
+      <input type="range" id="g4r-h1" min="0" max="360" step="1" value="264" aria-label="始点色相">
+      <div class="sl-top"><span>終点の色相</span><span class="v" id="g4v-h2">90°</span></div>
+      <input type="range" id="g4r-h2" min="0" max="360" step="1" value="90" aria-label="終点色相">
+      <p class="g3-note">ドラッグで回転。sRGB 補間は空間を最短で突っ切り、
+        無彩色の軸のそばをかすめる——それが泥の正体。
+        RGB 立方体に切り替えると、こんどは sRGB 補間のほうが直線になる。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11. from構文（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">今日から使える ②</p>
     <h2>1 色から、状態色を全部「計算」する</h2></div>
@@ -374,7 +402,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">ブランド色を差し替えても、hover も disabled も勝手についてくる<small>注意：l は 0–1 の数値。calc(l - 10%) は無効、calc(l - 0.1) と書く</small></div>
 </section>
 
-<!-- 11. テーマ着せ替え（L3） -->
+<!-- 12. テーマ着せ替え（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">本命はこれ</p>
     <h2>色相を 1 個変える ＝ テーマが丸ごと変わる</h2></div>
@@ -407,7 +435,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">明暗の設計（L の階段）はそのまま、色だけ着せ替わる<small>Tailwind v4 のデフォルトパレットもこの方式で再設計された</small></div>
 </section>
 
-<!-- 12. 落とし穴（L3） -->
+<!-- 13. 落とし穴（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">ハマりどころ</p>
     <h2>覚えて帰るのは 2 つだけ</h2></div>
@@ -436,7 +464,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">OKLCH は「予測しやすくする」道具で、検証を省く道具ではない</div>
 </section>
 
-<!-- 13. 対応状況（L3） -->
+<!-- 14. 対応状況（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">で、使えるの？</p>
     <h2>もう普通に使える（Baseline 2023）</h2></div>
@@ -453,7 +481,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">道具はまず <span class="mono">oklch.com</span> だけ覚えれば OK<small>Evil Martians 製のピッカー。色域の崖がどこにあるかも見える</small></div>
 </section>
 
-<!-- 14. 結び（L1） -->
+<!-- 15. 結び（L1） -->
 <section class="slide sec finale">
   <h2>色選びが、<br><em>手作業から工学になる。</em></h2>
   <div class="reveal no-nav">
@@ -524,9 +552,8 @@ const sweep=()=>{const h=+document.getElementById('r-sweep').value;
   set('cmp-okl','lb-okl',`oklch(0.7 0.12 ${h})`,yo,`oklch(0.7 0.12 ${h})`)};
 document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
 
-/* ============ 色域の立体(OKLCH ⇄ HSL 円柱 ⇄ RGB 立方体) ============ */
-(()=>{const cv=document.getElementById('g3-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
-  const CX=W*.33,CY=Hh*.5,RSf=1900,VSf=910,CUT=90; /* CUT=切り欠きの角度 */
+/* ============ 色の立体:共有ジオメトリ(6 枚目と 10 枚目で共用) ============ */
+const RSf=1900,VSf=910;
   /* 境界判定の下限は厳密に:黒付近では線形 RGB が 1e-5 級になり、±1e-4 の
      許容誤差が相対的に巨大化して C を数倍過大評価する(裾が広がって見えた原因) */
   const inGB=rgb=>rgb.every(c=>c>=-1e-9&&c<=1+1e-4);
@@ -611,6 +638,21 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
   const EST=[[['oklch(0.15 0 0/.32)',4.2],['oklch(0.97 0.005 275/.72)',2]],
              [['oklch(0.15 0 0/.3)',5.6],['oklch(0.82 0.012 275/.8)',3.2]],
              [['oklch(0.15 0 0/.22)',2.2],['oklch(0.88 0.01 275/.45)',1.1]]];
+const face=(c,fill)=>({d:(c[0].d+c[1].d+c[2].d+c[3].d)/4,c,fill});
+/* 稜線の可視判定:P0 まわりの隣接面 (Pa,Pb) が視点側を向くか。Pr=内部の参照点 */
+const vc=(P0,Pa,Pb,Pr)=>{const ax=Pa.x-P0.x,ay=Pa.y-P0.y,ad=Pa.d-P0.d,
+    bx=Pb.x-P0.x,by=Pb.y-P0.y,bd=Pb.d-P0.d,
+    nx=ay*bd-ad*by,ny=ad*bx-ax*bd,nd=ax*by-ay*bx;
+  /* すれすれ(掠射)は隠れ線が透けやすいので、視線側 7° 以上を要求 */
+  return (nx*(Pr.x-P0.x)+ny*(Pr.y-P0.y)+nd*(Pr.d-P0.d)>0?-nd:nd)>.15*Math.hypot(nx,ny,nd)};
+const DM=[Math.hypot(.37*RSf,.5*VSf),Math.hypot(HR,.5*VSf),.9*KC];
+/* sRGB の外の色を立方体の外にも置けるよう、ガンマを区分的に外挿 */
+const gamE=c=>c<=0?-gam(-c):c>=1?1+(c-1)*.44:gam(c);
+const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
+
+/* ============ 色域の立体(OKLCH ⇄ HSL 円柱 ⇄ RGB 立方体) ============ */
+(()=>{const cv=document.getElementById('g3-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  const CX=W*.33,CY=Hh*.5,CUT=90; /* CUT=切り欠きの角度 */
   const align=az=>(90-(az+CUT-5))*Math.PI/180; /* 主断面がほぼ正面を向く yaw */
   let cur={L:.7,C:.12,h:250},yawOff=0,cutBase=250,yawT=align(250),yaw=yawT,pitch=.38,
       drag=null,chase=true,
@@ -627,9 +669,7 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
   const projW=p=>{const x1=p[0]*cyw-p[2]*syw,z1=p[0]*syw+p[2]*cyw;
     return{x:CX+x1,y:CY-(p[1]*cpt-z1*spt),d:p[1]*spt+z1*cpt}};
   const pjm=w=>projW(mixW(w));
-  const DM=[Math.hypot(.37*RSf,.5*VSf),Math.hypot(HR,.5*VSf),.9*KC];
   const inCut=az=>cutA>.5&&((az[mode]-cutBase+360)%360)<=cutA;
-  const face=(c,fill)=>({d:(c[0].d+c[1].d+c[2].d+c[3].d)/4,c,fill});
   /* 立方体モードの断面用:灰色軸(=白黒対角線)から方位 az へ伸ばした光線の表面到達距離 */
   const dirOf=azd=>{const a=azd*Math.PI/180,c=Math.cos(a)/SQ6,s=Math.sin(a)/SQ2;
     return[2*c,-c+s,-c-s]};
@@ -647,8 +687,6 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
         pts.push(wCube([u+t*dir[0],u+t*dir[1],u+t*dir[2]]))}
       pts.push(wCube([.99,.99,.99]))}
     return pts};
-  /* sRGB の外の色を立方体の外にも置けるよう、ガンマを区分的に外挿 */
-  const gamE=c=>c<=0?-gam(-c):c>=1?1+(c-1)*.44:gam(c);
   const draw=()=>{ctx.clearRect(0,0,W,Hh);
     cyw=Math.cos(yaw);syw=Math.sin(yaw);cpt=Math.cos(pitch);spt=Math.sin(pitch);
     const DMAX=DM[m0]+(DM[m1]-DM[m0])*Math.max(0,Math.min(1,mt));
@@ -691,11 +729,6 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
                              projW(pos(u1,f1)),projW(pos(u1,f0))],col((u0+u1)/2,(f0+f1)/2)))}}};
       wall(cutBase,false);wall((cutBase+cutA)%360,true)}
     /* 稜線と切り口の縁:面と同じ深度ソートに乗せ、奥側は殻に隠れさせる */
-    const vc=(P0,Pa,Pb,Pr)=>{const ax=Pa.x-P0.x,ay=Pa.y-P0.y,ad=Pa.d-P0.d,
-        bx=Pb.x-P0.x,by=Pb.y-P0.y,bd=Pb.d-P0.d,
-        nx=ay*bd-ad*by,ny=ad*bx-ax*bd,nd=ax*by-ay*bx;
-      /* すれすれ(掠射)は隠れ線が透けやすいので、視線側 7° 以上を要求 */
-      return (nx*(Pr.x-P0.x)+ny*(Pr.y-P0.y)+nd*(Pr.d-P0.d)>0?-nd:nd)>.15*Math.hypot(nx,ny,nd)};
     const pushLine=(pl,st,clip,top)=>{let run=null,dm=0;
       const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:top?1e9:dm+18,st})};
       for(let i=0;i<pl.length;i++){const s=pl[i];
@@ -800,7 +833,6 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
   document.getElementById('g3r-h').addEventListener('input',()=>{yawT=align(cutBase)+yawOff;chase=true});
   /* ---- モデル切り替え:切り口を閉じる→同じ色同士で座標をモーフ→新しい方位で開く。
      色・スライダー・視角は引き継ぐ(reduced-motion なら即切り替え) ---- */
-  const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
   const setMode=m=>{if(m===mode||phase)return;
     document.querySelectorAll('#g3-mode button').forEach(b=>b.classList.toggle('on',+b.dataset.m===m));
     if(!anim||!cv.offsetParent){mode=m0=m1=m;mt=1;cutA=CUT;
@@ -857,6 +889,134 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
   document.getElementById('g-srgb').style.background=`linear-gradient(90deg,${a},${b})`;
   document.getElementById('g-okl').style.background=`linear-gradient(in oklch 90deg,${a},${b})`};
 ['r-h1','r-h2'].forEach(id=>document.getElementById(id).addEventListener('input',grad));grad();
+
+/* ============ グラデーションの軌跡(10 枚目:切り欠き無しの立体+2 本の道) ============ */
+(()=>{const cv=document.getElementById('g4-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  const CX=W*.33,CY=Hh*.5;
+  let yaw=(90-177)*Math.PI/180,pitch=.38,drag=null,
+      mode=0,m0=0,m1=0,mt=1,t0=0,cyw=1,syw=0,cpt=1,spt=0,traj=null,dirty=false;
+  const anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const mixW=w=>{if(mt>=1)return w[m1];if(mt<=0)return w[m0];
+    const a=w[m0],b=w[m1];
+    return[a[0]+(b[0]-a[0])*mt,a[1]+(b[1]-a[1])*mt,a[2]+(b[2]-a[2])*mt]};
+  const projW=p=>{const x1=p[0]*cyw-p[2]*syw,z1=p[0]*syw+p[2]*cyw;
+    return{x:CX+x1,y:CY-(p[1]*cpt-z1*spt),d:p[1]*spt+z1*cpt}};
+  const pjm=w=>projW(mixW(w));
+  /* 9 枚目の 2 本の帯を軌跡に。各点が 3 モードぶんのワールド座標と実色を持ち、
+     モーフにもそのまま乗る。sRGB 補間=ガンマ済み RGB の直線、oklch 補間=L/C 直線+H 短弧 */
+  const rebuild=()=>{const h1=+document.getElementById('g4r-h1').value,
+      h2=+document.getElementById('g4r-h2').value;
+    document.getElementById('g4v-h1').textContent=h1+'°';
+    document.getElementById('g4v-h2').textContent=h2+'°';
+    const ca=`oklch(0.7 0.15 ${h1})`,cb=`oklch(0.78 0.15 ${h2})`;
+    document.getElementById('g4b-s').style.background=`linear-gradient(90deg,${ca},${cb})`;
+    document.getElementById('g4b-o').style.background=`linear-gradient(in oklch 90deg,${ca},${cb})`;
+    /* 端点は sRGB へ clip した実色で共有(画面に出る帯の端点と一致させる) */
+    const A=okToLin(.7,.15,h1).map(cl01),B=okToLin(.78,.15,h2).map(cl01),
+          Ag=A.map(gam),Bg=B.map(gam),
+          oa=okFromLin(A[0],A[1],A[2]),ob=okFromLin(B[0],B[1],B[2]);
+    let dH=(ob[2]-oa[2]+360)%360;if(dH>180)dH-=360;
+    const sr=[],okl=[],N=64;
+    for(let k=0;k<=N;k++){const t=k/N;
+      const g=Ag.map((v,j)=>v+(Bg[j]-v)*t),lin=g.map(degam),
+            o=okFromLin(lin[0],lin[1],lin[2]);
+      sr.push({w:[wOk(o[0],o[1],o[2]),wHsl(g),wCube(g)],
+               col:`rgb(${g.map(c=>Math.round(c*255)).join(' ')})`});
+      const L=oa[0]+(ob[0]-oa[0])*t,C=oa[1]+(ob[1]-oa[1])*t,H=(oa[2]+dH*t+360)%360,
+            li=okToLin(L,C,H),gc=li.map(c=>gam(cl01(c)));
+      okl.push({w:[wOk(L,C,H),wHsl(gc),wCube(li.map(gamE))],
+                col:`oklch(${L.toFixed(4)} ${C.toFixed(4)} ${H.toFixed(1)})`})}
+    traj={sr,okl}};
+  const pushLine=(pl,faces)=>{let run=null;
+    const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:1e9,st:0})};
+    for(let k=0;k<pl.length;k++){const s=pl[k],q=pjm(s.w),t2=pl[k+1]||pl[k-1];
+      if(!vc(q,pjm(t2.w),pjm(s.w1),pjm(s.wr))&&!vc(q,pjm(t2.w),pjm(s.w2),pjm(s.wr))){
+        fl();run=null;continue}
+      if(!run){run=[q];continue}
+      run.push(q);if(run.length>3){fl();run=[q]}}
+    fl()};
+  /* 軌跡は殻の最前面に描く(中に埋めると見えない——現在点マーカーと同じレントゲン流儀) */
+  const strokeTraj=tr=>{const P2=tr.map(s=>pjm(s.w));
+    ctx.lineCap='round';
+    ctx.strokeStyle='oklch(0.12 0 0/.55)';ctx.lineWidth=11;
+    ctx.beginPath();ctx.moveTo(P2[0].x,P2[0].y);
+    for(let k=1;k<P2.length;k++)ctx.lineTo(P2[k].x,P2[k].y);
+    ctx.stroke();
+    ctx.lineWidth=6.5;
+    for(let k=0;k+1<P2.length;k++){ctx.strokeStyle=tr[k].col;
+      ctx.beginPath();ctx.moveTo(P2[k].x,P2[k].y);ctx.lineTo(P2[k+1].x,P2[k+1].y);ctx.stroke()}
+    return P2};
+  const draw=()=>{ctx.clearRect(0,0,W,Hh);
+    cyw=Math.cos(yaw);syw=Math.sin(yaw);cpt=Math.cos(pitch);spt=Math.sin(pitch);
+    const DMAX=DM[m0]+(DM[m1]-DM[m0])*Math.max(0,Math.min(1,mt));
+    const P=V.map(col=>col.map(pjm));
+    const faces=[];
+    for(const q of quads){const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
+      f.fill=q.sh[Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
+    const pB=pjm(poleB),pT=pjm(poleT);
+    for(const c2 of caps){const pole=c2.li?pT:pB;
+      faces.push(face([pole,P[c2.hi][c2.li],P[(c2.hi+1)%HN][c2.li],pole],c2.fill))}
+    for(const pl of edges12)pushLine(pl,faces);
+    for(const cn of corner6){const P0=pjm(cn.w),R=pjm(cn.wr),J=cn.wj.map(pjm);
+      if(!vc(P0,J[1],J[2],R)&&!vc(P0,J[0],J[2],R)&&!vc(P0,J[0],J[1],R))continue;
+      faces.push({dot:P0,d:1e9,fill:cn.fill})}
+    faces.sort((a,b)=>a.d-b.d);
+    ctx.lineJoin='round';
+    for(const f of faces){
+      if(f.pts){for(const [ss,lw] of EST[f.st]){ctx.strokeStyle=ss;ctx.lineWidth=lw;
+          ctx.beginPath();ctx.moveTo(f.pts[0].x,f.pts[0].y);
+          for(let k=1;k<f.pts.length;k++)ctx.lineTo(f.pts[k].x,f.pts[k].y);ctx.stroke()}continue}
+      if(f.dot){ctx.beginPath();ctx.arc(f.dot.x,f.dot.y,9,0,7);
+        ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='oklch(0.97 0 0/.8)';ctx.lineWidth=2;ctx.stroke();continue}
+      ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
+      for(let k=1;k<4;k++)ctx.lineTo(f.c[k].x,f.c[k].y);ctx.closePath();
+      ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
+    /* 明度軸 */
+    const tp=pjm(poleT),bp=pjm(poleB);
+    ctx.strokeStyle='oklch(0.6 0.015 275)';ctx.lineWidth=2;ctx.setLineDash([8,8]);
+    ctx.beginPath();ctx.moveTo(bp.x,bp.y);ctx.lineTo(tp.x,tp.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='oklch(0.8 0.01 275)';ctx.font='34px "Hiragino Sans",sans-serif';ctx.textAlign='left';
+    ctx.shadowColor='oklch(0 0 0/.75)';ctx.shadowBlur=8;
+    const lb=mode===2?['白','黒']:['L=1 白','L=0 黒'];
+    ctx.fillText(lb[0],tp.x+30,tp.y+4);ctx.fillText(lb[1],bp.x+30,bp.y+10);
+    ctx.shadowBlur=0;
+    const Ps=strokeTraj(traj.sr),Po=strokeTraj(traj.okl);
+    /* ラベルは 2 本の中点を互いに離す方向へ逃がす */
+    const ms=Ps[32],mo=Po[32];
+    let dx=ms.x-mo.x,dy=ms.y-mo.y,dd=Math.hypot(dx,dy);
+    if(dd<24){dx=0;dy=-1;dd=1}
+    ctx.font='30px "Hiragino Sans",sans-serif';ctx.textAlign='center';
+    ctx.shadowColor='oklch(0 0 0/.8)';ctx.shadowBlur=9;ctx.fillStyle='#fff';
+    ctx.fillText('sRGB',ms.x+dx/dd*66,ms.y+dy/dd*66+10);
+    ctx.fillText('in oklch',mo.x-dx/dd*66,mo.y-dy/dd*66+10);
+    ctx.shadowBlur=0;
+    for(const [p,c] of [[Ps[0],traj.sr[0].col],[Ps[64],traj.sr[64].col]]){
+      ctx.beginPath();ctx.arc(p.x,p.y,13,0,7);ctx.fillStyle=c;ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.stroke()}};
+  cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};
+    cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;
+    yaw+=(e.clientX-drag.x)*.008;pitch=Math.max(-1.2,Math.min(1.2,pitch+(e.clientY-drag.y)*.006));
+    drag={x:e.clientX,y:e.clientY};draw()});
+  addEventListener('pointerup',()=>{if(drag){drag=null;cv.style.cursor='grab'}});
+  /* 切り欠きが無いのでモード切り替えはモーフのみ。軌跡も殻と一緒に変形する */
+  const step=ts=>{if(!t0)t0=ts;mt=easeIO(Math.min(1,(ts-t0)/D2));draw();
+    if(mt<1)requestAnimationFrame(step);else{m0=m1;t0=0}};
+  const setMode=m=>{if(m===mode||mt<1)return;
+    document.querySelectorAll('#g4-mode button').forEach(b=>b.classList.toggle('on',+b.dataset.m===m));
+    if(!anim||!cv.offsetParent){mode=m0=m1=m;mt=1;draw();return}
+    m0=mode;m1=mode=m;mt=0;t0=0;requestAnimationFrame(step)};
+  document.querySelectorAll('#g4-mode button').forEach(b=>
+    b.addEventListener('click',()=>setMode(+b.dataset.m)));
+  /* 9 枚目のスライダーと双方向同期(同じ 2 色の話なので)。隠れている間は dirty だけ立てる */
+  const idle=()=>{if(dirty&&cv.offsetParent){dirty=false;draw()}requestAnimationFrame(idle)};
+  const sync=(from,to)=>['h1','h2'].forEach(k=>{
+    document.getElementById(to+k).value=document.getElementById(from+k).value});
+  ['g4r-h1','g4r-h2'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
+    sync('g4r-','r-');grad();rebuild();draw()}));
+  ['r-h1','r-h2'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
+    sync('r-','g4r-');rebuild();dirty=true}));
+  rebuild();draw();requestAnimationFrame(idle)})();
 
 /* ============ ブランド差し替え ============ */
 document.querySelectorAll('.brand-picks button').forEach(b=>b.addEventListener('click',()=>{
