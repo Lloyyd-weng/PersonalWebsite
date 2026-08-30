@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OKLCH — 最近気になってる色の話</title>
+<style>
+/* ================================================================
+   DESIGN SYSTEM（通用层 — 每个 deck 复用，勿按页面改动）
+   ├ 0. tokens        颜色（全部 oklch）・字体
+   ├ 1. runtime       1280×720 画布・翻页・页码・印刷
+   ├ 2. 标题三级       L1 .sec 章节/金句 ／ L2 .tpage 标题页 ／ L3 .hd 内容页头
+   │                  └ .chead 延续页小头（拆页后的内容页用）
+   ├ 3. 间距           .slide 为 flex column + row-gap 24px：
+   │                  任何相邻块自动 ≥24px。塞不下＝拆页，不准压间距。
+   └ 4. 组件           .demo .takeaway .card pre range .twocol
+   ---------------------------------------------------------------
+   5. per-deck 层（本 deck 特有组件，场内统一）
+   ================================================================ */
+
+/* ---- 0. tokens ---- */
+:root{
+  --ah:85; /* アクセント色相。結びのスライダーで回る */
+  --bg:oklch(0.155 0.012 275);
+  --bg2:oklch(0.205 0.016 275);
+  --bg3:oklch(0.255 0.02 275);
+  --line:oklch(0.34 0.02 275);
+  --ink:oklch(0.94 0.008 275);
+  --dim:oklch(0.68 0.015 275);
+  --faint:oklch(0.52 0.015 275);
+  --acc:oklch(0.82 0.13 var(--ah));
+  --acc-soft:oklch(0.28 0.045 var(--ah));
+}
+body{background:#16161c;color:#ececf2} /* oklch 非対応時の最低限 */
+@supports (color:oklch(0 0 0)){ body{background:var(--bg);color:var(--ink)} }
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;
+  -webkit-font-smoothing:antialiased}
+code,pre,.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+/* ---- 1. runtime ---- */
+#deck{position:fixed;left:50%;top:50%;width:1280px;height:720px}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;row-gap:24px;
+  padding:64px 84px 56px;box-sizing:border-box;background:var(--bg)}
+.slide.on{display:flex;animation:appear .18s ease-out}
+@keyframes appear{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.slide.on{animation:none}}
+#pageno{position:fixed;right:28px;bottom:20px;font-size:19px;color:var(--faint);
+  font-variant-numeric:tabular-nums;z-index:5}
+body.on-cover #pageno{display:none}
+@media print{
+  html,body{overflow:visible}
+  #deck{position:static;transform:none!important;width:auto;height:auto}
+  .slide{display:flex;position:static;width:1280px;height:720px;page-break-after:always;animation:none}
+  #pageno{display:none}
+  @page{size:1280px 720px;margin:0}
+}
+
+/* ---- 2. 标题三级 ---- */
+.eyebrow{margin:0;font-size:19px;font-weight:600;letter-spacing:.24em;color:var(--acc)}
+/* L1 章节・金句页：大字居中，一场只出现在封面/章节转场/结尾 */
+.sec{justify-content:center;row-gap:0}
+.sec h2{margin:0;font-size:82px;line-height:1.35;font-weight:800}
+.sec h2 em{font-style:normal;color:var(--acc)}
+.sec .after{margin-top:36px;font-size:28px;color:var(--dim);line-height:1.7}
+/* L2 标题页：中字＋accent 短横线＋一句 lede。上三分之一起排，与 L1 区分 */
+.tpage{padding-top:170px;row-gap:0}
+.tpage .t2{margin:22px 0 0;font-size:56px;font-weight:800;line-height:1.4}
+.tpage .rule{width:72px;height:7px;border-radius:4px;background:var(--acc);margin-top:30px}
+.tpage .lede{margin:28px 0 0;font-size:26px;color:var(--dim);line-height:1.75;max-width:940px}
+/* L3 内容页头：eyebrow＋40px 标题（内容塞得下时才用） */
+.hd{display:flex;flex-direction:column;gap:10px}
+.hd h2{margin:0;font-size:40px;font-weight:700;line-height:1.35}
+/* 延续页小头：拆页后的内容页用，提示「还在同一小节」 */
+.chead{display:flex;align-items:baseline;gap:16px}
+.chead .t{font-size:20px;color:var(--faint)}
+
+/* ---- 4. 组件 ---- */
+.body{font-size:29px;line-height:1.7}
+.takeaway{margin-top:auto;padding:16px 26px;border-left:6px solid var(--acc);
+  background:var(--acc-soft);border-radius:0 12px 12px 0;
+  font-size:29px;font-weight:600;line-height:1.55}
+.takeaway small{display:block;font-size:21px;font-weight:400;color:var(--dim);margin-top:6px}
+.demo{background:var(--bg2);border:1px solid var(--line);border-radius:16px;
+  padding:24px 28px;box-sizing:border-box}
+.demo-cap{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px}
+.demo-cap b{font-size:23px;font-weight:700}
+.demo-cap span{font-size:19px;color:var(--faint)}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:22px 26px}
+.card h3{margin:0 0 14px;font-size:26px;color:var(--acc)}
+.card p{margin:0;font-size:23px;line-height:1.65;color:var(--dim)}
+.card p b{color:var(--ink)}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+pre{background:var(--bg2);border:1px solid var(--line);border-radius:14px;
+  padding:20px 26px;font-size:23px;line-height:1.62;margin:0;overflow:hidden}
+pre .c{color:var(--faint)}
+pre .k{color:var(--acc)}
+pre .v{color:oklch(0.8 0.11 160)}
+input[type=range]{appearance:none;-webkit-appearance:none;width:100%;height:16px;
+  border-radius:8px;background:var(--bg3);outline:none;margin:6px 0}
+input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;
+  width:30px;height:30px;border-radius:50%;background:var(--ink);
+  border:4px solid var(--bg);box-shadow:0 1px 6px oklch(0 0 0/.5);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;
+  background:var(--ink);border:4px solid var(--bg);cursor:pointer}
+input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
+.sl-top{display:flex;justify-content:space-between;font-size:21px;margin-bottom:2px}
+.sl-top .v{color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ================================================================
+   5. per-deck 层（OKLCH deck 特有）
+   ================================================================ */
+/* 表紙 */
+.cover{justify-content:center;row-gap:0}
+.cover .kicker{font-size:22px;letter-spacing:.28em;color:var(--acc);font-weight:600;margin:0 0 30px}
+.cover h1{margin:0;font-size:76px;font-weight:800;line-height:1.25}
+.cover .wordmark{font-size:150px;letter-spacing:.04em;line-height:1.1}
+.cover .sub{font-size:31px;color:var(--dim);margin:26px 0 0}
+.cover .sub code{color:var(--acc);font-size:29px}
+.cover .who{margin-top:56px;font-size:23px;color:var(--faint)}
+.cover .hueband{position:absolute;left:0;right:0;bottom:0;height:14px;
+  background:linear-gradient(in oklch longer hue 90deg,oklch(0.7 0.13 0),oklch(0.7 0.13 359))}
+/* 色相スキャン */
+.strips{position:relative}
+.strip-row{display:grid;grid-template-columns:170px 1fr;gap:12px;align-items:center;margin-bottom:6px}
+.strip-lb{font-size:16px;color:var(--dim);text-align:right;line-height:1.35;white-space:nowrap}
+.strip-lb b{color:var(--ink);font-size:20px}
+.strip-row canvas{width:100%;height:46px;border-radius:6px;display:block}
+.strip-row canvas.thin{height:22px}
+.marker{position:absolute;top:0;bottom:0;width:3px;background:var(--ink);
+  box-shadow:0 0 0 1.5px oklch(0 0 0/.55);pointer-events:none;border-radius:2px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+.cmp .lb{display:block;font-size:18px;color:var(--dim);margin-bottom:6px;font-family:ui-monospace,Menlo,monospace}
+.cmp-sw{height:62px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+/* 番地・天井 */
+.hue-dots{display:flex;gap:10px;margin:16px 0 0;flex-wrap:wrap}
+.hue-dots span{display:flex;align-items:center;gap:7px;font-size:20px;color:var(--dim)}
+.hue-dots i{width:26px;height:26px;border-radius:50%;display:inline-block;
+  border:1px solid oklch(1 0 0/.18)}
+/* グラデーション */
+.grad-row{display:grid;grid-template-columns:210px 1fr;gap:16px;align-items:center;margin-bottom:12px}
+.grad-lb{font-size:21px;color:var(--dim);text-align:right}
+.grad-lb b{color:var(--ink)}
+.grad-bar{height:52px;border-radius:10px}
+.grad-ctl{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:12px}
+/* from構文 */
+.st-demo{--brand:oklch(0.62 0.17 250)}
+.st-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.chip{padding:14px 24px;border-radius:12px;font-size:22px;font-weight:600;color:#fff;
+  text-shadow:0 1px 3px oklch(0 0 0/.35);border:none}
+.chip.base{background:var(--brand)}
+.chip.hov{background:oklch(from var(--brand) calc(l + 0.08) c h)}
+.chip.act{background:oklch(from var(--brand) calc(l - 0.06) c h)}
+.chip.dis{background:oklch(from var(--brand) l calc(c * 0.25) h)}
+.chip.ring{background:var(--brand);box-shadow:0 0 0 7px oklch(from var(--brand) l c h/.35)}
+.btn-live{cursor:pointer;transition:background .12s}
+.btn-live:hover{background:oklch(from var(--brand) calc(l + 0.08) c h)}
+.btn-live:active{background:oklch(from var(--brand) calc(l - 0.06) c h)}
+.brand-picks{display:flex;gap:10px;margin-left:auto}
+.brand-picks button{width:40px;height:40px;border-radius:50%;border:3px solid oklch(1 0 0/.25);cursor:pointer}
+.brand-picks button:focus-visible{outline:3px solid var(--acc)}
+/* テーマ着せ替え */
+.theme-demo{--h:250}
+.ramp{display:grid;grid-template-columns:repeat(11,1fr);gap:6px;margin:16px 0 20px}
+.ramp div{height:60px;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;
+  font-size:15px;color:oklch(1 0 0/.75);padding-bottom:5px;font-variant-numeric:tabular-nums}
+.mini-ui{display:flex;gap:18px;align-items:center;background:oklch(0.97 0.03 var(--h));
+  border-radius:14px;padding:18px 24px}
+.mini-ui .ttl{font-size:23px;font-weight:700;color:oklch(0.26 0.07 var(--h))}
+.mini-ui .badge{font-size:18px;padding:6px 14px;border-radius:999px;
+  background:oklch(0.88 0.08 var(--h));color:oklch(0.35 0.09 var(--h));font-weight:600}
+.mini-ui .go{margin-left:auto;padding:12px 26px;border:none;border-radius:10px;font-size:21px;
+  font-weight:700;color:#fff;background:oklch(0.53 0.14 var(--h))}
+.preset-chips{display:flex;gap:10px}
+.preset-chips button{padding:10px 18px;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg3);color:var(--ink);font-size:19px;cursor:pointer}
+.preset-chips button:focus-visible{outline:3px solid var(--acc)}
+/* 落とし穴 */
+.pit .n{display:inline-flex;width:44px;height:44px;border-radius:50%;background:var(--acc);
+  color:var(--bg);font-size:24px;font-weight:800;align-items:center;justify-content:center;margin-bottom:12px}
+.gray-pair{display:flex;gap:14px;margin-top:14px}
+.gray-pair div{flex:1;height:74px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:19px;color:#fff;text-shadow:0 1px 3px #000;text-align:center}
+.contrast-dots{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+.contrast-dots span{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:18px;color:var(--dim)}
+.contrast-dots i{width:64px;height:44px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;color:#fff;font-size:19px;font-weight:700}
+/* 対応状況 */
+.browsers{display:flex;gap:16px}
+.browsers div{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+  padding:16px 20px;font-size:22px;text-align:center}
+.browsers b{display:block;font-size:26px;margin-bottom:2px}
+/* 色域の立体 */
+.g3-stage{position:relative;flex:1;min-height:0}
+.g3-stage canvas{position:absolute;left:0;top:0;width:1112px;height:408px;
+  cursor:grab;touch-action:none}
+.g3-panel{position:absolute;right:0;top:10px;width:330px}
+.g3-cur{height:56px;border-radius:12px;border:1px solid oklch(1 0 0/.12);white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px}
+.g3-cur .cs{font-size:19px;font-weight:700;color:#fff;text-shadow:0 1px 4px oklch(0 0 0/.5);
+  font-variant-numeric:tabular-nums}
+.g3-cur .cs.sub{font-size:16px;opacity:.85;font-weight:400}
+.g3-note{margin:12px 0 0;font-size:18px;line-height:1.55;color:var(--faint)}
+.g3-tk{width:fit-content;max-width:840px}
+/* 結び */
+.finale .reveal{margin-top:44px;background:var(--bg2);border:1px solid var(--line);
+  border-radius:16px;padding:24px 30px;width:820px;box-sizing:border-box}
+.finale .reveal p{margin:0 0 12px;font-size:23px;color:var(--dim)}
+.finale .reveal p b{color:var(--ink)}
+.finale .link{margin-top:34px;font-size:24px;color:var(--dim)}
+.finale .link code{color:var(--acc);font-size:24px}
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- 1. 表紙（L1） -->
+<section class="slide cover">
+  <p class="kicker">社内シェア</p>
+  <h1 class="wordmark"><span style="color:oklch(0.82 0.13 25)">O</span><span style="color:oklch(0.82 0.13 90)">K</span><span style="color:oklch(0.82 0.13 150)">L</span><span style="color:oklch(0.82 0.13 250)">C</span><span style="color:oklch(0.82 0.13 328)">H</span></h1>
+  <p class="sub">CSS の新しい色の書き方 <code>oklch(0.7 0.12 250)</code></p>
+  <p class="who">Lloyd ・ 2026</p>
+  <div class="hueband"></div>
+</section>
+
+<!-- 2. 標題頁（L2） -->
+<section class="slide tpage">
+  <p class="eyebrow">まず見てほしい</p>
+  <h2 class="t2">「明度 50%」を<br>360 色ならべてみる</h2>
+  <div class="rule"></div>
+  <p class="lede">色相だけを 0°→360° に変えて、明度の数字は固定したまま。<br>彩度を抜いた帯が「目に映る本当の明るさ」です。</p>
+</section>
+
+<!-- 3. 色相スキャン（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">まず見てほしい</p><span class="t">明度 50% × 360 色</span></div>
+  <div class="demo no-nav">
+    <div class="strips" id="strips">
+      <div class="strip-row"><div class="strip-lb"><b>HSL</b><br>hsl(H 100% 50%)</div><canvas id="c-hsl" width="960" height="56"></canvas></div>
+      <div class="strip-row"><div class="strip-lb">↑ 彩度を抜くと</div><canvas id="c-hsl-g" class="thin" width="960" height="30"></canvas></div>
+      <div class="strip-row" style="margin-top:12px"><div class="strip-lb"><b>OKLCH</b><br>oklch(0.7 0.12 H)</div><canvas id="c-okl" width="960" height="56"></canvas></div>
+      <div class="strip-row"><div class="strip-lb">↑ 彩度を抜くと</div><canvas id="c-okl-g" class="thin" width="960" height="30"></canvas></div>
+      <div class="marker" id="mk"></div>
+    </div>
+    <div class="sl-top" style="margin-top:10px"><span>色相をなぞってみる</span><span class="v" id="v-sweep">60°</span></div>
+    <input type="range" id="r-sweep" min="0" max="360" step="1" value="60" aria-label="色相">
+    <div class="cmp">
+      <div><span class="lb" id="lb-hsl">hsl(60 100% 50%)</span><div class="cmp-sw" id="cmp-hsl">—</div></div>
+      <div><span class="lb" id="lb-okl">oklch(0.7 0.12 60)</span><div class="cmp-sw" id="cmp-okl">—</div></div>
+    </div>
+  </div>
+  <div class="takeaway">HSL の「明度」は、色相を変えると体感が大暴れする<small>黄のあたりはまぶしく、青のあたりは真っ暗。数字は同じ 50% なのに</small></div>
+</section>
+
+<!-- 4. 金句（L1） -->
+<section class="slide sec">
+  <h2>HSL の L は、<br><em>人の目を見ていない。</em></h2>
+  <p class="after">RGB の数字を平均しているだけで、明るさの「体感」とは無関係。<br>だから <span class="mono">lighten()</span> や「hover で 5% 明るく」が色相ごとに壊れる。</p>
+</section>
+
+<!-- 5. 標題頁（L2） -->
+<section class="slide tpage">
+  <p class="eyebrow">OKLCH とは</p>
+  <h2 class="t2">ツマミ 3 本 ＝<br>立体の中の「住所」</h2>
+  <div class="rule"></div>
+  <p class="lede">L は高さ、C は軸からの距離、H は角度 — 円柱座標そのもの。<br>1 本だけ動かしても、ほかの 2 本は釣られません。</p>
+</section>
+
+<!-- 6. 色域の立体（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">OKLCH とは</p><span class="t">L=高さ・C=軸からの距離・H=角度</span></div>
+  <div class="g3-stage no-nav">
+    <canvas id="g3-cv" width="2224" height="816"></canvas>
+    <div class="g3-panel">
+      <div class="g3-cur" id="g3-cur">
+        <span class="cs" id="g3-css">oklch(0.70 0.120 250)</span>
+        <span class="cs sub" id="g3-hex">#61a3e6</span>
+      </div>
+      <div class="sl-top"><span><b>L</b>　高さ（0–1）</span><span class="v" id="g3v-l">0.70</span></div>
+      <input type="range" id="g3r-l" min="0.05" max="0.98" step="0.005" value="0.7" aria-label="明るさ L">
+      <div class="sl-top"><span><b>C</b>　軸からの距離（0–0.4）</span><span class="v" id="g3v-c">0.120</span></div>
+      <input type="range" id="g3r-c" min="0" max="0.4" step="0.002" value="0.12" aria-label="鮮やかさ C">
+      <div class="sl-top"><span><b>H</b>　角度（0–360°）</span><span class="v" id="g3v-h">250°</span></div>
+      <input type="range" id="g3r-h" min="0" max="360" step="1" value="250" aria-label="色相 H">
+      <p class="g3-note">ドラッグで回転。いまの色相のところで<br>切り開いてあります — H を回すと切り口も回る。</p>
+    </div>
+  </div>
+  <div class="takeaway g3-tk">1 本のツマミ ＝ 立体の中の 1 方向<small>かたちのデコボコ ＝ sRGB で出せる限界。壁の外に出ると「出せない色」</small></div>
+</section>
+
+<!-- 7. 引っ越しの注意（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">ただし</p>
+    <h2>HSL から「そのまま引っ越し」はできない</h2></div>
+  <div class="twocol">
+    <div class="card">
+      <h3>色相の番地が違う</h3>
+      <p>0° は赤じゃなくて<b>マゼンタ</b>。HSL の角度をそのまま持ってくると全部ずれる。</p>
+      <div class="hue-dots">
+        <span><i style="background:oklch(0.62 0.2 29)"></i>赤 29°</span>
+        <span><i style="background:oklch(0.8 0.16 90)"></i>黄 90°</span>
+        <span><i style="background:oklch(0.62 0.18 142)"></i>緑 142°</span>
+        <span><i style="background:oklch(0.62 0.18 264)"></i>青 264°</span>
+        <span><i style="background:oklch(0.62 0.22 328)"></i>マゼンタ 328°</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>C の天井は波打っている</h3>
+      <p>出せる鮮やかさの上限は<b>色相ごとに全然違う</b>（L=0.7 のとき、緑 0.236 / シアン 0.127）。</p>
+      <canvas id="c-gamut" width="470" height="148" style="width:100%;margin-top:10px"></canvas>
+    </div>
+  </div>
+  <div class="takeaway">「全部の色を C=0.2 で統一」は物理的に無理な色相がある<small>足りない分はブラウザが勝手に近い色へ丸める（エラーにはならない）</small></div>
+</section>
+
+<!-- 8. 標題頁（L2） -->
+<section class="slide tpage">
+  <p class="eyebrow">今日から使える ①</p>
+  <h2 class="t2">グラデーションの<br>「泥ゾーン」が消える</h2>
+  <div class="rule"></div>
+  <p class="lede">同じ 2 色でも、あいだの通り道はブラウザ任せ。<br>通り道を OKLCH に変えるだけで、中間の濁りが消えます。</p>
+</section>
+
+<!-- 9. グラデーション（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">グラデーションの泥ゾーン</span></div>
+  <div class="demo no-nav">
+    <div class="grad-row"><div class="grad-lb">いつもの<br><b>sRGB 補間</b></div><div class="grad-bar" id="g-srgb"></div></div>
+    <div class="grad-row"><div class="grad-lb"><b>in oklch</b> を<br>足しただけ</div><div class="grad-bar" id="g-okl"></div></div>
+    <div class="grad-ctl">
+      <div><div class="sl-top"><span>始点の色相</span><span class="v" id="v-h1">264°</span></div>
+        <input type="range" id="r-h1" min="0" max="360" step="1" value="264" aria-label="始点色相"></div>
+      <div><div class="sl-top"><span>終点の色相</span><span class="v" id="v-h2">90°</span></div>
+        <input type="range" id="r-h2" min="0" max="360" step="1" value="90" aria-label="終点色相"></div>
+    </div>
+  </div>
+  <pre>background: <span class="k">linear-gradient</span>(<span class="v">in oklch</span> 90deg, blue, yellow);</pre>
+  <div class="takeaway">書き足すのは <span class="mono">in oklch</span> の 8 文字だけ<small>color-mix() にも同じ指定ができる：color-mix(in oklch, var(--brand) 70%, white)</small></div>
+</section>
+
+<!-- 10. from構文（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">今日から使える ②</p>
+    <h2>1 色から、状態色を全部「計算」する</h2></div>
+  <pre>.btn:hover    { background: <span class="k">oklch</span>(<span class="v">from</span> var(--brand) <span class="k">calc</span>(l + 0.08) c h); }
+.btn:active   { background: <span class="k">oklch</span>(<span class="v">from</span> var(--brand) <span class="k">calc</span>(l - 0.06) c h); }
+.btn:disabled { background: <span class="k">oklch</span>(<span class="v">from</span> var(--brand) l <span class="k">calc</span>(c * 0.25) h); }
+.btn:focus    { outline-color: <span class="k">oklch</span>(<span class="v">from</span> var(--brand) l c h <span class="k">/</span> 0.4); }</pre>
+  <div class="demo no-nav st-demo" id="st-demo">
+    <div class="st-row">
+      <button class="chip base btn-live">触ってみて</button>
+      <span class="chip hov">hover</span>
+      <span class="chip act">active</span>
+      <span class="chip dis">disabled</span>
+      <span class="chip ring">focus</span>
+      <span class="brand-picks">
+        <button style="background:oklch(0.62 0.17 250)" data-b="oklch(0.62 0.17 250)" aria-label="青"></button>
+        <button style="background:oklch(0.58 0.19 25)" data-b="oklch(0.58 0.19 25)" aria-label="赤"></button>
+        <button style="background:oklch(0.6 0.15 155)" data-b="oklch(0.6 0.15 155)" aria-label="緑"></button>
+      </span>
+    </div>
+  </div>
+  <div class="takeaway">ブランド色を差し替えても、hover も disabled も勝手についてくる<small>注意：l は 0–1 の数値。calc(l - 10%) は無効、calc(l - 0.1) と書く</small></div>
+</section>
+
+<!-- 11. テーマ着せ替え（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">本命はこれ</p>
+    <h2>色相を 1 個変える ＝ テーマが丸ごと変わる</h2></div>
+  <div class="demo no-nav theme-demo" id="theme">
+    <div class="demo-cap"><b class="mono">--h: <span id="v-th">250</span></b>
+      <span class="preset-chips">
+        <button data-h="250">青</button><button data-h="30">赤</button>
+        <button data-h="150">緑</button><button data-h="328">マゼンタ</button>
+      </span>
+    </div>
+    <input type="range" id="r-th" min="0" max="360" step="1" value="250" aria-label="テーマ色相">
+    <div class="ramp">
+      <div style="background:oklch(0.97 0.030 var(--h));color:oklch(0.4 0.06 var(--h))">50</div>
+      <div style="background:oklch(0.93 0.050 var(--h));color:oklch(0.4 0.06 var(--h))">100</div>
+      <div style="background:oklch(0.88 0.080 var(--h));color:oklch(0.35 0.07 var(--h))">200</div>
+      <div style="background:oklch(0.80 0.110 var(--h));color:oklch(0.3 0.07 var(--h))">300</div>
+      <div style="background:oklch(0.71 0.130 var(--h))">400</div>
+      <div style="background:oklch(0.62 0.150 var(--h))">500</div>
+      <div style="background:oklch(0.53 0.140 var(--h))">600</div>
+      <div style="background:oklch(0.44 0.120 var(--h))">700</div>
+      <div style="background:oklch(0.35 0.090 var(--h))">800</div>
+      <div style="background:oklch(0.26 0.070 var(--h))">900</div>
+      <div style="background:oklch(0.20 0.050 var(--h))">950</div>
+    </div>
+    <div class="mini-ui">
+      <span class="ttl">請求書 #0042</span><span class="badge">支払い済み</span>
+      <button class="go">ダウンロード</button>
+    </div>
+  </div>
+  <div class="takeaway">明暗の設計（L の階段）はそのまま、色だけ着せ替わる<small>Tailwind v4 のデフォルトパレットもこの方式で再設計された</small></div>
+</section>
+
+<!-- 12. 落とし穴（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">ハマりどころ</p>
+    <h2>覚えて帰るのは 2 つだけ</h2></div>
+  <div class="twocol">
+    <div class="card pit">
+      <span class="n">1</span>
+      <h3>同じ L ≠ 同じコントラスト</h3>
+      <p>WCAG は別の物差しで測る。同じ L=0.62 でも色相で <b>3.45〜3.90</b> までばらつく。<b>4.5 ギリギリの色は必ず実測</b>。</p>
+      <div class="contrast-dots">
+        <span><i style="background:oklch(0.62 0.14 20)">3.90</i>赤</span>
+        <span><i style="background:oklch(0.62 0.14 90)">3.66</i>黄</span>
+        <span><i style="background:oklch(0.62 0.14 264)">3.70</i>青</span>
+        <span><i style="background:oklch(0.62 0.14 142)">3.45</i>緑</span>
+      </div>
+    </div>
+    <div class="card pit">
+      <span class="n">2</span>
+      <h3>L=0.5 は中間グレーじゃない</h3>
+      <p>目は暗い側に敏感なので、「体感の半分」は物理的にはかなり暗い。HSL の数字を<b>そのまま移すと全体が沈む</b>。</p>
+      <div class="gray-pair">
+        <div style="background:oklch(0.5 0 0)">oklch(0.5 0 0)<br>= #636363</div>
+        <div style="background:#808080">#808080 は<br>L ≒ 0.60</div>
+      </div>
+    </div>
+  </div>
+  <div class="takeaway">OKLCH は「予測しやすくする」道具で、検証を省く道具ではない</div>
+</section>
+
+<!-- 13. 対応状況（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">で、使えるの？</p>
+    <h2>もう普通に使える（Baseline 2023）</h2></div>
+  <div class="browsers">
+    <div><b>Chrome</b>111〜</div>
+    <div><b>Safari</b>15.4〜</div>
+    <div><b>Firefox</b>113〜</div>
+    <div><b>Edge</b>111〜</div>
+  </div>
+  <pre>.card {
+  background: <span class="v">#61a3e6</span>;               <span class="c">/* 古いブラウザはここで停止 */</span>
+  background: <span class="k">oklch</span>(0.7 0.12 250);   <span class="c">/* 対応ブラウザは上書き */</span>
+}</pre>
+  <div class="takeaway">道具はまず <span class="mono">oklch.com</span> だけ覚えれば OK<small>Evil Martians 製のピッカー。色域の崖がどこにあるかも見える</small></div>
+</section>
+
+<!-- 14. 結び（L1） -->
+<section class="slide sec finale">
+  <h2>色選びが、<br><em>手作業から工学になる。</em></h2>
+  <div class="reveal no-nav">
+    <p><b>種明かし：</b>このスライドの色も、ぜんぶ oklch() で書いてます。</p>
+    <div class="sl-top"><span>アクセントの色相（今：<span class="v" id="v-ah">85°</span>）</span></div>
+    <input type="range" id="r-ah" min="0" max="360" step="1" value="85" aria-label="スライドのアクセント色相">
+  </div>
+  <p class="link">じっくり版（全部さわれる図解）→ <code>lloyyd.com/artifact/oklch</code></p>
+</section>
+
+</div>
+<div id="pageno">1 / 14</div>
+
+<script>
+/* ============ 進行 ============ */
+const deck=document.getElementById('deck'),slides=[...document.querySelectorAll('.slide')];let i=0;
+const fit=()=>{const s=Math.min(innerWidth/1280,innerHeight/720);
+  deck.style.transform=`translate(-50%,-50%) scale(${s})`};
+const go=n=>{i=Math.max(0,Math.min(slides.length-1,n));
+  slides.forEach((el,k)=>el.classList.toggle('on',k===i));
+  history.replaceState(null,'','#'+(i+1));
+  document.getElementById('pageno').textContent=(i+1)+' / '+slides.length;
+  document.body.classList.toggle('on-cover',i===0)};
+addEventListener('keydown',e=>{
+  if(e.target.matches('input,button'))e.target.blur();
+  if(['ArrowRight',' ','PageDown'].includes(e.key)){e.preventDefault();go(i+1)}
+  else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();go(i-1)}
+  else if(e.key==='Home')go(0);else if(e.key==='End')go(slides.length-1);
+  else if(e.key==='f')document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()});
+addEventListener('click',e=>{
+  if(e.target.closest('input,button,a,canvas,.no-nav'))return;
+  if(e.clientX>innerWidth*2/3)go(i+1);else if(e.clientX<innerWidth/3)go(i-1)});
+addEventListener('resize',fit);fit();go((parseInt(location.hash.slice(1))||1)-1);
+
+/* ============ 色変換（Ottosson 行列・4基準点校験済み） ============ */
+const okToLin=(L,C,H)=>{const r=H*Math.PI/180,a=C*Math.cos(r),b=C*Math.sin(r);
+  const l_=L+0.3963377774*a+0.2158037573*b,m_=L-0.1055613458*a-0.0638541728*b,
+        s_=L-0.0894841775*a-1.2914855480*b,l=l_**3,m=m_**3,s=s_**3;
+  return [4.0767416621*l-3.3077115913*m+0.2309699292*s,
+         -1.2684380046*l+2.6097574011*m-0.3413193965*s,
+         -0.0041960863*l-0.7034186147*m+1.7076147010*s]};
+const gam=c=>{c=Math.min(1,Math.max(0,c));return c<=0.0031308?12.92*c:1.055*Math.pow(c,1/2.4)-0.055};
+const degam=c=>c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);
+const inGamut=rgb=>rgb.every(c=>c>=-1e-4&&c<=1+1e-4);
+const lum=rgb=>0.2126*Math.min(1,Math.max(0,rgb[0]))+0.7152*Math.min(1,Math.max(0,rgb[1]))+0.0722*Math.min(1,Math.max(0,rgb[2]));
+const hslLin=(h,s,l)=>{const f=n=>{const k=(n+h/30)%12,c=s*Math.min(l,1-l);
+  return l-c*Math.max(-1,Math.min(k-3,9-k,1))};return [degam(f(0)),degam(f(8)),degam(f(4))]};
+const okHex=(L,C,H)=>{const rgb=okToLin(L,C,H).map(gam);
+  return '#'+rgb.map(c=>Math.round(c*255).toString(16).padStart(2,'0')).join('')};
+
+/* ============ 色相スキャン ============ */
+const paint=(id,fn)=>{const cv=document.getElementById(id),ctx=cv.getContext('2d');
+  for(let x=0;x<cv.width;x++){ctx.fillStyle=fn(x/cv.width*360);ctx.fillRect(x,0,1.5,cv.height)}};
+paint('c-hsl',h=>`hsl(${h} 100% 50%)`);
+paint('c-hsl-g',h=>{const g=gam(lum(hslLin(h,1,.5)));return `rgb(${g*255} ${g*255} ${g*255})`});
+paint('c-okl',h=>`oklch(0.7 0.12 ${h})`);
+paint('c-okl-g',h=>{const g=gam(lum(okToLin(.7,.12,h)));return `rgb(${g*255} ${g*255} ${g*255})`});
+/* marker は CSS calc で配置：display:none 中でも正しい（clientWidth は使わない） */
+const sweep=()=>{const h=+document.getElementById('r-sweep').value;
+  document.getElementById('v-sweep').textContent=h+'°';
+  document.getElementById('mk').style.left=`calc(182px + (100% - 182px)*${(h/360).toFixed(4)})`;
+  const yh=lum(hslLin(h,1,.5)),yo=lum(okToLin(.7,.12,h));
+  const set=(sw,lb,css,y,txt)=>{const el=document.getElementById(sw);
+    el.style.background=css;el.textContent='実測明度 '+Math.round(y*100)+'%';
+    el.style.color=y>0.45?'oklch(0.2 0 0)':'#fff';
+    document.getElementById(lb).textContent=txt};
+  set('cmp-hsl','lb-hsl',`hsl(${h} 100% 50%)`,yh,`hsl(${h} 100% 50%)`);
+  set('cmp-okl','lb-okl',`oklch(0.7 0.12 ${h})`,yo,`oklch(0.7 0.12 ${h})`)};
+document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
+
+/* ============ 色域の立体 ============ */
+(()=>{const cv=document.getElementById('g3-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  const CX=W*.33,CY=Hh*.5,RSf=1500,VSf=720,CUT=90; /* CUT=切り欠きの角度 */
+  const cmaxLH=(L,h)=>{let lo=0,hi=.42;for(let k=0;k<16;k++){const m=(lo+hi)/2;
+    inGamut(okToLin(L,m,h))?lo=m:hi=m}return lo};
+  /* 外殻メッシュ。L の下端を 0.04 で切るのは真っ黒付近の数値誤差よけ
+     （全チャンネルが 0 に近づくと inGamut の許容誤差に全部収まってしまう） */
+  const HN=90,HS=360/HN,L0=.06,L1=.997,LN=48,LS=(L1-L0)/LN;
+  const V=[];
+  for(let hi=0;hi<HN;hi++){const h=hi*HS,col=[];
+    for(let li=0;li<=LN;li++){const L=L0+li*LS;col.push([L,cmaxLH(L,h),h])}
+    V.push(col)}
+  /* クワッドごとに sRGB 実色を 4 段階の明度で前計算（奥を暗くして立体感を出す） */
+  const quads=[];
+  for(let hi=0;hi<HN;hi++)for(let li=0;li<LN;li++){
+    const h2=(hi+1)%HN,hm=(hi+.5)*HS,Lm=L0+(li+.5)*LS,Cm=cmaxLH(Lm,hm)*.97;
+    const rgb=okToLin(Lm,Cm,hm).map(gam).map(c=>Math.max(0,Math.min(1,c)));
+    quads.push({v:[[hi,li],[h2,li],[h2,li+1],[hi,li+1]],hm,
+      sh:[1,.82,.64,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`)})}
+  const align=h=>(90-(h+CUT-5))*Math.PI/180; /* 主断面がほぼ正面を向く yaw */
+  const caps=[];
+  for(let hi=0;hi<HN;hi++){const h=(hi+.5)*HS,
+    rgb=okToLin(L0+.01,cmaxLH(L0+.01,h)*.9,h).map(gam).map(c=>Math.max(0,Math.min(1,c)));
+    caps.push({hi,hm:h,fill:`rgb(${rgb.map(c=>Math.round(c*180)).join(' ')})`})}
+  let cur={L:.7,C:.12,h:250},yawT=align(cur.h),yaw=yawT,pitch=.38,
+      drag=null,chase=true,
+      anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const proj=(L,C,h)=>{const a=h*Math.PI/180;
+    const x=C*Math.cos(a)*RSf,z=C*Math.sin(a)*RSf,y=(L-.5)*VSf;
+    const cyw=Math.cos(yaw),syw=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+    const x1=x*cyw-z*syw,z1=x*syw+z*cyw;
+    return {x:CX+x1,y:CY-(y*cp-z1*sp),d:y*sp+z1*cp}};
+  const DMAX=Math.hypot(.37*RSf,.5*VSf);
+  const face=(c,fill)=>({d:(c[0].d+c[1].d+c[2].d+c[3].d)/4,c,fill});
+  const draw=()=>{ctx.clearRect(0,0,W,Hh);
+    const P=V.map(col=>col.map(v=>proj(v[0],v[1],v[2])));
+    const faces=[];
+    /* 外殻：いまの H から +CUT° を切り欠いて断面を見せる */
+    for(const q of quads){if(((q.hm-cur.h+360)%360)<=CUT)continue;
+      const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
+      f.fill=q.sh[Math.max(0,Math.min(3,Math.round((1-(f.d/DMAX+1)/2)*3)))];faces.push(f)}
+    /* 底蓋(開口ふさぎ) */
+    const pole=proj(L0-.02,0,0);
+    for(const cp of caps){if(((cp.hm-cur.h+360)%360)<=CUT)continue;
+      faces.push(face([pole,P[cp.hi][0],P[(cp.hi+1)%HN][0],pole],cp.fill))}
+    /* 切り口の壁 2 枚。主壁＝いまの H の断面（真の色の L×C 切片）、奥壁は暗めに */
+    const RN=16,CN=6,wall=(h,dim)=>{
+      for(let li=0;li<RN;li++){const La=.03+(.95/RN)*li,Lb=La+.95/RN;
+        const Ca=cmaxLH(La,h),Cb=cmaxLH(Lb,h);
+        for(let ci=0;ci<CN;ci++){const f0=ci/CN,f1=(ci+1)/CN;
+          const c=[proj(La,Ca*f0,h),proj(La,Ca*f1,h),proj(Lb,Cb*f1,h),proj(Lb,Cb*f0,h)];
+          const Lm=(La+Lb)/2,Cm=(Ca+Cb)/2*(f0+f1)/2;
+          faces.push(face(c,dim?`oklch(${(Lm*.55).toFixed(3)} ${(Cm*.7).toFixed(3)} ${h})`
+                            :`oklch(${Lm.toFixed(3)} ${Cm.toFixed(3)} ${h})`))}}};
+    wall(cur.h,false);wall((cur.h+CUT)%360,true);
+    faces.sort((a,b)=>a.d-b.d);
+    for(const f of faces){ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
+      for(let i=1;i<4;i++)ctx.lineTo(f.c[i].x,f.c[i].y);ctx.closePath();
+      ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
+    /* L 軸（切り欠きから覗く） */
+    const t=proj(1,0,0),b=proj(0,0,0);
+    ctx.strokeStyle='oklch(0.6 0.015 275)';ctx.lineWidth=2;ctx.setLineDash([8,8]);
+    ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='oklch(0.8 0.01 275)';ctx.font='34px "Hiragino Sans",sans-serif';ctx.textAlign='left';
+    ctx.shadowColor='oklch(0 0 0/.75)';ctx.shadowBlur=8;
+    ctx.fillText('L=1 白',t.x+30,t.y+4);ctx.fillText('L=0 黒',b.x+30,b.y+10);
+    ctx.shadowBlur=0;ctx.textAlign='center';
+    /* 断面の縁（両端は軸上に固定：真っ黒近くの見かけの出っ張りを描かない） */
+    ctx.beginPath();const p0=proj(.02,0,cur.h);ctx.moveTo(p0.x,p0.y);
+    for(let L=.04;L<=.975;L+=.019){const q=proj(L,cmaxLH(L,cur.h),cur.h);ctx.lineTo(q.x,q.y)}
+    const p1=proj(.99,0,cur.h);ctx.lineTo(p1.x,p1.y);
+    ctx.strokeStyle='oklch(0.94 0.008 275/.9)';ctx.lineWidth=2.5;ctx.stroke();
+    /* 軸→現在点の引き出し線（＝C）と現在点。断面の上に乗る */
+    const ax=proj(cur.L,0,cur.h),pp=proj(cur.L,cur.C,cur.h),
+          out=cur.C>cmaxLH(cur.L,cur.h)+1e-4;
+    ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.setLineDash([6,7]);
+    ctx.beginPath();ctx.moveTo(ax.x,ax.y);ctx.lineTo(pp.x,pp.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(pp.x,pp.y,13,0,7);
+    if(out){ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([])}
+    else{ctx.fillStyle=`oklch(${cur.L} ${cur.C} ${cur.h})`;ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.stroke()}};
+  const upd=()=>{cur={L:+document.getElementById('g3r-l').value,
+      C:+document.getElementById('g3r-c').value,h:+document.getElementById('g3r-h').value};
+    document.getElementById('g3v-l').textContent=cur.L.toFixed(2);
+    document.getElementById('g3v-c').textContent=cur.C.toFixed(3);
+    document.getElementById('g3v-h').textContent=cur.h+'°';
+    const css=`oklch(${cur.L.toFixed(2)} ${cur.C.toFixed(3)} ${cur.h})`;
+    document.getElementById('g3-cur').style.background=css;
+    document.getElementById('g3-css').textContent=css;
+    document.getElementById('g3-hex').textContent=
+      inGamut(okToLin(cur.L,cur.C,cur.h))?okHex(cur.L,cur.C,cur.h):'sRGB の外';
+    draw()};
+  cv.addEventListener('pointerdown',e=>{chase=false;drag={x:e.clientX,y:e.clientY};
+    cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;
+    yaw+=(e.clientX-drag.x)*.008;pitch=Math.max(-1.2,Math.min(1.2,pitch+(e.clientY-drag.y)*.006));
+    drag={x:e.clientX,y:e.clientY};draw()});
+  addEventListener('pointerup',()=>{drag=null;cv.style.cursor='grab'});
+  ['g3r-l','g3r-c','g3r-h'].forEach(id=>document.getElementById(id).addEventListener('input',upd));
+  document.getElementById('g3r-h').addEventListener('input',()=>{yawT=align(cur.h);chase=true});
+  /* yaw を目標へ寄せる(短弧)。print 用に upd() で一度は必ず描く */
+  const loop=()=>{if(chase&&!drag&&cv.offsetParent){
+      let dy=(yawT-yaw)%(2*Math.PI);if(dy>Math.PI)dy-=2*Math.PI;if(dy<-Math.PI)dy+=2*Math.PI;
+      if(!anim){yaw=yawT;draw();chase=false}
+      else if(Math.abs(dy)>.003){yaw+=dy*.085;draw()}else{yaw=yawT;draw();chase=false}}
+    requestAnimationFrame(loop)};
+  upd();requestAnimationFrame(loop)})();
+
+/* ============ Cの天井 ============ */
+(()=>{const cv=document.getElementById('c-gamut'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  const cmax=h=>{let lo=0,hi=.4;for(let k=0;k<18;k++){const m=(lo+hi)/2;
+    inGamut(okToLin(.7,m,h))?lo=m:hi=m}return lo};
+  ctx.strokeStyle='oklch(0.4 0.02 275)';ctx.lineWidth=1;
+  ctx.strokeRect(0,0,W,Hh);
+  ctx.beginPath();
+  for(let x=0;x<=W;x++){const y=Hh-6-cmax(x/W*360)/0.33*(Hh-16);
+    x?ctx.lineTo(x,y):ctx.moveTo(x,y)}
+  ctx.strokeStyle='oklch(0.82 0.13 85)';ctx.lineWidth=3;ctx.stroke();
+  const Y=h=>Hh-6-cmax(h)/0.33*(Hh-16);
+  ctx.fillStyle='oklch(0.94 0.008 275)';ctx.font='15px ui-monospace,Menlo';
+  [[142,'緑',-14,-10],[180,'シアン',-24,26]].forEach(([h,t,dx,dy])=>{
+    ctx.beginPath();ctx.arc(W*h/360,Y(h),4.5,0,7);ctx.fill();
+    ctx.fillText(t+h+'°',W*h/360+dx,Y(h)+dy)});
+  ctx.fillStyle='oklch(0.62 0.015 275)';
+  ctx.fillText('0°',4,Hh-8);ctx.fillText('360°',W-38,Hh-8)})();
+
+/* ============ グラデーション ============ */
+const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.getElementById('r-h2').value;
+  document.getElementById('v-h1').textContent=h1+'°';
+  document.getElementById('v-h2').textContent=h2+'°';
+  const a=`oklch(0.7 0.15 ${h1})`,b=`oklch(0.78 0.15 ${h2})`;
+  document.getElementById('g-srgb').style.background=`linear-gradient(90deg,${a},${b})`;
+  document.getElementById('g-okl').style.background=`linear-gradient(in oklch 90deg,${a},${b})`};
+['r-h1','r-h2'].forEach(id=>document.getElementById(id).addEventListener('input',grad));grad();
+
+/* ============ ブランド差し替え ============ */
+document.querySelectorAll('.brand-picks button').forEach(b=>b.addEventListener('click',()=>{
+  document.getElementById('st-demo').style.setProperty('--brand',b.dataset.b)}));
+
+/* ============ テーマ着せ替え ============ */
+const theme=h=>{document.getElementById('theme').style.setProperty('--h',h);
+  document.getElementById('v-th').textContent=h;
+  document.getElementById('r-th').value=h};
+document.getElementById('r-th').addEventListener('input',e=>theme(+e.target.value));
+document.querySelectorAll('.preset-chips button').forEach(b=>b.addEventListener('click',()=>theme(+b.dataset.h)));
+
+/* ============ 種明かし ============ */
+document.getElementById('r-ah').addEventListener('input',e=>{
+  document.documentElement.style.setProperty('--ah',e.target.value);
+  document.getElementById('v-ah').textContent=e.target.value+'°'});
+</script>
+</body>
+</html>

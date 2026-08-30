@@ -13,6 +13,7 @@ export const NAV = [
   { label: "work", href: "/work" },
   { label: "blog", href: "/blog" },
   { label: "artifact", href: "/artifact" },
+  { label: "slides", href: "/slides" },
 ] as const;
 
 // Artifact —— 自成一页的交互式研究页面。每一篇是 src/pages/artifact/<slug>.astro,
@@ -37,6 +38,29 @@ export const ARTIFACTS: Artifact[] = [
       "OKLCH 色彩模型的交互式学习手册:从感知均匀性讲到 CSS 落地,含色相扫描对照、L/C/H 拆解器、色域天花板图与色阶生成器。",
     meta: "interactive · css color level 4 · 8 sections",
     pubDate: new Date("2026-08-21"),
+  },
+];
+
+// Slides —— 演讲用的 deck。每份是 public/slides/<slug>/index.html 里一个自足的
+// 单文件 HTML(1280×720 画布、键盘/点击翻页、@media print 出 PDF),不套站点布局、
+// 不进 sitemap(public 目录本来就不被 @astrojs/sitemap 收录),可以直接把文件发给别人。
+// 正本在本仓库;内容级改动(文案/知识点/页面增删)先回 ai/research 库定稿再同步过来。
+export interface SlideDeck {
+  slug: string;
+  title: string;
+  blurb: string; // 列表页那句话
+  meta: string; // 列表页标题旁的小字
+  pubDate: Date;
+}
+
+export const SLIDES: SlideDeck[] = [
+  {
+    slug: "oklch",
+    title: "OKLCH — 最近気になってる色の話",
+    blurb:
+      "日语社内分享:HSL 的 L 为什么不可信、OKLCH 的三个旋钮、渐变泥区、from() 语法、主题换装。全程可以现场拖着讲。",
+    meta: "ja · 14 slides · interactive",
+    pubDate: new Date("2026-08-30"),
   },
 ];
 

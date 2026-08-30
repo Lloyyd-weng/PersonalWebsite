@@ -1,0 +1,49 @@
+---
+// Slides 索引页。deck 本体是 public/slides/<slug>/index.html 的静态单文件,
+// 不走 Astro 路由 —— 这里只列条目,链接直达静态文件(见 consts.ts 里 SLIDES 的注释)。
+import Base from "../../layouts/Base.astro";
+import { SLIDES, formatDate } from "../../consts";
+
+const items = [...SLIDES].sort(
+  (a, b) => b.pubDate.valueOf() - a.pubDate.valueOf(),
+);
+---
+
+<Base
+  title="slides"
+  description="Talk decks by Lloyyd — self-contained HTML, arrow keys to flip, print to PDF."
+>
+  <main class="mx-auto w-full max-w-3xl px-6 pb-48 pt-16">
+    <h1 class="text-2xl font-medium tracking-tight">Slides</h1>
+    <p class="mt-4 text-muted">
+      Decks made to be presented — single-file HTML, arrow keys or click to
+      flip, print to PDF.
+    </p>
+
+    {
+      items.length === 0 ? (
+        <p class="mt-12 text-muted">Nothing here yet.</p>
+      ) : (
+        <ul class="mt-12 flex flex-col gap-8">
+          {items.map((item) => (
+            <li>
+              <a
+                href={`/slides/${item.slug}/`}
+                class="underline underline-offset-4 hover:text-muted"
+              >
+                {item.title}
+              </a>
+              <span class="ml-3 font-mono text-xs uppercase tracking-widest text-muted">
+                {formatDate(item.pubDate)}
+              </span>
+              <p class="mt-1.5 text-muted">{item.blurb}</p>
+              <p class="mt-1 font-mono text-xs uppercase tracking-widest text-muted">
+                {item.meta}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </main>
+</Base>
