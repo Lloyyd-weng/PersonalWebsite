@@ -517,11 +517,13 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
 /* ============ 色域の立体 ============ */
 (()=>{const cv=document.getElementById('g3-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
   const CX=W*.33,CY=Hh*.5,RSf=1500,VSf=720,CUT=90; /* CUT=切り欠きの角度 */
-  const cmaxLH=(L,h)=>{let lo=0,hi=.42;for(let k=0;k<16;k++){const m=(lo+hi)/2;
-    inGamut(okToLin(L,m,h))?lo=m:hi=m}return lo};
-  /* 外殻メッシュ。L の下端を 0.04 で切るのは真っ黒付近の数値誤差よけ
-     （全チャンネルが 0 に近づくと inGamut の許容誤差に全部収まってしまう） */
-  const HN=90,HS=360/HN,L0=.06,L1=.997,LN=48,LS=(L1-L0)/LN;
+  /* 境界判定の下限は厳密に:黒付近では線形 RGB が 1e-5 級になり、±1e-4 の
+     許容誤差が相対的に巨大化して C を数倍過大評価する(裾が広がって見えた原因) */
+  const inGB=rgb=>rgb.every(c=>c>=-1e-9&&c<=1+1e-4);
+  const cmaxLH=(L,h)=>{let lo=0,hi=.42;for(let k=0;k<18;k++){const m=(lo+hi)/2;
+    inGB(okToLin(L,m,h))?lo=m:hi=m}return lo};
+  /* 外殻メッシュ。判定を厳密化したので黒端は 0.03 まで下ろせる */
+  const HN=144,HS=360/HN,L0=.03,L1=.997,LN=72,LS=(L1-L0)/LN;
   const V=[];
   for(let hi=0;hi<HN;hi++){const h=hi*HS,col=[];
     for(let li=0;li<=LN;li++){const L=L0+li*LS;col.push([L,cmaxLH(L,h),h])}
@@ -532,7 +534,7 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     const h2=(hi+1)%HN,hm=(hi+.5)*HS,Lm=L0+(li+.5)*LS,Cm=cmaxLH(Lm,hm)*.97;
     const rgb=okToLin(Lm,Cm,hm).map(gam).map(c=>Math.max(0,Math.min(1,c)));
     quads.push({v:[[hi,li],[h2,li],[h2,li+1],[hi,li+1]],hm,
-      sh:[1,.82,.64,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`)})}
+      sh:[1,.9,.81,.73,.66,.59,.53,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`)})}
   /* ---- 真の稜線:この立体は RGB 立方体の像なので、稜は立方体 12 辺の像で尽きる ----
      下 3 本(黒→R/G/B)・中腰 6 本(R→Y→G→C→B→M→R、各色相の最大彩度の尾根)・上 3 本(Y/C/M→白) */
   const okFromLin=(r,g,bl)=>{const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*bl),
@@ -590,13 +592,13 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     /* 外殻：いまの H から +CUT° を切り欠いて断面を見せる */
     for(const q of quads){if(((q.hm-cur.h+360)%360)<=CUT)continue;
       const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
-      f.fill=q.sh[Math.max(0,Math.min(3,Math.round((1-(f.d/DMAX+1)/2)*3)))];faces.push(f)}
+      f.fill=q.sh[Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
     /* 底蓋(開口ふさぎ) */
     const pole=proj(L0-.02,0,0);
     for(const cp of caps){if(((cp.hm-cur.h+360)%360)<=CUT)continue;
       faces.push(face([pole,P[cp.hi][0],P[(cp.hi+1)%HN][0],pole],cp.fill))}
     /* 切り口の壁 2 枚。主壁＝いまの H の断面（真の色の L×C 切片）、奥壁は暗めに */
-    const RN=16,CN=6,wall=(h,dim)=>{
+    const RN=28,CN=10,wall=(h,dim)=>{
       for(let li=0;li<RN;li++){const La=.03+(.95/RN)*li,Lb=La+.95/RN;
         const Ca=cmaxLH(La,h),Cb=cmaxLH(Lb,h);
         for(let ci=0;ci<CN;ci++){const f0=ci/CN,f1=(ci+1)/CN;
@@ -628,7 +630,7 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
       fl()};
     for(const pl of edges12)pushLine(pl,0,true,true); /* 可視判定済みなので最前面 */
     {const h2=(cur.h+CUT)%360,pl2=[{p:[.02,0,h2]}]; /* 奥側の切り口の縁(手前は既存の白い縁) */
-     for(let L=.04;L<=.975;L+=.019)pl2.push({p:[L,cmaxLH(L,h2),h2]});
+     for(let L=.03;L<=.975;L+=.012)pl2.push({p:[L,cmaxLH(L,h2),h2]});
      pl2.push({p:[.99,0,h2]});pushLine(pl2,1,false)}
     for(const cn of corner6){if(((cn.p[2]-cur.h+360)%360)<=CUT)continue;
       const P0=pj3(cn.p),R=pj3(cn.r),J=cn.pj.map(pj3);
@@ -655,7 +657,7 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     ctx.shadowBlur=0;ctx.textAlign='center';
     /* 断面の縁（両端は軸上に固定：真っ黒近くの見かけの出っ張りを描かない） */
     ctx.beginPath();const p0=proj(.02,0,cur.h);ctx.moveTo(p0.x,p0.y);
-    for(let L=.04;L<=.975;L+=.019){const q=proj(L,cmaxLH(L,cur.h),cur.h);ctx.lineTo(q.x,q.y)}
+    for(let L=.03;L<=.975;L+=.012){const q=proj(L,cmaxLH(L,cur.h),cur.h);ctx.lineTo(q.x,q.y)}
     const p1=proj(.99,0,cur.h);ctx.lineTo(p1.x,p1.y);
     ctx.strokeStyle='oklch(0.94 0.008 275/.9)';ctx.lineWidth=2.5;ctx.stroke();
     /* 軸→現在点の引き出し線（＝C）と現在点。断面の上に乗る */
