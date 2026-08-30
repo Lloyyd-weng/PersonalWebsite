@@ -83,7 +83,7 @@
       <div class="picker">
         <div class="swatch" id="sw">
           <span class="cs" id="sw-css">oklch(0.70 0.12 250)</span>
-          <span class="cs" id="sw-hex" style="opacity:0.75">#6da3da</span>
+          <span class="cs" id="sw-hex" style="opacity:0.75">#61a3e6</span>
         </div>
         <div>
           <div class="sliders">
@@ -306,7 +306,7 @@ color: <span class="k">oklch</span>(0.7 0 none);</pre>
     <h3>兼容性与兜底</h3>
     <p>Chrome 111、Edge 111、Safari 15.4、Firefox 113 起支持，2023 年 5 月进入 Baseline。兜底最省事的办法就是利用层叠——把旧写法放前面，不认识 <code>oklch()</code> 的浏览器会跳过后一行：</p>
     <pre>.card {
-  background: <span class="k">#6da3da</span>;               <span class="c">/* 旧浏览器停在这 */</span>
+  background: <span class="k">#61a3e6</span>;               <span class="c">/* 旧浏览器停在这 */</span>
   background: <span class="k">oklch</span>(0.7 0.12 250);   <span class="c">/* 新浏览器覆盖 */</span>
 }</pre>
     <p>需要按能力分支时用 <code>@supports</code>；相对色语法的支持面比 <code>oklch()</code> 本身窄一些，值得单独探测：</p>
