@@ -65,6 +65,25 @@ Notion:内容是手写/生成的 HTML,直接进仓库,**不受 Notion 可用性�
 彼此不串味。**注意这跟「客户 landing 页」是两回事** —— 客户确认页仍然去 client-landings
 仓库,理由见上一节;artifact 是自己的东西,放这里没问题。
 
+## slides 栏目
+
+`/slides` 放演讲用的 deck,与 artifact 平行但存放方式不同:**deck 是自足的单文件 HTML,
+放 `public/slides/<slug>/index.html`,完全不走 Astro 管线**。这么做是为了保住 deck 的
+三个关键属性:可以离线打开演讲、可以把单个文件直接发给别人、`@media print` 一键出 PDF。
+副作用正好也是想要的 —— public 目录天然不被 `@astrojs/sitemap` 收录,deck 本体不进
+sitemap(只有 `/slides/` 索引页进)。
+
+加新 deck 两步:`public/slides/<slug>/index.html` 放文件,`src/consts.ts` 的 `SLIDES`
+数组补一条,索引页和导航自动跟上。
+
+**正本与回传规则**(与 `~/Documents/ai/research` 库的分工):deck 的正本在本仓库,
+演讲、分发、修改都以这里为准;但**内容级改动(文案、知识点、页面增删)要先回
+ai/research 库定稿再同步过来**,展示级强化(渲染、交互、构图)直接在这里做。
+research 库的 `presentations/` 下有各 deck 的 v1 快照、交接注记和演讲台本。
+
+改 deck 本体时注意:design system(tokens、标题三级、24px 间距、组件层)写在
+deck 文件头部注释里,新增页面必须遵循;互动区要包 `.no-nav` 类,否则点击会触发翻页。
+
 ## 已知技术债
 
 依赖里的 Astro 5 有一批已披露的 XSS 公告(`npm audit` 可见,最新版是 Astro 7)。本站纯静态、未使用 `define:vars`、spread props、server islands 等受影响特性,实际风险很低,但升级这件事一直挂着。升级时注意 Notion 同步脚本和 MDX/RSS/sitemap 集成的兼容性。
