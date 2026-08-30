@@ -196,6 +196,12 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .g3-stage canvas{position:absolute;left:0;top:0;width:1112px;height:520px;
   cursor:grab;touch-action:none}
 .g3-panel{position:absolute;right:0;top:10px;width:330px}
+.g3-mode{display:flex;gap:6px;background:var(--bg3);border:1px solid var(--line);
+  border-radius:12px;padding:5px;margin-bottom:12px}
+.g3-mode button{flex:1;padding:9px 0;border:none;border-radius:8px;background:transparent;
+  color:var(--dim);font-size:19px;font-weight:600;cursor:pointer;font-family:inherit}
+.g3-mode button.on{background:var(--acc-soft);color:var(--acc)}
+.g3-mode button:focus-visible{outline:3px solid var(--acc)}
 .g3-cur{min-height:80px;padding:10px 16px;border-radius:12px;border:1px solid oklch(1 0 0/.12);
   white-space:nowrap;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:3px;margin-bottom:12px}
@@ -273,6 +279,11 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="g3-stage no-nav">
     <canvas id="g3-cv" width="2224" height="1040"></canvas>
     <div class="g3-panel">
+      <div class="g3-mode" id="g3-mode" role="group" aria-label="モデル切り替え">
+        <button class="on" data-m="0" type="button">OKLCH</button>
+        <button data-m="1" type="button">HSL</button>
+        <button data-m="2" type="button">RGB</button>
+      </div>
       <div class="g3-cur" id="g3-cur">
         <span class="cs" id="g3-css">oklch(0.70 0.120 250)</span>
         <span class="cs sub" id="g3-hex">#61a3e6</span>
@@ -514,7 +525,7 @@ const sweep=()=>{const h=+document.getElementById('r-sweep').value;
   set('cmp-okl','lb-okl',`oklch(0.7 0.12 ${h})`,yo,`oklch(0.7 0.12 ${h})`)};
 document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
 
-/* ============ 色域の立体 ============ */
+/* ============ 色域の立体(OKLCH ⇄ HSL 円柱 ⇄ RGB 立方体) ============ */
 (()=>{const cv=document.getElementById('g3-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
   const CX=W*.33,CY=Hh*.5,RSf=1900,VSf=910,CUT=90; /* CUT=切り欠きの角度 */
   /* 境界判定の下限は厳密に:黒付近では線形 RGB が 1e-5 級になり、±1e-4 の
@@ -522,21 +533,7 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
   const inGB=rgb=>rgb.every(c=>c>=-1e-9&&c<=1+1e-4);
   const cmaxLH=(L,h)=>{let lo=0,hi=.42;for(let k=0;k<18;k++){const m=(lo+hi)/2;
     inGB(okToLin(L,m,h))?lo=m:hi=m}return lo};
-  /* 外殻メッシュ。判定を厳密化したので黒端は 0.03 まで下ろせる */
-  const HN=144,HS=360/HN,L0=.03,L1=.997,LN=72,LS=(L1-L0)/LN;
-  const V=[];
-  for(let hi=0;hi<HN;hi++){const h=hi*HS,col=[];
-    for(let li=0;li<=LN;li++){const L=L0+li*LS;col.push([L,cmaxLH(L,h),h])}
-    V.push(col)}
-  /* クワッドごとに sRGB 実色を 4 段階の明度で前計算（奥を暗くして立体感を出す） */
-  const quads=[];
-  for(let hi=0;hi<HN;hi++)for(let li=0;li<LN;li++){
-    const h2=(hi+1)%HN,hm=(hi+.5)*HS,Lm=L0+(li+.5)*LS,Cm=cmaxLH(Lm,hm)*.97;
-    const rgb=okToLin(Lm,Cm,hm).map(gam).map(c=>Math.max(0,Math.min(1,c)));
-    quads.push({v:[[hi,li],[h2,li],[h2,li+1],[hi,li+1]],hm,
-      sh:[1,.9,.81,.73,.66,.59,.53,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`)})}
-  /* ---- 真の稜線:この立体は RGB 立方体の像なので、稜は立方体 12 辺の像で尽きる ----
-     下 3 本(黒→R/G/B)・中腰 6 本(R→Y→G→C→B→M→R、各色相の最大彩度の尾根)・上 3 本(Y/C/M→白) */
+  const cl01=c=>Math.max(0,Math.min(1,c));
   const okFromLin=(r,g,bl)=>{const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*bl),
       m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*bl),
       s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*bl),
@@ -545,8 +542,40 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
       b=.0259040371*l+.7827717662*m-.808675766*s;
     let h=Math.atan2(b,a)*180/Math.PI;if(h<0)h+=360;
     return [L,Math.hypot(a,b),h]};
-  /* 各サンプルに「隣接 2 面へ少し入った点」q1/q2 と「内部へ入った点」r を持たせ、
-     描画時の可視判定(隣接面が視線側を向くか)に使う */
+  /* ---- 3 つの座標系。同じ色にモードごとのワールド座標 [x,y,z] を持たせ、
+     モーフは「同じ色の座標同士」の線形補間。y=高さ、方位 0°=+x ---- */
+  const toHsl=(r,g,b)=>{const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn;
+    if(d<1e-6)return[0,0,l];
+    const h=mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4;
+    return[h*60,Math.min(1,d/(1-Math.abs(2*l-1))),l]};
+  const HR=520,KC=500,SQ2=Math.sqrt(2),SQ3=Math.sqrt(3),SQ6=Math.sqrt(6);
+  const wOk=(L,C,h)=>{const a=h*Math.PI/180;
+    return[C*Math.cos(a)*RSf,(L-.5)*VSf,C*Math.sin(a)*RSf]};
+  const wHsl=g=>{const[hh,s,l]=toHsl(g[0],g[1],g[2]),a=hh*Math.PI/180;
+    return[s*Math.cos(a)*HR,(l-.5)*VSf,s*Math.sin(a)*HR]};
+  /* 立方体は黒→白の対角線を鉛直に立てる。R の方位が 0°(=HSL の赤)に合う基底 */
+  const wCube=g=>{const r=g[0]-.5,gr=g[1]-.5,b=g[2]-.5;
+    return[(2*r-gr-b)/SQ6*KC,(r+gr+b)/SQ3*KC,(gr-b)/SQ2*KC]};
+  const azOf=w=>{const a=Math.atan2(w[2],w[0])*180/Math.PI;return a<0?a+360:a};
+  const w3=(okl,g)=>[wOk(okl[0],okl[1],okl[2]),wHsl(g),wCube(g)];
+  const az3=(h,g)=>[h,toHsl(g[0],g[1],g[2])[0],azOf(wCube(g))];
+  /* 外殻メッシュ。判定を厳密化したので黒端は 0.03 まで下ろせる */
+  const HN=144,HS=360/HN,L0=.03,L1=.997,LN=72,LS=(L1-L0)/LN;
+  const V=[];
+  for(let hi=0;hi<HN;hi++){const h=hi*HS,col=[];
+    for(let li=0;li<=LN;li++){const L=L0+li*LS,C=cmaxLH(L,h);
+      col.push(w3([L,C,h],okToLin(L,C,h).map(gam)))}
+    V.push(col)}
+  /* クワッドごとに sRGB 実色を 8 段階の明度で前計算(奥を暗くして立体感を出す) */
+  const quads=[];
+  for(let hi=0;hi<HN;hi++)for(let li=0;li<LN;li++){
+    const h2=(hi+1)%HN,hm=(hi+.5)*HS,Lm=L0+(li+.5)*LS,Cm=cmaxLH(Lm,hm)*.97;
+    const rgb=okToLin(Lm,Cm,hm).map(gam);
+    quads.push({v:[[hi,li],[h2,li],[h2,li+1],[hi,li+1]],az:az3(hm,rgb),
+      sh:[1,.9,.81,.73,.66,.59,.53,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`)})}
+  /* ---- 真の稜線:この立体は RGB 立方体の像なので、稜は立方体 12 辺の像で尽きる ----
+     下 3 本(黒→R/G/B)・中腰 6 本(R→Y→G→C→B→M→R)・上 3 本(Y/C/M→白)。
+     HSL 円柱では中腰 6 本が赤道の円に、他は側面の縦線になる */
   const EPS=.03,edges12=[];
   for(const [ef,pw] of [
       [t=>[t,0,0],3],[t=>[0,t,0],3],[t=>[0,0,t],3],
@@ -555,99 +584,149 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
       [t=>[1,1,t],-3],[t=>[t,1,1],-3],[t=>[1,t,1],-3]]){
     const mid=ef(.5),bnd=[0,1,2].filter(k=>mid[k]===0||mid[k]===1);
     const relax=(c,ks)=>c.map((v,k)=>ks.includes(k)?(v===0?EPS:1-EPS):v);
+    const S=c=>w3(okFromLin(c[0],c[1],c[2]),c.map(gam));
     const pl=[]; /* 特異端(黒・白)寄りを密に採る */
     for(let i=0;i<=96;i++){let u=i/96;u=pw>0?u**pw:1-(1-u)**(-pw);
-      const c=ef(u),p=okFromLin(...c);
+      const c=ef(u),p=okFromLin(c[0],c[1],c[2]);
       if(p[0]<L0||p[0]>.995)continue;
-      pl.push({p,q1:okFromLin(...relax(c,[bnd[0]])),q2:okFromLin(...relax(c,[bnd[1]])),
-               r:okFromLin(...relax(c,bnd))})}
+      pl.push({az:az3(p[2],c.map(gam)),w:S(c),
+               w1:S(relax(c,[bnd[0]])),w2:S(relax(c,[bnd[1]])),wr:S(relax(c,bnd))})}
     if(pl.length>1)edges12.push(pl)}
-  /* 6 つの色の頂点(黒・白は軸ラベルが兼ねる)。pj=各面へ入った点、r=内部点 */
-  const corner6=[[1,0,0],[0,1,0],[0,0,1],[0,1,1],[1,0,1],[1,1,0]].map(c=>({
-    p:okFromLin(...c),
-    pj:[0,1,2].map(k=>okFromLin(...c.map((v,i)=>i===k?(v===0?EPS:1-EPS):v))),
-    r:okFromLin(...c.map(v=>v===0?EPS:1-EPS)),
-    fill:`rgb(${c.map(x=>Math.round(gam(x)*255)).join(' ')})`}));
-  /* 線種:0=真の稜線、1=奥側の切り口の縁。暗線+明線の二度描きで明暗どちらの面でも読める */
-  /* 線の太さの序列:切り口の縁(st1・手前の白線)>本来の 12 本の稜(st0)>切除側の幽霊稜(st2) */
+  /* 6 つの色の頂点(黒・白は軸ラベルが兼ねる)。wj=各面へ入った点、wr=内部点 */
+  const corner6=[[1,0,0],[0,1,0],[0,0,1],[0,1,1],[1,0,1],[1,1,0]].map(c=>{
+    const S=cc=>w3(okFromLin(cc[0],cc[1],cc[2]),cc.map(gam));
+    return{az:az3(okFromLin(c[0],c[1],c[2])[2],c.map(gam)),w:S(c),
+      wj:[0,1,2].map(k=>S(c.map((v,i)=>i===k?(v===0?EPS:1-EPS):v))),
+      wr:S(c.map(v=>v===0?EPS:1-EPS)),
+      fill:`rgb(${c.map(x=>Math.round(gam(x)*255)).join(' ')})`}});
+  /* 蓋(下=黒側・上=白側。OKLCH では上端がすぼまるのでほぼ見えない) */
+  const caps=[];
+  for(let hi=0;hi<HN;hi++){const h=(hi+.5)*HS;
+    const gb=okToLin(L0+.01,cmaxLH(L0+.01,h)*.9,h).map(gam);
+    caps.push({hi,li:0,az:az3(h,gb),fill:`rgb(${gb.map(c=>Math.round(c*180)).join(' ')})`});
+    const gt=okToLin(L1-.007,cmaxLH(L1-.007,h)*.9,h).map(gam);
+    caps.push({hi,li:LN,az:az3(h,gt),fill:`rgb(${gt.map(c=>Math.round(c*244)).join(' ')})`})}
+  const poleB=[wOk(L0-.02,0,0),[0,-.505*VSf,0],wCube([0,0,0])],
+        poleT=[wOk(.999,0,0),[0,.505*VSf,0],wCube([1,1,1])];
+  /* 線種:0=真の稜線、1=切り口の縁、2=幽霊稜線。暗線+明線の二度描き */
   const EST=[[['oklch(0.15 0 0/.32)',4.2],['oklch(0.97 0.005 275/.72)',2]],
              [['oklch(0.15 0 0/.3)',5.6],['oklch(0.82 0.012 275/.8)',3.2]],
              [['oklch(0.15 0 0/.22)',2.2],['oklch(0.88 0.01 275/.45)',1.1]]];
-  const align=h=>(90-(h+CUT-5))*Math.PI/180; /* 主断面がほぼ正面を向く yaw */
-  const caps=[];
-  for(let hi=0;hi<HN;hi++){const h=(hi+.5)*HS,
-    rgb=okToLin(L0+.01,cmaxLH(L0+.01,h)*.9,h).map(gam).map(c=>Math.max(0,Math.min(1,c)));
-    caps.push({hi,hm:h,fill:`rgb(${rgb.map(c=>Math.round(c*180)).join(' ')})`})}
-  let cur={L:.7,C:.12,h:250},yawOff=0,yawT=align(cur.h),yaw=yawT,pitch=.38,
+  const align=az=>(90-(az+CUT-5))*Math.PI/180; /* 主断面がほぼ正面を向く yaw */
+  let cur={L:.7,C:.12,h:250},yawOff=0,cutBase=250,yawT=align(250),yaw=yawT,pitch=.38,
       drag=null,chase=true,
+      mode=0,m0=0,m1=0,mt=1,cutA=CUT,phase=null,ph0=0,pend=0,
       anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
-  const proj=(L,C,h)=>{const a=h*Math.PI/180;
-    const x=C*Math.cos(a)*RSf,z=C*Math.sin(a)*RSf,y=(L-.5)*VSf;
-    const cyw=Math.cos(yaw),syw=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
-    const x1=x*cyw-z*syw,z1=x*syw+z*cyw;
-    return {x:CX+x1,y:CY-(y*cp-z1*sp),d:y*sp+z1*cp}};
-  const DMAX=Math.hypot(.37*RSf,.5*VSf);
+  /* いまの色の方位(=切り口の位置)。HSL/立方体では clip 後の色で決める */
+  const curAz=()=>{if(mode===0)return cur.h;
+    const g=okToLin(cur.L,cur.C,cur.h).map(gam);
+    return mode===1?toHsl(g[0],g[1],g[2])[0]:azOf(wCube(g))};
+  const mixW=w=>{if(mt>=1)return w[m1];if(mt<=0)return w[m0];
+    const a=w[m0],b=w[m1];
+    return[a[0]+(b[0]-a[0])*mt,a[1]+(b[1]-a[1])*mt,a[2]+(b[2]-a[2])*mt]};
+  let cyw=1,syw=0,cpt=1,spt=0;
+  const projW=p=>{const x1=p[0]*cyw-p[2]*syw,z1=p[0]*syw+p[2]*cyw;
+    return{x:CX+x1,y:CY-(p[1]*cpt-z1*spt),d:p[1]*spt+z1*cpt}};
+  const pjm=w=>projW(mixW(w));
+  const DM=[Math.hypot(.37*RSf,.5*VSf),Math.hypot(HR,.5*VSf),.9*KC];
+  const inCut=az=>cutA>.5&&((az[mode]-cutBase+360)%360)<=cutA;
   const face=(c,fill)=>({d:(c[0].d+c[1].d+c[2].d+c[3].d)/4,c,fill});
+  /* 立方体モードの断面用:灰色軸(=白黒対角線)から方位 az へ伸ばした光線の表面到達距離 */
+  const dirOf=azd=>{const a=azd*Math.PI/180,c=Math.cos(a)/SQ6,s=Math.sin(a)/SQ2;
+    return[2*c,-c+s,-c-s]};
+  const tmaxF=(dir,u)=>{let t=1e9;for(const dv of dir){
+    if(dv>1e-9)t=Math.min(t,(1-u)/dv);else if(dv<-1e-9)t=Math.min(t,u/(-dv))}return t};
+  /* 断面の輪郭(軸端→表面沿い→軸端)。HSL では長方形、立方体では折れ線になる */
+  const rimPts=azd=>{const pts=[];
+    if(mode===0){pts.push(wOk(.02,0,azd));
+      for(let L=.03;L<=.975;L+=.012)pts.push(wOk(L,cmaxLH(L,azd),azd));
+      pts.push(wOk(.99,0,azd))}
+    else if(mode===1){const a=azd*Math.PI/180,x=Math.cos(a)*HR,z=Math.sin(a)*HR;
+      pts.push([0,-.498*VSf,0],[x,-.498*VSf,z],[x,.498*VSf,z],[0,.498*VSf,0])}
+    else{const dir=dirOf(azd);pts.push(wCube([.01,.01,.01]));
+      for(let u=.02;u<=.985;u+=.02){const t=tmaxF(dir,u);
+        pts.push(wCube([u+t*dir[0],u+t*dir[1],u+t*dir[2]]))}
+      pts.push(wCube([.99,.99,.99]))}
+    return pts};
+  /* sRGB の外の色を立方体の外にも置けるよう、ガンマを区分的に外挿 */
+  const gamE=c=>c<=0?-gam(-c):c>=1?1+(c-1)*.44:gam(c);
   const draw=()=>{ctx.clearRect(0,0,W,Hh);
-    const P=V.map(col=>col.map(v=>proj(v[0],v[1],v[2])));
+    cyw=Math.cos(yaw);syw=Math.sin(yaw);cpt=Math.cos(pitch);spt=Math.sin(pitch);
+    const DMAX=DM[m0]+(DM[m1]-DM[m0])*Math.max(0,Math.min(1,mt));
+    const P=V.map(col=>col.map(pjm));
     const faces=[];
-    /* 外殻：いまの H から +CUT° を切り欠いて断面を見せる */
-    for(const q of quads){if(((q.hm-cur.h+360)%360)<=CUT)continue;
+    /* 外殻:切り欠き(モーフ中は閉じている)以外を描く */
+    for(const q of quads){if(inCut(q.az))continue;
       const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
       f.fill=q.sh[Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
-    /* 底蓋(開口ふさぎ) */
-    const pole=proj(L0-.02,0,0);
-    for(const cp of caps){if(((cp.hm-cur.h+360)%360)<=CUT)continue;
-      faces.push(face([pole,P[cp.hi][0],P[(cp.hi+1)%HN][0],pole],cp.fill))}
-    /* 切り口の壁 2 枚。主壁＝いまの H の断面（真の色の L×C 切片）、奥壁は暗めに */
-    const RN=28,CN=10,wall=(h,dim)=>{
-      for(let li=0;li<RN;li++){const La=.03+(.95/RN)*li,Lb=La+.95/RN;
-        const Ca=cmaxLH(La,h),Cb=cmaxLH(Lb,h);
-        for(let ci=0;ci<CN;ci++){const f0=ci/CN,f1=(ci+1)/CN;
-          const c=[proj(La,Ca*f0,h),proj(La,Ca*f1,h),proj(Lb,Cb*f1,h),proj(Lb,Cb*f0,h)];
-          const Lm=(La+Lb)/2,Cm=(Ca+Cb)/2*(f0+f1)/2;
-          faces.push(face(c,dim?`oklch(${(Lm*.55).toFixed(3)} ${(Cm*.7).toFixed(3)} ${h})`
-                            :`oklch(${Lm.toFixed(3)} ${Cm.toFixed(3)} ${h})`))}}};
-    wall(cur.h,false);wall((cur.h+CUT)%360,true);
-    /* 稜線と切り口の縁:面と同じ深度ソートに乗せ、奥側は殻に隠れさせる(+4 は面との z-fighting よけ) */
-    /* 面 (P0,Pa,Pb) が視線側を向くか。向きは内部点 Pr で外向きに揃える */
+    const pB=pjm(poleB),pT=pjm(poleT);
+    for(const c2 of caps){if(inCut(c2.az))continue;
+      const pole=c2.li?pT:pB;
+      faces.push(face([pole,P[c2.hi][c2.li],P[(c2.hi+1)%HN][c2.li],pole],c2.fill))}
+    const wallsOn=cutA>.5&&phase!=='morph';
+    if(wallsOn){
+      /* 切り口の壁 2 枚。主壁=いまの色の方位の断面(真の色)、奥壁は暗めに */
+      const RN=28,CN=10;
+      const wall=(azd,dim)=>{const a=azd*Math.PI/180;
+        const dir=mode===2?dirOf(azd):null;
+        const pos=(u,f)=>{
+          if(mode===0){const L=.03+.945*u;return wOk(L,cmaxLH(L,azd)*f,azd)}
+          if(mode===1)return[f*Math.cos(a)*HR,(.002+.996*u-.5)*VSf,f*Math.sin(a)*HR];
+          const uu=.01+.98*u,t=tmaxF(dir,uu)*f;
+          return wCube([uu+t*dir[0],uu+t*dir[1],uu+t*dir[2]])};
+        const col=(u,f)=>{
+          if(mode===0){const L=.03+.945*u,C=cmaxLH(L,azd)*f;
+            return dim?`oklch(${(L*.55).toFixed(3)} ${(C*.7).toFixed(3)} ${azd})`
+                      :`oklch(${L.toFixed(3)} ${C.toFixed(3)} ${azd})`}
+          if(mode===1){const l=.002+.996*u;
+            if(!dim)return `hsl(${azd.toFixed(1)} ${(f*100).toFixed(0)}% ${(l*100).toFixed(1)}%)`;
+            /* 奥壁の減光は RGB 空間で(l を下げると白が原色に化ける) */
+            const g2=n=>{const kk=(n+azd/30)%12,c2=f*Math.min(l,1-l);
+              return l-c2*Math.max(-1,Math.min(kk-3,9-kk,1))};
+            return `rgb(${[g2(0),g2(8),g2(4)].map(c=>Math.round(cl01(c)*140)).join(' ')})`}
+          const uu=.01+.98*u,t=tmaxF(dir,uu)*f,k=dim?140:255;
+          return `rgb(${[uu+t*dir[0],uu+t*dir[1],uu+t*dir[2]].map(c=>Math.round(cl01(c)*k)).join(' ')})`};
+        for(let ri=0;ri<RN;ri++){const u0=ri/RN,u1=(ri+1)/RN;
+          for(let ci=0;ci<CN;ci++){const f0=ci/CN,f1=(ci+1)/CN;
+            faces.push(face([projW(pos(u0,f0)),projW(pos(u0,f1)),
+                             projW(pos(u1,f1)),projW(pos(u1,f0))],col((u0+u1)/2,(f0+f1)/2)))}}};
+      wall(cutBase,false);wall((cutBase+cutA)%360,true)}
+    /* 稜線と切り口の縁:面と同じ深度ソートに乗せ、奥側は殻に隠れさせる */
     const vc=(P0,Pa,Pb,Pr)=>{const ax=Pa.x-P0.x,ay=Pa.y-P0.y,ad=Pa.d-P0.d,
         bx=Pb.x-P0.x,by=Pb.y-P0.y,bd=Pb.d-P0.d,
         nx=ay*bd-ad*by,ny=ad*bx-ax*bd,nd=ax*by-ay*bx;
       /* すれすれ(掠射)は隠れ線が透けやすいので、視線側 7° 以上を要求 */
       return (nx*(Pr.x-P0.x)+ny*(Pr.y-P0.y)+nd*(Pr.d-P0.d)>0?-nd:nd)>.15*Math.hypot(nx,ny,nd)};
-    const pj3=p=>proj(p[0],p[1],p[2]);
     const pushLine=(pl,st,clip,top)=>{let run=null,dm=0;
       const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:top?1e9:dm+18,st})};
       for(let i=0;i<pl.length;i++){const s=pl[i];
-        if(clip&&((s.p[2]-cur.h+360)%360)<=CUT){fl();run=null;continue}
-        const q=pj3(s.p);
-        if(s.q1){ /* 稜線:隣接 2 面がどちらも裏向きなら描かない */
-          const t=pl[i+1]||pl[i-1];
-          if(!vc(q,pj3(t.p),pj3(s.q1),pj3(s.r))&&
-             !vc(q,pj3(t.p),pj3(s.q2),pj3(s.r))){fl();run=null;continue}}
+        if(clip&&inCut(s.az)){fl();run=null;continue}
+        const q=pjm(s.w);
+        if(s.w1){ /* 稜線:隣接 2 面がどちらも裏向きなら描かない */
+          const t2=pl[i+1]||pl[i-1];
+          if(!vc(q,pjm(t2.w),pjm(s.w1),pjm(s.wr))&&
+             !vc(q,pjm(t2.w),pjm(s.w2),pjm(s.wr))){fl();run=null;continue}}
         if(!run){run=[q];dm=q.d;continue}
         run.push(q);dm=Math.max(dm,q.d);
         if(run.length>3){fl();run=[q];dm=q.d}}
       fl()};
     for(const pl of edges12)pushLine(pl,0,true,true); /* 可視判定済みなので最前面 */
-    /* 幽霊稜線:切除された 90° 楔に属する稜の区間。細く淡く描き、全体の形を想像させる。
-       空中に浮くので面との z-fighting は無く、素の深度ソートだけで殻の裏に正しく隠れる */
-    const pushGhost=pl=>{let run=null,dm=0;
-      const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:dm+2,st:2})};
-      for(const s of pl){
-        if(((s.p[2]-cur.h+360)%360)>CUT){fl();run=null;continue}
-        const q=pj3(s.p);
-        if(!run){run=[q];dm=q.d;continue}
-        run.push(q);dm=Math.max(dm,q.d);
-        if(run.length>3){fl();run=[q];dm=q.d}}
-      fl()};
-    for(const pl of edges12)pushGhost(pl);
-    {const h2=(cur.h+CUT)%360,pl2=[{p:[.02,0,h2]}]; /* 奥側の切り口の縁(手前は既存の白い縁) */
-     for(let L=.03;L<=.975;L+=.012)pl2.push({p:[L,cmaxLH(L,h2),h2]});
-     pl2.push({p:[.99,0,h2]});pushLine(pl2,1,false)}
-    for(const cn of corner6){if(((cn.p[2]-cur.h+360)%360)<=CUT)continue;
-      const P0=pj3(cn.p),R=pj3(cn.r),J=cn.pj.map(pj3);
+    if(wallsOn){
+      /* 幽霊稜線:切除された楔に属する稜の区間。細く淡く描き、全体の形を想像させる */
+      const pushGhost=pl=>{let run=null,dm=0;
+        const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:dm+2,st:2})};
+        for(const s of pl){
+          if(!inCut(s.az)){fl();run=null;continue}
+          const q=pjm(s.w);
+          if(!run){run=[q];dm=q.d;continue}
+          run.push(q);dm=Math.max(dm,q.d);
+          if(run.length>3){fl();run=[q];dm=q.d}}
+        fl()};
+      for(const pl of edges12)pushGhost(pl);
+      /* 奥側の切り口の縁(手前は最後に描く白い縁) */
+      pushLine(rimPts((cutBase+cutA)%360).map(w=>({w:[w,w,w]})),1,false)}
+    for(const cn of corner6){if(inCut(cn.az))continue;
+      const P0=pjm(cn.w),R=pjm(cn.wr),J=cn.wj.map(pjm);
       if(!vc(P0,J[1],J[2],R)&&!vc(P0,J[0],J[2],R)&&!vc(P0,J[0],J[1],R))continue;
       faces.push({dot:P0,d:1e9,fill:cn.fill})}
     faces.sort((a,b)=>a.d-b.d);
@@ -661,36 +740,45 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
       ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
       for(let i=1;i<4;i++)ctx.lineTo(f.c[i].x,f.c[i].y);ctx.closePath();
       ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
-    /* L 軸（切り欠きから覗く） */
-    const t=proj(1,0,0),b=proj(0,0,0);
+    /* 明度軸(切り欠きから覗く。立方体では黒→白の対角線がそのまま鉛直軸) */
+    const tp=pjm(poleT),bp=pjm(poleB);
     ctx.strokeStyle='oklch(0.6 0.015 275)';ctx.lineWidth=2;ctx.setLineDash([8,8]);
-    ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(bp.x,bp.y);ctx.lineTo(tp.x,tp.y);ctx.stroke();ctx.setLineDash([]);
     ctx.fillStyle='oklch(0.8 0.01 275)';ctx.font='34px "Hiragino Sans",sans-serif';ctx.textAlign='left';
     ctx.shadowColor='oklch(0 0 0/.75)';ctx.shadowBlur=8;
-    ctx.fillText('L=1 白',t.x+30,t.y+4);ctx.fillText('L=0 黒',b.x+30,b.y+10);
+    const lb=mode===2?['白','黒']:['L=1 白','L=0 黒'];
+    ctx.fillText(lb[0],tp.x+30,tp.y+4);ctx.fillText(lb[1],bp.x+30,bp.y+10);
     ctx.shadowBlur=0;ctx.textAlign='center';
-    /* 断面の縁（両端は軸上に固定：真っ黒近くの見かけの出っ張りを描かない） */
-    ctx.beginPath();const p0=proj(.02,0,cur.h);ctx.moveTo(p0.x,p0.y);
-    for(let L=.03;L<=.975;L+=.012){const q=proj(L,cmaxLH(L,cur.h),cur.h);ctx.lineTo(q.x,q.y)}
-    const p1=proj(.99,0,cur.h);ctx.lineTo(p1.x,p1.y);
+    if(phase==='morph')return; /* モーフ中は断面も現在点も持たない */
+    /* 断面の縁(両端は軸上に固定:真っ黒近くの見かけの出っ張りを描かない) */
+    const rp=rimPts(cutBase).map(projW);
+    ctx.beginPath();ctx.moveTo(rp[0].x,rp[0].y);
+    for(let i=1;i<rp.length;i++)ctx.lineTo(rp[i].x,rp[i].y);
     ctx.strokeStyle='oklch(0.94 0.008 275/.9)';ctx.lineWidth=4.5;ctx.stroke();
-    /* 軸→現在点の引き出し線（＝C）と現在点。断面の上に乗る */
-    const ax=proj(cur.L,0,cur.h),pp=proj(cur.L,cur.C,cur.h),
-          out=cur.C>cmaxLH(cur.L,cur.h)+1e-4;
-    ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.setLineDash([6,7]);
-    ctx.beginPath();ctx.moveTo(ax.x,ax.y);ctx.lineTo(pp.x,pp.y);ctx.stroke();ctx.setLineDash([]);
-    ctx.beginPath();ctx.arc(pp.x,pp.y,13,0,7);
-    if(out){ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
-      /* Chrome の実挙動どおり「各チャンネルを 0–1 に切り詰めた色」の位置を実点で示す。
-         切り詰めは色相・明度もずらすので、点はいまの色相の断面から外れて滑る */
-      const cl=okToLin(cur.L,cur.C,cur.h).map(c=>Math.max(0,Math.min(1,c))),
-            pc=okFromLin(cl[0],cl[1],cl[2]),pm=proj(pc[0],pc[1],pc[2]);
-      ctx.strokeStyle='oklch(1 0 0/.55)';ctx.lineWidth=1.5;ctx.setLineDash([3,6]);
-      ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(pm.x,pm.y);ctx.stroke();ctx.setLineDash([]);
+    /* 軸→現在点の引き出し線と現在点。sRGB の外はチャンネル切り詰め後の白い実点で示す。
+       HSL 円柱では外の色に座標そのものが無い(円柱内は全部 sRGB)ので clip 点だけを描く */
+    const gLin=okToLin(cur.L,cur.C,cur.h),out=!inGamut(gLin),gcl=gLin.map(gam);
+    let wp=null;
+    if(mode===0)wp=wOk(cur.L,cur.C,cur.h);
+    else if(mode===1)wp=out?null:wHsl(gcl);
+    else wp=wCube(gLin.map(gamE)); /* 外の色は立方体の外に浮く */
+    if(wp){const ax=projW([0,wp[1],0]),pp=projW(wp);
+      ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.setLineDash([6,7]);
+      ctx.beginPath();ctx.moveTo(ax.x,ax.y);ctx.lineTo(pp.x,pp.y);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(pp.x,pp.y,13,0,7);
+      if(out){ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([])}
+      else{ctx.fillStyle=`oklch(${cur.L} ${cur.C} ${cur.h})`;ctx.fill();
+        ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.stroke()}}
+    if(out){const wc=mode===0
+        ?(()=>{const pc=okFromLin(cl01(gLin[0]),cl01(gLin[1]),cl01(gLin[2]));
+               return wOk(pc[0],pc[1],pc[2])})()
+        :mode===1?wHsl(gcl):wCube(gcl);
+      const pm=projW(wc);
+      if(wp){const pp=projW(wp);
+        ctx.strokeStyle='oklch(1 0 0/.55)';ctx.lineWidth=1.5;ctx.setLineDash([3,6]);
+        ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(pm.x,pm.y);ctx.stroke();ctx.setLineDash([])}
       ctx.beginPath();ctx.arc(pm.x,pm.y,10,0,7);ctx.fillStyle='#fff';ctx.fill();
-      ctx.strokeStyle='oklch(0 0 0/.4)';ctx.lineWidth=2;ctx.stroke()}
-    else{ctx.fillStyle=`oklch(${cur.L} ${cur.C} ${cur.h})`;ctx.fill();
-      ctx.strokeStyle='#fff';ctx.lineWidth=3.5;ctx.stroke()}};
+      ctx.strokeStyle='oklch(0 0 0/.4)';ctx.lineWidth=2;ctx.stroke()}};
   const upd=()=>{cur={L:+document.getElementById('g3r-l').value,
       C:+document.getElementById('g3r-c').value,h:+document.getElementById('g3r-h').value};
     document.getElementById('g3v-l').textContent=cur.L.toFixed(2);
@@ -701,21 +789,46 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     document.getElementById('g3-css').textContent=css;
     document.getElementById('g3-hex').textContent=
       inGamut(okToLin(cur.L,cur.C,cur.h))?okHex(cur.L,cur.C,cur.h):'sRGB の外';
-    draw()};
+    cutBase=curAz();draw()};
   cv.addEventListener('pointerdown',e=>{chase=false;drag={x:e.clientX,y:e.clientY};
     cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'});
   cv.addEventListener('pointermove',e=>{if(!drag)return;
     yaw+=(e.clientX-drag.x)*.008;pitch=Math.max(-1.2,Math.min(1.2,pitch+(e.clientY-drag.y)*.006));
     drag={x:e.clientX,y:e.clientY};draw()});
-  addEventListener('pointerup',()=>{if(drag)yawOff=yaw-align(cur.h);drag=null;cv.style.cursor='grab'});
+  addEventListener('pointerup',()=>{if(drag)yawOff=yaw-align(cutBase);drag=null;cv.style.cursor='grab'});
   ['g3r-l','g3r-c','g3r-h'].forEach(id=>document.getElementById(id).addEventListener('input',upd));
   /* H 追従は手動回転ぶん(yawOff)を保った相対回転。勝手に正面へは戻さない */
-  document.getElementById('g3r-h').addEventListener('input',()=>{yawT=align(cur.h)+yawOff;chase=true});
+  document.getElementById('g3r-h').addEventListener('input',()=>{yawT=align(cutBase)+yawOff;chase=true});
+  /* ---- モデル切り替え:切り口を閉じる→同じ色同士で座標をモーフ→新しい方位で開く。
+     色・スライダー・視角は引き継ぐ(reduced-motion なら即切り替え) ---- */
+  const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
+  const setMode=m=>{if(m===mode||phase)return;
+    document.querySelectorAll('#g3-mode button').forEach(b=>b.classList.toggle('on',+b.dataset.m===m));
+    if(!anim||!cv.offsetParent){mode=m0=m1=m;mt=1;cutA=CUT;
+      cutBase=curAz();yawT=align(cutBase)+yawOff;chase=true;draw();return}
+    pend=m;phase='close';ph0=0};
+  document.querySelectorAll('#g3-mode button').forEach(b=>
+    b.addEventListener('click',()=>setMode(+b.dataset.m)));
   /* yaw を目標へ寄せる(短弧)。print 用に upd() で一度は必ず描く */
-  const loop=()=>{if(chase&&!drag&&cv.offsetParent){
-      let dy=(yawT-yaw)%(2*Math.PI);if(dy>Math.PI)dy-=2*Math.PI;if(dy<-Math.PI)dy+=2*Math.PI;
-      if(!anim){yaw=yawT;draw();chase=false}
-      else if(Math.abs(dy)>.003){yaw+=dy*.085;draw()}else{yaw=yawT;draw();chase=false}}
+  const loop=ts=>{
+    if(cv.offsetParent){
+      let need=false;
+      if(phase){if(!ph0)ph0=ts;
+        const el=ts-ph0;
+        if(phase==='close'){cutA=CUT*Math.max(0,1-el/D1);
+          if(el>=D1){phase='morph';ph0=ts;m0=mode;m1=pend;mt=0}}
+        else if(phase==='morph'){mt=easeIO(Math.min(1,el/D2));
+          if(el>=D2){mt=1;m0=mode=pend;phase='open';ph0=ts;
+            cutBase=curAz();yawT=align(cutBase)+yawOff;chase=true}}
+        else{cutA=CUT*Math.min(1,el/D3);
+          if(el>=D3){cutA=CUT;phase=null}}
+        need=true}
+      if(chase&&!drag){
+        let dy=(yawT-yaw)%(2*Math.PI);if(dy>Math.PI)dy-=2*Math.PI;if(dy<-Math.PI)dy+=2*Math.PI;
+        if(!anim||Math.abs(dy)<=.003){yaw=yawT;chase=false}
+        else yaw+=dy*.085;
+        need=true}
+      if(need)draw()}
     requestAnimationFrame(loop)};
   upd();requestAnimationFrame(loop)})();
 
