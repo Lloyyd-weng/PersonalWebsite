@@ -196,13 +196,13 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .g3-stage canvas{position:absolute;left:0;top:0;width:1112px;height:408px;
   cursor:grab;touch-action:none}
 .g3-panel{position:absolute;right:0;top:10px;width:330px}
-.g3-cur{height:56px;border-radius:12px;border:1px solid oklch(1 0 0/.12);white-space:nowrap;
-  display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px}
+.g3-cur{min-height:80px;padding:10px 16px;border-radius:12px;border:1px solid oklch(1 0 0/.12);
+  white-space:nowrap;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;margin-bottom:12px}
 .g3-cur .cs{font-size:19px;font-weight:700;color:#fff;text-shadow:0 1px 4px oklch(0 0 0/.5);
   font-variant-numeric:tabular-nums}
 .g3-cur .cs.sub{font-size:16px;opacity:.85;font-weight:400}
 .g3-note{margin:12px 0 0;font-size:18px;line-height:1.55;color:var(--faint)}
-.g3-tk{width:fit-content;max-width:840px}
 /* 結び */
 .finale .reveal{margin-top:44px;background:var(--bg2);border:1px solid var(--line);
   border-radius:16px;padding:24px 30px;width:820px;box-sizing:border-box}
@@ -286,7 +286,6 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
       <p class="g3-note">ドラッグで回転。いまの色相のところで<br>切り開いてあります — H を回すと切り口も回る。</p>
     </div>
   </div>
-  <div class="takeaway g3-tk">1 本のツマミ ＝ 立体の中の 1 方向<small>かたちのデコボコ ＝ sRGB で出せる限界。壁の外に出ると「出せない色」</small></div>
 </section>
 
 <!-- 7. 引っ越しの注意（L3） -->
@@ -569,14 +568,16 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     r:okFromLin(...c.map(v=>v===0?EPS:1-EPS)),
     fill:`rgb(${c.map(x=>Math.round(gam(x)*255)).join(' ')})`}));
   /* 線種:0=真の稜線、1=奥側の切り口の縁。暗線+明線の二度描きで明暗どちらの面でも読める */
-  const EST=[[['oklch(0.15 0 0/.32)',4],['oklch(0.97 0.005 275/.72)',1.8]],
-             [['oklch(0.15 0 0/.28)',3.4],['oklch(0.78 0.012 275/.65)',1.6]]];
+  /* 線の太さの序列:切り口の縁(st1・手前の白線)>本来の 12 本の稜(st0)>切除側の幽霊稜(st2) */
+  const EST=[[['oklch(0.15 0 0/.32)',4.2],['oklch(0.97 0.005 275/.72)',2]],
+             [['oklch(0.15 0 0/.3)',5.6],['oklch(0.82 0.012 275/.8)',3.2]],
+             [['oklch(0.15 0 0/.22)',2.2],['oklch(0.88 0.01 275/.45)',1.1]]];
   const align=h=>(90-(h+CUT-5))*Math.PI/180; /* 主断面がほぼ正面を向く yaw */
   const caps=[];
   for(let hi=0;hi<HN;hi++){const h=(hi+.5)*HS,
     rgb=okToLin(L0+.01,cmaxLH(L0+.01,h)*.9,h).map(gam).map(c=>Math.max(0,Math.min(1,c)));
     caps.push({hi,hm:h,fill:`rgb(${rgb.map(c=>Math.round(c*180)).join(' ')})`})}
-  let cur={L:.7,C:.12,h:250},yawT=align(cur.h),yaw=yawT,pitch=.38,
+  let cur={L:.7,C:.12,h:250},yawOff=0,yawT=align(cur.h),yaw=yawT,pitch=.38,
       drag=null,chase=true,
       anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
   const proj=(L,C,h)=>{const a=h*Math.PI/180;
@@ -629,6 +630,18 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
         if(run.length>3){fl();run=[q];dm=q.d}}
       fl()};
     for(const pl of edges12)pushLine(pl,0,true,true); /* 可視判定済みなので最前面 */
+    /* 幽霊稜線:切除された 90° 楔に属する稜の区間。細く淡く描き、全体の形を想像させる。
+       空中に浮くので面との z-fighting は無く、素の深度ソートだけで殻の裏に正しく隠れる */
+    const pushGhost=pl=>{let run=null,dm=0;
+      const fl=()=>{if(run&&run.length>1)faces.push({pts:run,d:dm+2,st:2})};
+      for(const s of pl){
+        if(((s.p[2]-cur.h+360)%360)>CUT){fl();run=null;continue}
+        const q=pj3(s.p);
+        if(!run){run=[q];dm=q.d;continue}
+        run.push(q);dm=Math.max(dm,q.d);
+        if(run.length>3){fl();run=[q];dm=q.d}}
+      fl()};
+    for(const pl of edges12)pushGhost(pl);
     {const h2=(cur.h+CUT)%360,pl2=[{p:[.02,0,h2]}]; /* 奥側の切り口の縁(手前は既存の白い縁) */
      for(let L=.03;L<=.975;L+=.012)pl2.push({p:[L,cmaxLH(L,h2),h2]});
      pl2.push({p:[.99,0,h2]});pushLine(pl2,1,false)}
@@ -659,7 +672,7 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
     ctx.beginPath();const p0=proj(.02,0,cur.h);ctx.moveTo(p0.x,p0.y);
     for(let L=.03;L<=.975;L+=.012){const q=proj(L,cmaxLH(L,cur.h),cur.h);ctx.lineTo(q.x,q.y)}
     const p1=proj(.99,0,cur.h);ctx.lineTo(p1.x,p1.y);
-    ctx.strokeStyle='oklch(0.94 0.008 275/.9)';ctx.lineWidth=2.5;ctx.stroke();
+    ctx.strokeStyle='oklch(0.94 0.008 275/.9)';ctx.lineWidth=4.5;ctx.stroke();
     /* 軸→現在点の引き出し線（＝C）と現在点。断面の上に乗る */
     const ax=proj(cur.L,0,cur.h),pp=proj(cur.L,cur.C,cur.h),
           out=cur.C>cmaxLH(cur.L,cur.h)+1e-4;
@@ -685,9 +698,10 @@ document.getElementById('r-sweep').addEventListener('input',sweep);sweep();
   cv.addEventListener('pointermove',e=>{if(!drag)return;
     yaw+=(e.clientX-drag.x)*.008;pitch=Math.max(-1.2,Math.min(1.2,pitch+(e.clientY-drag.y)*.006));
     drag={x:e.clientX,y:e.clientY};draw()});
-  addEventListener('pointerup',()=>{drag=null;cv.style.cursor='grab'});
+  addEventListener('pointerup',()=>{if(drag)yawOff=yaw-align(cur.h);drag=null;cv.style.cursor='grab'});
   ['g3r-l','g3r-c','g3r-h'].forEach(id=>document.getElementById(id).addEventListener('input',upd));
-  document.getElementById('g3r-h').addEventListener('input',()=>{yawT=align(cur.h);chase=true});
+  /* H 追従は手動回転ぶん(yawOff)を保った相対回転。勝手に正面へは戻さない */
+  document.getElementById('g3r-h').addEventListener('input',()=>{yawT=align(cur.h)+yawOff;chase=true});
   /* yaw を目標へ寄せる(短弧)。print 用に upd() で一度は必ず描く */
   const loop=()=>{if(chase&&!drag&&cv.offsetParent){
       let dy=(yawT-yaw)%(2*Math.PI);if(dy>Math.PI)dy-=2*Math.PI;if(dy<-Math.PI)dy+=2*Math.PI;
