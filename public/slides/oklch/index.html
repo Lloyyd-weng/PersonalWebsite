@@ -825,8 +825,17 @@ const RSf=1900,VSf=910;
   /* 境界判定の下限は厳密に:黒付近では線形 RGB が 1e-5 級になり、±1e-4 の
      許容誤差が相対的に巨大化して C を数倍過大評価する(裾が広がって見えた原因) */
   const inGB=rgb=>rgb.every(c=>c>=-1e-9&&c<=1+1e-4);
-  const cmaxLH=(L,h)=>{let lo=0,hi=.42;for(let k=0;k<18;k++){const m=(lo+hi)/2;
-    inGB(okToLin(L,m,h))?lo=m:hi=m}return lo};
+  /* 断面用の最大 C。粗く走査して最初の境界を二分した後、その上に薄い再入域
+     (青フックの非凸部)が無いか確かめ、あれば外側の包絡線を採る */
+  const cmaxLH=(L,h)=>{const ST=.42/40;let hi=.42;
+    for(let k=1;k<=40;k++)if(!inGB(okToLin(L,k*ST,h))){hi=k*ST;break}
+    let lo=Math.max(0,hi-ST);
+    for(;;){for(let k=0;k<13;k++){const m=(lo+hi)/2;inGB(okToLin(L,m,h))?lo=m:hi=m}
+      let re=0;
+      for(let k=1;k<=30;k++){const C=lo+k*.002;if(C>.42)break;
+        if(inGB(okToLin(L,C,h))){re=C;break}}
+      if(!re)return lo;
+      lo=re;hi=Math.min(.42,re+.06)}};
   const cl01=c=>Math.max(0,Math.min(1,c));
   const okFromLin=(r,g,bl)=>{const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*bl),
       m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*bl),
@@ -853,20 +862,51 @@ const RSf=1900,VSf=910;
   const azOf=w=>{const a=Math.atan2(w[2],w[0])*180/Math.PI;return a<0?a+360:a};
   const w3=(okl,g)=>[wOk(okl[0],okl[1],okl[2]),wHsl(g),wCube(g)];
   const az3=(h,g)=>[h,toHsl(g[0],g[1],g[2])[0],azOf(wCube(g))];
-  /* 外殻メッシュ。判定を厳密化したので黒端は 0.03 まで下ろせる */
-  const HN=144,HS=360/HN,L0=.03,L1=.997,LN=72,LS=(L1-L0)/LN;
-  const V=[];
-  for(let hi=0;hi<HN;hi++){const h=hi*HS,col=[];
-    for(let li=0;li<=LN;li++){const L=L0+li*LS,C=cmaxLH(L,h);
-      col.push(w3([L,C,h],okToLin(L,C,h).map(gam)))}
-    V.push(col)}
-  /* クワッドごとに sRGB 実色を 8 段階の明度で前計算(奥を暗くして立体感を出す) */
+  /* ---- 外殻メッシュ:この立体は RGB 立方体表面の像そのものなので、(L,h) の
+     高さ場ではなく立方体の 6 面に直接グリッドを張る。頂点は全て正確な境界色
+     (境界探索が不要になり、青フックの非凸域でも縫い目が出ない)。
+     暗い 3 面は黒角・明るい 3 面は白角を極とする極座標グリッド:HSL の等色相線は
+     暗面では黒角からの放射線に一致するため、円柱モードで列が等色相線に揃い、
+     黒白の円盤も 6 つの色角の扇形特異点も自然に解ける。
+     棱の採様表は隣接面で共有し、T 字接ぎ目を作らない ---- */
+  const ss1=u=>u*u*(3-2*u),rwp=u=>.55*u*u*(3-2*u)+.45*Math.pow(u,1.6);
+  const NE=26,MR=40,C8={K:[0,0,0],R:[1,0,0],G:[0,1,0],B:[0,0,1],
+                        Y:[1,1,0],C:[0,1,1],M:[1,0,1],W:[1,1,1]};
+  const eS={};
+  for(const [a,b] of [["K","R"],["K","G"],["K","B"],["R","Y"],["Y","G"],["G","C"],
+                      ["C","B"],["B","M"],["M","R"],["Y","W"],["C","W"],["M","W"]]){
+    const pts=[];for(let k=0;k<=NE;k++){const t=ss1(k/NE);
+      pts.push(C8[a].map((v,i)=>v+(C8[b][i]-v)*t))}
+    eS[a+b]=pts}
+  const eGet=(a,b)=>eS[a+b]||eS[b+a].slice().reverse();
+  const V=[],vQ=new Map();
+  const vtx=c=>{const k=c.map(x=>x.toFixed(6)).join(',');let id=vQ.get(k);
+    if(id!==undefined)return id;
+    const o=okFromLin(c[0],c[1],c[2]),g=c.map(gam),
+          w=[wOk(o[0],o[1],o[2]),wHsl(g),wCube(g)];
+    id=V.length;
+    V.push({w,ax:Math.hypot(w[2][0],w[2][2])<1e-6,
+      az:[o[2],toHsl(g[0],g[1],g[2])[0],azOf(w[2])],lin:c});
+    vQ.set(k,id);return id};
   const quads=[];
-  for(let hi=0;hi<HN;hi++)for(let li=0;li<LN;li++){
-    const h2=(hi+1)%HN,hm=(hi+.5)*HS,Lm=L0+(li+.5)*LS,Cm=cmaxLH(Lm,hm)*.97;
-    const rgb=okToLin(Lm,Cm,hm).map(gam);
-    quads.push({v:[[hi,li],[h2,li],[h2,li+1],[hi,li+1]],az:az3(hm,rgb),
-      sh:[1,.9,.81,.73,.66,.59,.53,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`)})}
+  for(const fd of [{p:"K",e:[["R","Y"],["Y","G"]]},{p:"K",e:[["G","C"],["C","B"]]},
+                   {p:"K",e:[["B","M"],["M","R"]]},{p:"W",e:[["Y","R"],["R","M"]]},
+                   {p:"W",e:[["C","G"],["G","Y"]]},{p:"W",e:[["M","B"],["B","C"]]}]){
+    const pole=C8[fd.p],bnd=[...eGet(...fd.e[0]),...eGet(...fd.e[1]).slice(1)],gr=[];
+    for(let m=0;m<=MR;m++){const rho=rwp(m/MR),ring=[];
+      for(const P of bnd)ring.push(m?vtx(pole.map((v,i)=>v+(P[i]-v)*rho)):vtx(pole));
+      gr.push(ring)}
+    for(let m=0;m<MR;m++)for(let k=0;k<bnd.length-1;k++)
+      quads.push({v:m?[gr[m][k],gr[m+1][k],gr[m+1][k+1],gr[m][k+1]]
+                    :[gr[0][k],gr[1][k],gr[1][k+1],gr[0][k]]})}
+  /* クワッドの実色 8 段階(奥を暗くして立体感)。色は四隅の線形平均。
+     黒白の角に接するクワッドは HSL で円盤の扇形になるので、深度による
+     明暗を付けず固定段で塗る(旧キャップと同じ扱い) */
+  for(const q of quads){
+    const cs=q.v.map(i=>V[i].lin),
+          rgb=[0,1,2].map(ch=>gam((cs[0][ch]+cs[1][ch]+cs[2][ch]+cs[3][ch])/4));
+    q.sh=[1,.9,.81,.73,.66,.59,.53,.48].map(f=>`rgb(${rgb.map(c=>Math.round(c*f*255)).join(' ')})`);
+    if(q.v.some(i=>V[i].ax))q.cap=V[q.v.find(i=>V[i].ax)].lin[0]?1:3}
   /* ---- 真の稜線:この立体は RGB 立方体の像なので、稜は立方体 12 辺の像で尽きる ----
      下 3 本(黒→R/G/B)・中腰 6 本(R→Y→G→C→B→M→R)・上 3 本(Y/C/M→白)。
      HSL 円柱では中腰 6 本が赤道の円に、他は側面の縦線になる */
@@ -882,7 +922,7 @@ const RSf=1900,VSf=910;
     const pl=[]; /* 特異端(黒・白)寄りを密に採る */
     for(let i=0;i<=96;i++){let u=i/96;u=pw>0?u**pw:1-(1-u)**(-pw);
       const c=ef(u),p=okFromLin(c[0],c[1],c[2]);
-      if(p[0]<L0||p[0]>.995)continue;
+      if(p[0]<.03||p[0]>.995)continue;
       pl.push({az:az3(p[2],c.map(gam)),w:S(c),
                w1:S(relax(c,[bnd[0]])),w2:S(relax(c,[bnd[1]])),wr:S(relax(c,bnd))})}
     if(pl.length>1)edges12.push(pl)}
@@ -893,20 +933,13 @@ const RSf=1900,VSf=910;
       wj:[0,1,2].map(k=>S(c.map((v,i)=>i===k?(v===0?EPS:1-EPS):v))),
       wr:S(c.map(v=>v===0?EPS:1-EPS)),
       fill:`rgb(${c.map(x=>Math.round(gam(x)*255)).join(' ')})`}});
-  /* 蓋(下=黒側・上=白側。OKLCH では上端がすぼまるのでほぼ見えない) */
-  const caps=[];
-  for(let hi=0;hi<HN;hi++){const h=(hi+.5)*HS;
-    const gb=okToLin(L0+.01,cmaxLH(L0+.01,h)*.9,h).map(gam);
-    caps.push({hi,li:0,az:az3(h,gb),fill:`rgb(${gb.map(c=>Math.round(c*180)).join(' ')})`});
-    const gt=okToLin(L1-.007,cmaxLH(L1-.007,h)*.9,h).map(gam);
-    caps.push({hi,li:LN,az:az3(h,gt),fill:`rgb(${gt.map(c=>Math.round(c*244)).join(' ')})`})}
-  const poleB=[wOk(L0-.02,0,0),[0,-.505*VSf,0],wCube([0,0,0])],
+  const poleB=[wOk(.01,0,0),[0,-.505*VSf,0],wCube([0,0,0])],
         poleT=[wOk(.999,0,0),[0,.505*VSf,0],wCube([1,1,1])];
   /* 線種:0=真の稜線、1=切り口の縁、2=幽霊稜線。暗線+明線の二度描き */
   const EST=[[['oklch(0.15 0 0/.32)',4.2],['oklch(0.97 0.005 275/.72)',2]],
              [['oklch(0.15 0 0/.3)',5.6],['oklch(0.82 0.012 275/.8)',3.2]],
              [['oklch(0.15 0 0/.22)',2.2],['oklch(0.88 0.01 275/.45)',1.1]]];
-const face=(c,fill)=>({d:(c[0].d+c[1].d+c[2].d+c[3].d)/4,c,fill});
+const face=(c,fill)=>{let d=0;for(const p of c)d+=p.d;return{d:d/c.length,c,fill}};
 /* 稜線の可視判定:P0 まわりの隣接面 (Pa,Pb) が視点側を向くか。Pr=内部の参照点 */
 const vc=(P0,Pa,Pb,Pr)=>{const ax=Pa.x-P0.x,ay=Pa.y-P0.y,ad=Pa.d-P0.d,
     bx=Pb.x-P0.x,by=Pb.y-P0.y,bd=Pb.d-P0.d,
@@ -955,19 +988,51 @@ const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
         pts.push(wCube([u+t*dir[0],u+t*dir[1],u+t*dir[2]]))}
       pts.push(wCube([.99,.99,.99]))}
     return pts};
+  /* ---- 切り欠きクリップ:境界を跨ぐクワッドを頂点方位場で Sutherland-Hodgman
+     に切る。軸上の頂点(黒・白)はどの方位面にも載るので常に境界値扱い。
+     mode・切り口が変わった時だけ再計算 ---- */
+  let ckKey='',ckList=null;
+  const lerpW=(a,b,t)=>[0,1,2].map(m=>[a[m][0]+(b[m][0]-a[m][0])*t,
+    a[m][1]+(b[m][1]-a[m][1])*t,a[m][2]+(b[m][2]-a[m][2])*t]);
+  const shClip=(poly,val,le)=>{const out=[];
+    for(let i=0;i<poly.length;i++){
+      const a=poly[i],b=poly[(i+1)%poly.length],
+            ia=le?a.r<=val+1e-9:a.r>=val-1e-9,
+            ib=le?b.r<=val+1e-9:b.r>=val-1e-9;
+      if(ia)out.push(a);
+      if(ia!==ib){const t=(val-a.r)/(b.r-a.r);
+        out.push({w:lerpW(a.w,b.w,t),r:val})}}
+    return out};
+  const cutQuads=()=>{
+    const open=cutA>.5&&phase!=='morph',
+          key=open?mode+'|'+cutBase.toFixed(2)+'|'+cutA.toFixed(2):'all';
+    if(key===ckKey)return ckList;
+    ckKey=key;ckList=[];
+    if(!open){for(const q of quads)ckList.push({q});return ckList}
+    for(const q of quads){
+      const vs=q.v.map(i=>V[i]);
+      let rs=vs.map(v=>v.ax?null:((v.az[mode]-cutBase)%360+360)%360);
+      const nn=rs.filter(r=>r!==null);
+      let mn=Math.min(...nn),mx=Math.max(...nn);
+      if(mx-mn>180){rs=rs.map(r=>r===null||r>=180?r:r+360);
+        const n2=rs.filter(r=>r!==null);mn=Math.min(...n2);mx=Math.max(...n2)}
+      const S=mx>=360?360:0; /* 該当するカット複製 [S,S+cutA] */
+      if(mn>=S&&mx<=S+cutA)continue;
+      if(mx<S||mn>S+cutA){ckList.push({q});continue}
+      for(const [val,le] of [[S,true],[S+cutA,false]]){
+        const poly=q.v.map((id,k)=>({w:V[id].w,r:rs[k]===null?val:rs[k]})),
+              out=shClip(poly,val,le);
+        if(out.length>2)ckList.push({q,w:out.map(pt=>pt.w)})}}
+    return ckList};
   const draw=()=>{ctx.clearRect(0,0,W,Hh);
     cyw=Math.cos(yaw);syw=Math.sin(yaw);cpt=Math.cos(pitch);spt=Math.sin(pitch);
     const DMAX=DM[m0]+(DM[m1]-DM[m0])*Math.max(0,Math.min(1,mt));
-    const P=V.map(col=>col.map(pjm));
+    const P=V.map(v=>pjm(v.w));
     const faces=[];
-    /* 外殻:切り欠き(モーフ中は閉じている)以外を描く */
-    for(const q of quads){if(inCut(q.az))continue;
-      const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
-      f.fill=q.sh[Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
-    const pB=pjm(poleB),pT=pjm(poleT);
-    for(const c2 of caps){if(inCut(c2.az))continue;
-      const pole=c2.li?pT:pB;
-      faces.push(face([pole,P[c2.hi][c2.li],P[(c2.hi+1)%HN][c2.li],pole],c2.fill))}
+    /* 外殻:楔の中は落とし、境界を跨ぐクワッドは方位で正確に切る(隙間を作らない) */
+    for(const e of cutQuads()){
+      const c=e.w?e.w.map(pjm):e.q.v.map(i=>P[i]);const f=face(c,null);
+      f.fill=e.q.sh[e.q.cap??Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
     const wallsOn=cutA>.5&&phase!=='morph';
     if(wallsOn){
       /* 切り口の壁 2 枚。主壁=いまの色の方位の断面(真の色)、奥壁は暗めに */
@@ -1038,7 +1103,7 @@ const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
       if(f.dot){ctx.beginPath();ctx.arc(f.dot.x,f.dot.y,9,0,7);
         ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='oklch(0.97 0 0/.8)';ctx.lineWidth=2;ctx.stroke();continue}
       ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
-      for(let i=1;i<4;i++)ctx.lineTo(f.c[i].x,f.c[i].y);ctx.closePath();
+      for(let i=1;i<f.c.length;i++)ctx.lineTo(f.c[i].x,f.c[i].y);ctx.closePath();
       ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
     /* 明度軸(切り欠きから覗く。立方体では黒→白の対角線がそのまま鉛直軸) */
     const tp=pjm(poleT),bp=pjm(poleB);
@@ -1199,13 +1264,10 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
   const draw=()=>{ctx.clearRect(0,0,W,Hh);
     cyw=Math.cos(yaw);syw=Math.sin(yaw);cpt=Math.cos(pitch);spt=Math.sin(pitch);
     const DMAX=DM[m0]+(DM[m1]-DM[m0])*Math.max(0,Math.min(1,mt));
-    const P=V.map(col=>col.map(pjm));
+    const P=V.map(v=>pjm(v.w));
     const faces=[];
-    for(const q of quads){const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
-      f.fill=q.sh[Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
-    const pB=pjm(poleB),pT=pjm(poleT);
-    for(const c2 of caps){const pole=c2.li?pT:pB;
-      faces.push(face([pole,P[c2.hi][c2.li],P[(c2.hi+1)%HN][c2.li],pole],c2.fill))}
+    for(const q of quads){const c=q.v.map(i=>P[i]);const f=face(c,null);
+      f.fill=q.sh[q.cap??Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
     for(const pl of edges12)pushLine(pl,faces);
     for(const cn of corner6){const P0=pjm(cn.w),R=pjm(cn.wr),J=cn.wj.map(pjm);
       if(!vc(P0,J[1],J[2],R)&&!vc(P0,J[0],J[2],R)&&!vc(P0,J[0],J[1],R))continue;
@@ -1219,7 +1281,7 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
       if(f.dot){ctx.beginPath();ctx.arc(f.dot.x,f.dot.y,9,0,7);
         ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='oklch(0.97 0 0/.8)';ctx.lineWidth=2;ctx.stroke();continue}
       ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
-      for(let k=1;k<4;k++)ctx.lineTo(f.c[k].x,f.c[k].y);ctx.closePath();
+      for(let k=1;k<f.c.length;k++)ctx.lineTo(f.c[k].x,f.c[k].y);ctx.closePath();
       ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
     /* 明度軸 */
     const tp=pjm(poleT),bp=pjm(poleB);
@@ -1300,13 +1362,10 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
   const draw=()=>{ctx.clearRect(0,0,W,Hh);
     cyw=Math.cos(yaw);syw=Math.sin(yaw);cpt=Math.cos(pitch);spt=Math.sin(pitch);
     const DMAX=DM[m0]+(DM[m1]-DM[m0])*Math.max(0,Math.min(1,mt));
-    const P=V.map(col=>col.map(pjm));
+    const P=V.map(v=>pjm(v.w));
     const faces=[];
-    for(const q of quads){const c=q.v.map(([hi,li])=>P[hi][li]);const f=face(c,null);
-      f.fill=q.sh[Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
-    const pB=pjm(poleB),pT=pjm(poleT);
-    for(const c2 of caps){const pole=c2.li?pT:pB;
-      faces.push(face([pole,P[c2.hi][c2.li],P[(c2.hi+1)%HN][c2.li],pole],c2.fill))}
+    for(const q of quads){const c=q.v.map(i=>P[i]);const f=face(c,null);
+      f.fill=q.sh[q.cap??Math.max(0,Math.min(7,Math.round((1-(f.d/DMAX+1)/2)*7)))];faces.push(f)}
     for(const pl of edges12)pushLine(pl,faces);
     for(const cn of corner6){const P0=pjm(cn.w),R=pjm(cn.wr),J=cn.wj.map(pjm);
       if(!vc(P0,J[1],J[2],R)&&!vc(P0,J[0],J[2],R)&&!vc(P0,J[0],J[1],R))continue;
@@ -1320,7 +1379,7 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
       if(f.dot){ctx.beginPath();ctx.arc(f.dot.x,f.dot.y,9,0,7);
         ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle='oklch(0.97 0 0/.8)';ctx.lineWidth=2;ctx.stroke();continue}
       ctx.beginPath();ctx.moveTo(f.c[0].x,f.c[0].y);
-      for(let k=1;k<4;k++)ctx.lineTo(f.c[k].x,f.c[k].y);ctx.closePath();
+      for(let k=1;k<f.c.length;k++)ctx.lineTo(f.c[k].x,f.c[k].y);ctx.closePath();
       ctx.fillStyle=f.fill;ctx.fill();ctx.strokeStyle=f.fill;ctx.lineWidth=1;ctx.stroke()}
     const tp=pjm(poleT),bp=pjm(poleB);
     ctx.strokeStyle='oklch(0.6 0.015 275)';ctx.lineWidth=2;ctx.setLineDash([8,8]);
