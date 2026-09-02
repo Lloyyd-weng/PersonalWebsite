@@ -196,6 +196,8 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .browsers div{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
   padding:16px 20px;font-size:22px;text-align:center}
 .browsers b{display:block;font-size:26px;margin-bottom:2px}
+.browsers .since{background:var(--acc-soft);border-color:var(--acc)}
+.browsers .since b{color:var(--acc)}
 /* 色域の立体 */
 .g3-stage{position:relative;flex:1;min-height:0}
 .g3-stage canvas{position:absolute;left:0;top:0;width:1112px;height:520px;
@@ -720,12 +722,13 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 <!-- 23. 対応状況（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">で、使えるの？</p>
-    <h2>もう普通に使える（Baseline 2023）</h2></div>
+    <h2>もう普通に使える（Baseline 広く利用可能）</h2></div>
   <div class="browsers">
     <div><b>Chrome</b>111〜</div>
     <div><b>Safari</b>15.4〜</div>
     <div><b>Firefox</b>113〜</div>
     <div><b>Edge</b>111〜</div>
+    <div class="since"><b>2023-05</b>そろって 3 年</div>
   </div>
   <pre>.card {
   background: <span class="v">#61a3e6</span>;               <span class="c">/* 古いブラウザはここで停止 */</span>
