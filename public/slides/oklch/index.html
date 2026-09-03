@@ -413,10 +413,10 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
     <div class="sc-ctl">
       <div><div class="sl-top"><span>見た目の明るさ</span><span class="v" id="sc-v">50%</span></div>
         <input type="range" id="sc-r" min="1" max="100" value="50" aria-label="見た目の明るさ"></div>
-      <div class="sc-out"><div class="sw" id="sc-sw"></div><div class="num">物理の光量<br><b id="sc-y">18.4%</b></div></div>
+      <div class="sc-out"><div class="sw" id="sc-sw"></div><div class="num">物理の光量<br><b id="sc-y">12.5%</b></div></div>
     </div>
   </div>
-  <div class="takeaway">「見た目のちょうど半分」は、物理ではたった 2 割<small>暗いほうに敏感な目を打ち消すのが立方根カーブ。LUTCHI(1991)は延べ 43,332 回の「見た目採点」を集めた — 人どうしのばらつきは明度で ±13%</small></div>
+  <div class="takeaway">「見た目のちょうど半分」は、物理では 8 分の 1<small>暗いほうに敏感な目を打ち消すのが立方根カーブ。LUTCHI(1991)は延べ 43,332 回の「見た目採点」を集めた — 人どうしのばらつきは明度で ±13%</small></div>
 </section>
 
 <!-- 9. OKLab の組み立て（L3） -->
@@ -1529,8 +1529,10 @@ drawCIE('cie-g',{d65:1,tris:[
   ph.innerHTML=a;pe.innerHTML=b;
   const r=document.getElementById('sc-r'),v=document.getElementById('sc-v'),
         sw=document.getElementById('sc-sw'),yv=document.getElementById('sc-y');
+  /* 灰色なら OKLab L は Y の立方根そのもの(matrix 3 行の和が 1)。だから逆は L^3。
+     CIELAB の (L*+16)/116 とは値がずれるので、上の色階(oklch)と揃えてこちらを使う */
   const upd=()=>{const P=+r.value;v.textContent=P+'%';
-    const Y=P>8?Math.pow((P+16)/116,3):P/903.3, g=Math.round(gam(Y)*255);
+    const Y=Math.pow(P/100,3), g=Math.round(gam(Y)*255);
     sw.style.background=`rgb(${g} ${g} ${g})`;
     yv.textContent=(Y*100).toFixed(1)+'%'};
   r.addEventListener('input',upd);upd()})();
