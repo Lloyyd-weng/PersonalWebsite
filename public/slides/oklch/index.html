@@ -239,7 +239,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .lamp-tr i{display:block;height:100%;background:var(--ink);border-radius:6px;transition:width .15s}
 .lamp-v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.4;color:var(--dim)}
 .lamp-note{font-size:17px;color:var(--faint);margin-top:14px}
-/* 錐体・同色異譜・二つの通路(15–17 枚目) */
+/* 錐体・同色異譜・二つの通路(14–16 枚目) */
 .lms{display:flex;flex-direction:column;gap:6px}
 .lms-row{display:grid;grid-template-columns:30px 1fr 58px;gap:10px;align-items:center;font-size:18px;line-height:1.2}
 .lms-row b{color:var(--ink);font-weight:800;font-family:ui-monospace,Menlo,monospace}
@@ -302,28 +302,6 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .path-svg .wire.zero{stroke-dasharray:2 8;stroke-width:2;opacity:.5}
 .path-svg .mid{stroke:oklch(1 0 0/.35);stroke-width:2}
 .path-svg .zero-lb,.path-svg .fml{font-size:16px;fill:var(--faint)}
-/* CIE 色度図ページ */
-.cie-wrap{display:grid;grid-template-columns:440px 1fr;gap:32px;flex:1;min-height:0;align-items:center}
-.cie-wrap .card{padding:15px 20px}
-.cie-wrap .card h3{font-size:22px;margin-bottom:7px}
-.cie-wrap .card p{font-size:19px;line-height:1.55}
-.cie-wrap canvas{width:440px;height:402px;display:block}
-/* 天井のダンベル図 */
-.db{display:flex;flex-direction:column;gap:13px;justify-content:center}
-.db-hd{display:flex;gap:20px;font-size:16px;color:var(--faint);justify-content:flex-end}
-.db-row{display:grid;grid-template-columns:156px 1fr 88px;gap:14px;align-items:center}
-.db-lb{display:flex;align-items:center;gap:9px;font-size:19px;color:var(--dim);justify-content:flex-end;white-space:nowrap}
-.db-lb i{width:20px;height:20px;border-radius:50%;flex:none;border:1px solid oklch(1 0 0/.15)}
-.db-tr{position:relative;height:30px}
-.db-tr .ln{position:absolute;top:50%;left:0;right:0;height:2px;margin-top:-1px;background:var(--bg3)}
-.db-tr .rg{position:absolute;top:50%;height:3px;margin-top:-1.5px;background:var(--faint);border-radius:2px}
-.db-tr .d1{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--ink)}
-.db-tr .dp{position:absolute;top:50%;width:3px;height:14px;margin:-7px 0 0 -1.5px;background:var(--dim)}
-.db-tr .d2{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
-  border:2.5px solid var(--ink);background:var(--bg);box-sizing:border-box}
-.db-dv{font-size:19px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
-.db-dv.hot{color:var(--acc)}
-.db-note{font-size:17px;color:var(--faint);line-height:1.6;margin:10px 0 0}
 /* Munsell 色票(散らばり → カスケード → 色立体) */
 .mu-stage{position:relative;flex:1;min-height:0}
 .mu-stage canvas{position:absolute;left:0;top:0;width:1112px;height:546px;cursor:grab;touch-action:none}
@@ -435,25 +413,9 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   </div>
 </section>
 
-<!-- 7. MacAdam（内容頁・chead） -->
+<!-- 7. 明度スケーリング（L3） -->
 <section class="slide">
-  <div class="chead"><p class="eyebrow">どうやって測った？ ②</p><span class="t">MacAdam（1942）— 「手ブレの範囲」が 1 目盛り</span></div>
-  <div class="cie-wrap no-nav">
-    <canvas id="cie-m" width="940" height="860"></canvas>
-    <div>
-      <div class="card" style="margin-bottom:16px"><h3>同じ色を何百回も合わせる</h3>
-        <p>ダイヤルで色を合わせては記録。答えの<b>散らばり</b>が楕円になる — 楕円の中は「区別がつかない範囲」。</p></div>
-      <div class="card" style="margin-bottom:16px"><h3>場所によって 10 倍違う</h3>
-        <p>緑では大きく、青では小さい。<b>この地図の上では、距離が色の差にならない</b>ことの証明になった。</p></div>
-      <p class="g3-note">楕円は慣例どおり 10 倍に拡大(MacAdam 1942・観察者 PGN・25 点、Wyszecki &amp; Stiles の表より)。白い三角形は sRGB。</p>
-    </div>
-  </div>
-  <div class="takeaway">1931 年の馬蹄形は、「ものさし」としては壊れている<small>この発見が、そのあと 80 年つづく「均等な空間づくり」の出発点になった</small></div>
-</section>
-
-<!-- 8. 明度スケーリング（L3） -->
-<section class="slide">
-  <div class="hd"><p class="eyebrow">どうやって測った？ ③</p>
+  <div class="hd"><p class="eyebrow">どうやって測った？ ②</p>
     <h2>「この灰色、白の何%の明るさに見える？」</h2></div>
   <div class="demo no-nav">
     <div class="sc-ramp"><div class="lb">光の量で等間隔<br><b>(物理)</b></div><div class="sc-cells" id="sc-phys"></div></div>
@@ -467,9 +429,9 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">「見た目のちょうど半分」は、物理では 8 分の 1<small>暗いほうに敏感な目を打ち消すのが立方根カーブ。LUTCHI(1991)は延べ 43,332 回の「見た目採点」を集めた — 人どうしのばらつきは明度で ±13%</small></div>
 </section>
 
-<!-- 9. OKLab の組み立て（L3） -->
+<!-- 8. OKLab の組み立て（L3） -->
 <section class="slide">
-  <div class="hd"><p class="eyebrow">どうやって測った？ ④</p>
+  <div class="hd"><p class="eyebrow">どうやって測った？ ③</p>
     <h2>100 年ぶんの実験を、行列 2 回に蒸留する</h2></div>
   <div class="tl no-nav">
     <div><i></i><b>1905</b><span>Munsell<br>色票</span></div>
@@ -489,7 +451,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">OKLCH は「発見」ではなく「蒸留」<small>CAM16 の予測と Ebner–Fairchild(1998)の等色相データを、行列→立方根→行列の速い形に押し込んだから CSS で気軽に使える</small></div>
 </section>
 
-<!-- 10. 標題頁（L2） -->
+<!-- 9. 標題頁（L2） -->
 <section class="slide tpage">
   <p class="eyebrow">OKLCH とは</p>
   <h2 class="t2">ツマミ 3 本 ＝<br>立体の中の「住所」</h2>
@@ -497,7 +459,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <p class="lede">L は高さ、C は軸からの距離、H は角度 — 円柱座標そのもの。<br>1 本だけ動かしても、ほかの 2 本は釣られません。</p>
 </section>
 
-<!-- 11. 色域の立体（内容頁・chead） -->
+<!-- 10. 色域の立体（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">OKLCH とは</p><span class="t">L=高さ・C=軸からの距離・H=角度</span></div>
   <div class="g3-stage no-nav">
@@ -524,15 +486,15 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   </div>
 </section>
 
-<!-- 12. 標題頁・なぜこの形？（L2） -->
+<!-- 11. 標題頁・なぜこの形？（L2） -->
 <section class="slide tpage">
   <p class="eyebrow">なぜこの形？</p>
-  <h2 class="t2">この歪みは、<br>箱と目の合作</h2>
+  <h2 class="t2">角の高さが揺れるのは、<br>目のせい</h2>
   <div class="rule"></div>
-  <p class="lede">ディスプレイがくれるのは、ただの四角い箱。それを人間の目のレンズ越しに見ると、角の高さが揺れ、太さが波打つ。<br>どこまでが箱のせいで、どこからが目のせいか——切り分けて見ていきます。</p>
+  <p class="lede">ディスプレイがくれるのは、ただの四角い箱。それを人間の目のレンズ越しに見ると、角の高さが波打つ。<br>この揺れがどこから来るのか、目の中まで降りて見ていきます。</p>
 </section>
 
-<!-- 13. cusp 稜線（内容頁・chead） -->
+<!-- 12. cusp 稜線（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">なぜこの形？</p><span class="t">「一番鮮やか」をつなぐ稜線は、ジェットコースター</span></div>
   <div class="g3-stage no-nav">
@@ -557,7 +519,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   </div>
 </section>
 
-<!-- 14. 輝度の内訳（L3） -->
+<!-- 13. 輝度の内訳（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">なぜこの形？</p>
     <h2>黄は明るい 2 本を全開、青は一番暗い 1 本だけ</h2></div>
@@ -583,7 +545,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">ジャガイモの縦の歪みは、ディスプレイではなく目の性質<small>Y = 0.2126R + 0.7152G + 0.0722B — 目の感度は黄緑(555nm)でピーク、青の端で急落する。この係数がそのまま稜線の高低差になる</small></div>
 </section>
 
-<!-- 15. 三錐体と単変量原理（L3） -->
+<!-- 14. 三錐体と単変量原理（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">なぜこの形？</p>
     <h2>目は波長を測っていない — 光を 3 つの数に潰す</h2></div>
@@ -607,7 +569,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">錐体 1 個が返すのは、数字 1 つだけ<small>「感度の高い波長を少し」と「低い波長をたくさん」は同じ答え(単変量原理)。スペクトルはここで (L, M, S) の 3 つに潰れ、波長そのものの情報は永久に失われる</small></div>
 </section>
 
-<!-- 16. 同色異譜（内容頁・chead） -->
+<!-- 15. 同色異譜（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">なぜこの形？</p><span class="t">スペクトルが違っても、3 つの数が同じなら「同じ色」</span></div>
   <div class="demo no-nav meta-demo">
@@ -634,7 +596,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">目にとっては「似ている」ではなく、同一の測定結果<small>分光計なら一瞬で見分けるが、目には区別する手段がそもそも無い。RGB ディスプレイが 3 原色で足りるのはこのおかげ — 画面の #ffff00 も主波長 570nm・純度 79% の「淡い黄」でしかない</small></div>
 </section>
 
-<!-- 17. 二つの通路（L3） -->
+<!-- 16. 二つの通路（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">なぜこの形？</p>
     <h2>3 つの数は「色」と「明るさ」、2 本の通路に分かれる</h2></div>
@@ -689,41 +651,10 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
       <text class="num big" x="934" y="167" id="pw-Yv">100%</text>
     </svg>
   </div>
-  <div class="takeaway">青が暗いのは、箱ではなく目の配線<small>明るさの通路は L と M からしか引かれていない(測光の定義上、S の係数はぴったり 0)。S 錐体は全錐体の 5〜10%、中心窩の真ん中には 1 個も無い — 青は「色」では鮮やかでも「明るさ」では票を持たない</small></div>
+  <div class="takeaway">青が暗いのは、目の配線<small>明るさの通路は L と M からしか引かれていない(測光の定義上、S の係数はぴったり 0)。S 錐体は全錐体の 5〜10%、中心窩の真ん中には 1 個も無い — 青は「色」では鮮やかでも「明るさ」では票を持たない</small></div>
 </section>
 
-<!-- 18. 色度図と色域比較（内容頁・chead） -->
-<section class="slide">
-  <div class="chead"><p class="eyebrow">なぜこの形？</p><span class="t">横の凸凹はディスプレイの都合 — 箱を替えると太る</span></div>
-  <div class="cie-wrap no-nav">
-    <canvas id="cie-g" width="940" height="860"></canvas>
-    <div class="db">
-      <div class="db-hd"><span>● sRGB</span><span>▎P3</span><span>○ Rec.2020</span><span>→ C の天井</span></div>
-      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.63 0.26 30)"></i>赤 30°</div>
-        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:60.5%;width:16.4%"></div><div class="d1" style="left:60.5%"></div><div class="dp" style="left:70.2%"></div><div class="d2" style="left:76.9%"></div></div>
-        <div class="db-dv">+27%</div></div>
-      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.97 0.21 110)"></i>黄 110°</div>
-        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:50.2%;width:10.0%"></div><div class="d1" style="left:50.2%"></div><div class="dp" style="left:58.3%"></div><div class="d2" style="left:60.2%"></div></div>
-        <div class="db-dv">+20%</div></div>
-      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.87 0.29 142)"></i>緑 142°</div>
-        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:70.0%;width:16.9%"></div><div class="d1" style="left:70.0%"></div><div class="dp" style="left:82.1%"></div><div class="d2" style="left:86.9%"></div></div>
-        <div class="db-dv">+24%</div></div>
-      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.91 0.15 195)"></i>シアン 195°</div>
-        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:36.9%;width:36.4%"></div><div class="d1" style="left:36.9%"></div><div class="dp" style="left:48.3%"></div><div class="d2" style="left:73.3%"></div></div>
-        <div class="db-dv hot">+99%</div></div>
-      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.45 0.31 264)"></i>青 264°</div>
-        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:74.5%;width:5.0%"></div><div class="d1" style="left:74.5%"></div><div class="dp" style="left:76.9%"></div><div class="d2" style="left:79.5%"></div></div>
-        <div class="db-dv hot">+7%</div></div>
-      <div class="db-row"><div class="db-lb"><i style="background:oklch(0.70 0.32 328)"></i>マゼンタ 328°</div>
-        <div class="db-tr"><div class="ln"></div><div class="rg" style="left:76.9%;width:16.7%"></div><div class="d1" style="left:76.9%"></div><div class="dp" style="left:84.0%"></div><div class="d2" style="left:93.6%"></div></div>
-        <div class="db-dv">+22%</div></div>
-      <p class="db-note">物差し(OKLab)はそのまま、箱だけ交換。シアンは 2 倍、青はほぼそのまま — sRGB の青はもう光の限界近くにいる。</p>
-    </div>
-  </div>
-  <div class="takeaway">縦の歪みは目、横の凸凹は箱<small>sRGB の三角形は馬蹄形の「シアンの膨らみ」を大きく削る。紫の縁はもともと直線なのでマゼンタはほぼ無傷 — 天井 1 位はマゼンタ 0.322、最下位はシアン寄りの 0.145</small></div>
-</section>
-
-<!-- 19. 標題頁（L2） -->
+<!-- 17. 標題頁（L2） -->
 <section class="slide tpage">
   <p class="eyebrow">今日から使える ①</p>
   <h2 class="t2">グラデーションの<br>「泥ゾーン」が消える</h2>
@@ -731,7 +662,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <p class="lede">同じ 2 色でも、あいだの通り道はブラウザ任せ。<br>通り道を OKLCH に変えるだけで、中間の濁りが消えます。</p>
 </section>
 
-<!-- 20. グラデーション（内容頁・chead） -->
+<!-- 18. グラデーション（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">グラデーションの泥ゾーン</span></div>
   <div class="demo no-nav">
@@ -748,7 +679,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">書き足すのは <span class="mono">in oklch</span> の 8 文字だけ<small>color-mix() にも同じ指定ができる：color-mix(in oklch, var(--brand) 70%, white)</small></div>
 </section>
 
-<!-- 21. グラデーションの軌跡（内容頁・chead） -->
+<!-- 19. グラデーションの軌跡（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">泥ゾーンを立体で見る</span></div>
   <div class="g3-stage no-nav">
@@ -771,7 +702,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   </div>
 </section>
 
-<!-- 22. from構文（L3） -->
+<!-- 20. from構文（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">今日から使える ②</p>
     <h2>1 色から、状態色を全部「計算」する</h2></div>
@@ -796,7 +727,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">ブランド色を差し替えても、hover も disabled も勝手についてくる<small>注意：l は 0–1 の数値。calc(l - 10%) は無効、calc(l - 0.1) と書く</small></div>
 </section>
 
-<!-- 23. テーマ着せ替え（L3） -->
+<!-- 21. テーマ着せ替え（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">本命はこれ</p>
     <h2>色相を 1 個変える ＝ テーマが丸ごと変わる</h2></div>
@@ -829,7 +760,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">明暗の設計（L の階段）はそのまま、色だけ着せ替わる<small>Tailwind v4 のデフォルトパレットもこの方式で再設計された</small></div>
 </section>
 
-<!-- 24. OKLCH の限界 ①（L3） -->
+<!-- 22. OKLCH の限界 ①（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">OKLCH の限界 ①</p>
     <h2>同じ L でも、コントラストは揃わない</h2></div>
@@ -845,7 +776,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">それでも白背景とのコントラスト比は <b>3.45〜3.90</b> に散る<small>4.5 ぎりぎりの色は必ず実測する。OKLCH は「予測しやすくする」道具であって、検証を省く道具ではない</small></div>
 </section>
 
-<!-- 25. OKLCH の限界 ②（L3） -->
+<!-- 23. OKLCH の限界 ②（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">OKLCH の限界 ②</p>
     <h2>L が同じ ＝ 同じ明るさ、とは限らない</h2></div>
@@ -864,7 +795,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">「観察条件と背景色に依存しない、完全に均等な明度スケールは存在し得ない」— Björn Ottosson<small>物理は灰のほうが 28% 明るいのに、多くの人には青が明るく見える(Helmholtz–Kohlrausch 効果、OKLab は非対応)</small></div>
 </section>
 
-<!-- 26. 対応状況（L3） -->
+<!-- 24. 対応状況（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">で、使えるの？</p>
     <h2>もう普通に使える（Baseline 広く利用可能）</h2></div>
@@ -882,7 +813,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">道具はまず <span class="mono">oklch.com</span> だけ覚えれば OK<small>Evil Martians 製のピッカー。色域の崖がどこにあるかも見える</small></div>
 </section>
 
-<!-- 27. 結び（L1） -->
+<!-- 25. 結び（L1） -->
 <section class="slide sec finale">
   <h2>色選びが、<br><em>手作業から工学になる。</em></h2>
   <div class="reveal no-nav">
@@ -1584,74 +1515,13 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
     const i=+b.dataset.c;st[i]=st[i]?0:1;b.classList.toggle('on',!!st[i]);upd()}));
   upd()})();
 
-/* ============ CIE 1931 色度図(10・13 枚目共有) ============
-   LOCUS: 2° 標準観察者の 380–700nm/5nm 刻み(CVRL の CMF から算出)
-   MACADAM: MacAdam(1942) 25 楕円 [x,y,a(10^-3),b(10^-3),θ°](Wyszecki & Stiles 表 2(5.4.1) 観測値) */
-const LOCUS=[[0.1741,0.005],[0.174,0.005],[0.1738,0.0049],[0.1736,0.0049],[0.1733,0.0048],[0.173,0.0048],[0.1726,0.0048],[0.1721,0.0048],[0.1714,0.0051],[0.1703,0.0058],[0.1689,0.0069],[0.1669,0.0086],[0.1644,0.0109],[0.1611,0.0138],[0.1566,0.0177],[0.151,0.0227],[0.144,0.0297],[0.1355,0.0399],[0.1241,0.0578],[0.1096,0.0868],[0.0913,0.1327],[0.0687,0.2007],[0.0454,0.295],[0.0235,0.4127],[0.0082,0.5384],[0.0039,0.6548],[0.0139,0.7502],[0.0389,0.812],[0.0743,0.8338],[0.1142,0.8262],[0.1547,0.8059],[0.1929,0.7816],[0.2296,0.7543],[0.2658,0.7243],[0.3016,0.6923],[0.3374,0.6588],[0.3731,0.6245],[0.4087,0.5896],[0.4441,0.5547],[0.4788,0.5202],[0.5125,0.4866],[0.5448,0.4544],[0.5752,0.4242],[0.6029,0.3965],[0.627,0.3725],[0.6482,0.3514],[0.6658,0.334],[0.6801,0.3197],[0.6915,0.3083],[0.7006,0.2993],[0.7079,0.292],[0.714,0.2859],[0.719,0.2809],[0.723,0.2769],[0.726,0.274],[0.7283,0.2717],[0.73,0.27],[0.7311,0.2689],[0.732,0.268],[0.7327,0.2673],[0.7334,0.2666],[0.734,0.266],[0.7344,0.2656],[0.7346,0.2654],[0.7347,0.2653]];
-const MACADAM=[[0.16,0.057,0.85,0.35,62.5],[0.187,0.118,2.2,0.55,77],[0.253,0.125,2.5,0.5,55.5],[0.15,0.68,9.6,2.3,105],[0.131,0.521,4.7,2,112.5],[0.212,0.55,5.8,2.3,100],[0.258,0.45,5,2,92],[0.152,0.365,3.8,1.9,110],[0.28,0.385,4,1.5,75.5],[0.38,0.498,4.4,1.2,70],[0.16,0.2,2.1,0.95,104],[0.228,0.25,3.1,0.9,72],[0.305,0.323,2.3,0.9,58],[0.385,0.393,3.8,1.6,65.5],[0.472,0.399,3.2,1.4,51],[0.527,0.35,2.6,1.3,20],[0.475,0.3,2.9,1.1,28.5],[0.51,0.236,2.4,1.2,29.5],[0.596,0.283,2.6,1.3,13],[0.344,0.284,2.3,0.9,60],[0.39,0.237,2.5,1,47],[0.441,0.198,2.8,0.95,34.5],[0.278,0.223,2.4,0.55,57.5],[0.3,0.163,2.9,0.6,54],[0.365,0.153,3.6,0.95,40]];
+/* ============ XYZ → 線形 sRGB(錐体ページ共用) ============ */
 const xyzToLin=(X,Y,Z)=>[3.2404542*X-1.5371385*Y-0.4985314*Z,
   -0.969266*X+1.8760108*Y+0.041556*Z,0.0556434*X-0.2040259*Y+1.0572252*Z];
-const CIEX0=-0.05,CIEX1=0.89,CIEY0=-0.013,CIEY1=0.847; /* 縦横 1000px/単位の等尺 */
-const drawCIE=(id,o)=>{const cv=document.getElementById(id),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
-  const px=(x,y)=>[(x-CIEX0)/(CIEX1-CIEX0)*W,Hh-(y-CIEY0)/(CIEY1-CIEY0)*Hh];
-  const path=new Path2D();
-  LOCUS.forEach((p,i)=>{const q=px(p[0],p[1]);i?path.lineTo(q[0],q[1]):path.moveTo(q[0],q[1])});
-  path.closePath();
-  /* 内部の色は粗い解像度で塗り、clip で馬蹄形に切り抜く */
-  const oc=document.createElement('canvas');oc.width=188;oc.height=172;
-  const octx=oc.getContext('2d'),im=octx.createImageData(oc.width,oc.height);
-  for(let j=0;j<oc.height;j++)for(let i=0;i<oc.width;i++){
-    const x=CIEX0+(i+.5)/oc.width*(CIEX1-CIEX0),y=CIEY1-(j+.5)/oc.height*(CIEY1-CIEY0);
-    if(y<=0.001)continue;
-    const rgb=xyzToLin(x/y,1,(1-x-y)/y),m=Math.max(rgb[0],rgb[1],rgb[2]),k=(j*oc.width+i)*4;
-    im.data[k]=Math.round(gam(Math.max(0,rgb[0]/m))*255);
-    im.data[k+1]=Math.round(gam(Math.max(0,rgb[1]/m))*255);
-    im.data[k+2]=Math.round(gam(Math.max(0,rgb[2]/m))*255);
-    im.data[k+3]=255}
-  octx.putImageData(im,0,0);
-  ctx.save();ctx.clip(path);
-  ctx.drawImage(oc,0,0,W,Hh);
-  ctx.fillStyle='oklch(0.15 0.01 275/.22)';ctx.fillRect(0,0,W,Hh); /* deck のトーンに寄せる */
-  ctx.restore();
-  ctx.strokeStyle='oklch(0.72 0.01 275/.85)';ctx.lineWidth=2.5;ctx.stroke(path);
-  ctx.font='26px "Hiragino Sans",sans-serif';ctx.textAlign='left';
-  ctx.shadowColor='oklch(0 0 0/.7)';ctx.shadowBlur=7;
-  ctx.fillStyle='oklch(0.82 0.01 275)';
-  for(const [wl,dx,dy] of [[460,-64,12],[500,12,6],[520,-14,36],[560,28,-10],[600,30,2],[700,28,26]]){
-    const pt2=LOCUS[(wl-380)/5],q=px(pt2[0],pt2[1]);ctx.fillText(wl,q[0]+dx,q[1]+dy)}
-  const TRI={srgb:[[.64,.33],[.30,.60],[.15,.06]],p3:[[.680,.320],[.265,.690],[.150,.060]],
-             r2020:[[.708,.292],[.170,.797],[.131,.046]]};
-  if(o.tris)for(const [k,st,wd,dash,lb2,lx,ly] of o.tris){const t=TRI[k];
-    ctx.strokeStyle=st;ctx.lineWidth=wd;ctx.setLineDash(dash);
-    ctx.beginPath();t.forEach((p,i)=>{const q=px(p[0],p[1]);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});
-    ctx.closePath();ctx.stroke();ctx.setLineDash([]);
-    if(lb2){const q=px(lx,ly);ctx.fillStyle=st;ctx.fillText(lb2,q[0],q[1])}}
-  if(o.d65){const q=px(.3127,.329);ctx.beginPath();ctx.arc(q[0],q[1],9,0,7);
-    ctx.fillStyle='#fff';ctx.fill();ctx.fillStyle='oklch(0.92 0 0)';ctx.fillText('D65',q[0]+16,q[1]+34)}
-  ctx.shadowBlur=0;
-  return px};
-/* 10 枚目:三角形 3 つ */
-drawCIE('cie-g',{d65:1,tris:[
-  ['srgb','oklch(0.94 0.008 275)',4,[],'sRGB',.315,.585],
-  ['p3','oklch(0.78 0.03 275)',2.5,[12,9],'P3',.208,.716],
-  ['r2020','oklch(0.62 0.03 275)',2.5,[4,8],'Rec.2020',.075,.83]]});
-/* 13 枚目:MacAdam 楕円(10 倍拡大) */
-(()=>{const px=drawCIE('cie-m',{tris:[['srgb','oklch(0.9 0.008 275/.6)',2.5,[],null,0,0]]});
-  const cv=document.getElementById('cie-m'),ctx=cv.getContext('2d');
-  const sx=cv.width/(CIEX1-CIEX0),sy=cv.height/(CIEY1-CIEY0);
-  ctx.fillStyle='oklch(1 0 0/.16)';ctx.strokeStyle='#fff';ctx.lineWidth=2.5;
-  for(const [x,y,a,b,th] of MACADAM){const q=px(x,y);
-    ctx.beginPath();ctx.ellipse(q[0],q[1],a*.01*sx,b*.01*sy,-th*Math.PI/180,0,7);
-    ctx.fill();ctx.stroke()}
-  ctx.font='26px "Hiragino Sans",sans-serif';ctx.textAlign='left';
-  ctx.shadowColor='oklch(0 0 0/.7)';ctx.shadowBlur=7;ctx.fillStyle='#fff';
-  const q1=px(.245,.735);ctx.fillText('緑:ブレ最大',q1[0],q1[1]);
-  const q2=px(.19,.048);ctx.fillText('青:ごく小さい',q2[0],q2[1]);
-  ctx.shadowBlur=0})();
 
-/* ============ 錐体(15–17 枚目共有) ============
+/* ============ 錐体(14–16 枚目共有) ============
    CONE: Stockman & Sharpe (2000) 2° 錐体基本感度、線形エネルギー・ピーク=1、400–700nm/5nm(CVRL linss2_10e_5)
-   LMS→XYZ は CIE 2006 の定義行列(同じ基本感度から組まれている)。Y 行の S 係数がぴったり 0 なのが 17 枚目の主張 */
+   LMS→XYZ は CIE 2006 の定義行列(同じ基本感度から組まれている)。Y 行の S 係数がぴったり 0 なのが 16 枚目の主張 */
 const CONE={
 L:[0.002408,0.004833,0.008721,0.01338,0.01845,0.02293,0.02819,0.03411,0.04026,0.04494,0.04986,0.05534,0.06472,0.08069,0.09948,0.1188,0.1401,0.164,0.1916,0.2329,0.289,0.3597,0.4437,0.5365,0.6286,0.7047,0.7706,0.8257,0.881,0.9191,0.9402,0.9657,0.9814,0.9945,1,0.9923,0.9694,0.9556,0.9277,0.886,0.834,0.7751,0.7057,0.6308,0.5542,0.4799,0.4007,0.3279,0.2658,0.2133,0.1651,0.1247,0.09301,0.06851,0.04987,0.03582,0.02538,0.01772,0.01217,0.008472,0.005897],
 M:[0.00227,0.0047,0.008794,0.01453,0.02166,0.02957,0.03946,0.05182,0.06478,0.07588,0.08705,0.09819,0.1163,0.1445,0.1759,0.2054,0.2358,0.2681,0.3036,0.3571,0.4278,0.5156,0.6155,0.7192,0.8166,0.8855,0.9357,0.9689,0.9952,0.9972,0.9772,0.9566,0.9177,0.8732,0.8135,0.7403,0.6533,0.5726,0.4926,0.4112,0.3344,0.2649,0.2053,0.1562,0.1166,0.08559,0.06211,0.04449,0.03143,0.0218,0.01545,0.01071,0.007303,0.004972,0.003437,0.002376,0.001637,0.001121,0.0007611,0.0005255,0.0003653],
@@ -1659,7 +1529,7 @@ S:[0.05665,0.1225,0.233,0.3814,0.5436,0.6745,0.8026,0.9036,0.991,0.9915,0.9554,0
 const coneAt=wl=>{const t=(wl-400)/5,i=Math.max(0,Math.min(59,Math.floor(t))),f=t-i;
   return[CONE.L,CONE.M,CONE.S].map(a=>a[i]+(a[i+1]-a[i])*f)};
 const lmsToXyz=([l,m,s])=>[1.9474*l-1.4145*m+0.3648*s,0.6899*l+0.3483*m,1.9349*s];
-/* 単波長の見かけの色 — 最大チャネルを 1 に正規化し、負(色域外)は切り捨て。drawCIE と同じ流儀 */
+/* 単波長の見かけの色 — 最大チャネルを 1 に正規化し、負(色域外)は切り捨て */
 const specRgb=wl=>{const rgb=xyzToLin(...lmsToXyz(coneAt(wl))),mx=Math.max(...rgb);
   return`rgb(${rgb.map(c=>Math.round(gam(Math.max(0,c/mx))*255)).join(' ')})`};
 const specGrad=(()=>{const s=[];for(let w=400;w<=700;w+=10)s.push(specRgb(w)+' '+((w-400)/3).toFixed(1)+'%');
@@ -1673,7 +1543,7 @@ const lmsBars=(el,scale,tick)=>{
   return{set:(v,fmt)=>v.forEach((x,k)=>{I[k].style.width=pc(x);Vt[k].textContent=fmt(x)}),
          ref:v=>v.forEach((x,k)=>{T[k].style.left=pc(x)})}};
 
-/* ============ 三錐体と単変量原理(15 枚目) ============ */
+/* ============ 三錐体と単変量原理(14 枚目) ============ */
 (()=>{const cv=document.getElementById('cn-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
   const rw=document.getElementById('cn-w'),ri=document.getElementById('cn-i'),
         wv=document.getElementById('cn-wv'),iv=document.getElementById('cn-iv'),sw=document.getElementById('cn-sw'),
@@ -1710,7 +1580,7 @@ const lmsBars=(el,scale,tick)=>{
     ri.value=Math.max(10,Math.min(300,Math.round(REF[1]/m*100)));upd()});
   rw.addEventListener('input',upd);ri.addEventListener('input',upd);upd()})();
 
-/* ============ 同色異譜(16 枚目) ============ */
+/* ============ 同色異譜(15 枚目) ============ */
 (()=>{const $=id=>document.getElementById(id),rw=$('mt-w'),rr=$('mt-r'),rg=$('mt-g'),
         b1=lmsBars($('mt-b1'),1.5,false),b2=lmsBars($('mt-b2'),1.5,false),
         p1=$('mt-p1'),p2=$('mt-p2'),eq=$('mt-eq'),mk=$('mt-s1').firstElementChild,
@@ -1731,7 +1601,7 @@ const lmsBars=(el,scale,tick)=>{
     rr.value=Math.round((t[0]*G[1]-t[1]*G[0])/d*100);rg.value=Math.round((R[0]*t[1]-R[1]*t[0])/d*100);upd()});
   [rw,rr,rg].forEach(r=>r.addEventListener('input',upd));upd()})();
 
-/* ============ 二つの通路(17 枚目) ============
+/* ============ 二つの通路(16 枚目) ============
    RL: 線形 sRGB → 白を 1 とした錐体応答(XYZ 経由、CIE 2006 の逆行列)。
    明るさ = 0.6982 L + 0.3018 M は同じ行列の Y 行を白で正規化したもので、R/G/B 単独で 21.3 / 71.5 / 7.2% に戻る */
 (()=>{const st=[1,1,1],RL=[[0.2648,0.6740,0.0613],[0.0922,0.8104,0.0974],[0.0178,0.1095,0.8728]];
@@ -1751,7 +1621,7 @@ const lmsBars=(el,scale,tick)=>{
 
 /* ============ Munsell 色票(6 枚目):散らばり → カスケード → 色立体 ============
    色票は 12 色相 × Value 1–9 × Chroma 0.03 刻み、sRGB の境界(cmaxLH)で打ち切り。
-   3 段階は同じ色票の 3D 配置を変えているだけ。第 3 段階の座標は 11・13 枚目の wOk と同じなので、
+   3 段階は同じ色票の 3D 配置を変えているだけ。第 3 段階の座標は 10・12 枚目の wOk と同じなので、
    出来上がる木はあとで出てくる色域の立体の低解像度版そのもの。
    カスケードは Windows Flip 3D の鏡像:ページは全部平行、奥ほど右上へずれて小さくなるので、
    各ページの露出は右端=いちばん鮮やかな列になり、灰色の列は重なりの下に隠れる。ドラッグでめくれる */
