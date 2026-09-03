@@ -59,7 +59,7 @@ export const SLIDES: SlideDeck[] = [
     title: "OKLCH — 最近気になってる色の話",
     blurb:
       "日语社内分享:HSL 的 L 为什么不可信、OKLCH 的三个旋钮、渐变泥区、from() 语法、主题换装。全程可以现场拖着讲。",
-    meta: "ja · 14 slides · interactive",
+    meta: "ja · 27 slides · interactive",
     pubDate: new Date("2026-08-30"),
   },
 ];
