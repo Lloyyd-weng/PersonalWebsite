@@ -328,15 +328,15 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 
 <!-- 2. 標題頁（L2） -->
 <section class="slide tpage">
-  <p class="eyebrow">まず見てほしい</p>
-  <h2 class="t2">「明度 50%」を<br>360 色ならべてみる</h2>
+  <p class="eyebrow">HSL の問題</p>
+  <h2 class="t2">同じ「L 50%」でも、<br>明るさは揃わない</h2>
   <div class="rule"></div>
-  <p class="lede">色相だけを 0°→360° に変えて、明度の数字は固定したまま。<br>彩度を抜いた帯が「目に映る本当の明るさ」です。</p>
+  <p class="lede">HSL の L は、RGB の最大と最小の真ん中 — 目の感度は入っていません。<br>色相だけ 0°→360° に回して、その「50%」の見え方を確かめます。</p>
 </section>
 
 <!-- 3. 色相スキャン（内容頁・chead） -->
 <section class="slide">
-  <div class="chead"><p class="eyebrow">まず見てほしい</p><span class="t">明度 50% × 360 色</span></div>
+  <div class="chead"><p class="eyebrow">HSL の問題</p><span class="t">明度 50% × 360 色</span></div>
   <div class="demo no-nav">
     <div class="strips" id="strips">
       <div class="strip-row"><div class="strip-lb"><b>HSL</b><br>hsl(H 100% 50%)</div><canvas id="c-hsl" width="960" height="56"></canvas></div>
@@ -356,10 +356,92 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 <!-- 4. 金句（L1） -->
 <section class="slide sec">
   <h2>HSL の L は、<br><em>人の目を見ていない。</em></h2>
-  <p class="after">RGB の数字を平均しているだけで、明るさの「体感」とは無関係。<br>だから <span class="mono">lighten()</span> や「hover で 5% 明るく」が色相ごとに壊れる。</p>
+  <p class="after"><span class="mono">(max + min) ÷ 2</span> — RGB の最大と最小の真ん中。明るさの「体感」とは無関係。<br>だから <span class="mono">lighten()</span> や「hover で 5% 明るく」が色相ごとに壊れる。</p>
 </section>
 
-<!-- 5. 標題頁（L2） -->
+<!-- 5. 標題頁・どうやって測った？（L2） -->
+<section class="slide tpage">
+  <p class="eyebrow">どうやって測った？</p>
+  <h2 class="t2">「見た目で均等」は、<br>どうすれば作れる？</h2>
+  <div class="rule"></div>
+  <p class="lede">「知覚的に均等」は物理の式からは導けません。人に色を見せて「同じ？」「どれくらい違う？」と聞き続けるしかない。<br>その 100 年ぶんの答えを積み上げた先に、OKLCH があります。</p>
+</section>
+
+<!-- 6. Munsell（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">どうやって測った？ ①</p><span class="t">Munsell（1905）— 並べるのが先、測るのが後</span></div>
+  <div class="mu-wrap no-nav">
+    <div>
+      <div class="mu-grid" id="mu-grid"></div>
+      <div class="mu-cap">縦 = 明度 Value(下が暗い)・横 = 彩度 Chroma(左端が無彩色)</div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:16px"><h3>目視で等間隔に並べる</h3>
+        <p>色票を<b>見た目の間隔が均等</b>になるまで並べ替える。測るのはそのあと。</p></div>
+      <div class="card" style="margin-bottom:18px"><h3>1943 年、座標に翻訳</h3>
+        <p>膨大な目視判定を平均し、<b>2,734 枚</b>を CIE 座標へ翻訳。以後の均等空間の教師データに。</p></div>
+      <div class="sl-top"><span>ページ(色相)をめくる</span><span class="v" id="mu-v">29°</span></div>
+      <input type="range" id="mu-h" min="0" max="360" step="1" value="29" aria-label="色相">
+    </div>
+  </div>
+  <div class="takeaway">色票の右端のギザギザ — あとで出てくる OKLCH の立体の断面そのもの<small>ASTM D1535 の Value→輝度変換で配置した再現図。ムンセルは 120 年前から、同じ形と付き合っていた</small></div>
+</section>
+
+<!-- 7. MacAdam（内容頁・chead） -->
+<section class="slide">
+  <div class="chead"><p class="eyebrow">どうやって測った？ ②</p><span class="t">MacAdam（1942）— 「手ブレの範囲」が 1 目盛り</span></div>
+  <div class="cie-wrap no-nav">
+    <canvas id="cie-m" width="940" height="860"></canvas>
+    <div>
+      <div class="card" style="margin-bottom:16px"><h3>同じ色を何百回も合わせる</h3>
+        <p>ダイヤルで色を合わせては記録。答えの<b>散らばり</b>が楕円になる — 楕円の中は「区別がつかない範囲」。</p></div>
+      <div class="card" style="margin-bottom:16px"><h3>場所によって 10 倍違う</h3>
+        <p>緑では大きく、青では小さい。<b>この地図の上では、距離が色の差にならない</b>ことの証明になった。</p></div>
+      <p class="g3-note">楕円は慣例どおり 10 倍に拡大(MacAdam 1942・観察者 PGN・25 点、Wyszecki &amp; Stiles の表より)。白い三角形は sRGB。</p>
+    </div>
+  </div>
+  <div class="takeaway">1931 年の馬蹄形は、「ものさし」としては壊れている<small>この発見が、そのあと 80 年つづく「均等な空間づくり」の出発点になった</small></div>
+</section>
+
+<!-- 8. 明度スケーリング（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">どうやって測った？ ③</p>
+    <h2>「この灰色、白の何%の明るさに見える？」</h2></div>
+  <div class="demo no-nav">
+    <div class="sc-ramp"><div class="lb">光の量で等間隔<br><b>(物理)</b></div><div class="sc-cells" id="sc-phys"></div></div>
+    <div class="sc-ramp"><div class="lb">見た目で等間隔<br><b>(知覚)</b></div><div class="sc-cells" id="sc-perc"></div></div>
+    <div class="sc-ctl">
+      <div><div class="sl-top"><span>見た目の明るさ</span><span class="v" id="sc-v">50%</span></div>
+        <input type="range" id="sc-r" min="1" max="100" value="50" aria-label="見た目の明るさ"></div>
+      <div class="sc-out"><div class="sw" id="sc-sw"></div><div class="num">物理の光量<br><b id="sc-y">18.4%</b></div></div>
+    </div>
+  </div>
+  <div class="takeaway">「見た目のちょうど半分」は、物理ではたった 2 割<small>暗いほうに敏感な目を打ち消すのが立方根カーブ。LUTCHI(1991)は延べ 43,332 回の「見た目採点」を集めた — 人どうしのばらつきは明度で ±13%</small></div>
+</section>
+
+<!-- 9. OKLab の組み立て（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">どうやって測った？ ④</p>
+    <h2>100 年ぶんの実験を、行列 2 回に蒸留する</h2></div>
+  <div class="tl no-nav">
+    <div><i></i><b>1905</b><span>Munsell<br>色票</span></div>
+    <div><i></i><b>1931</b><span>CIE XYZ<br>「同じ」の地図</span></div>
+    <div><i></i><b>1942</b><span>MacAdam<br>楕円</span></div>
+    <div><i></i><b>1976</b><span>CIELAB<br>立方根</span></div>
+    <div><i></i><b>1998</b><span>IPT・等色相<br>データ</span></div>
+    <div><i></i><b>2017</b><span>CAM16-UCS</span></div>
+    <div class="hot"><i></i><b>2020</b><span>OKLab</span></div>
+  </div>
+  <div class="twocol">
+    <div class="card"><h3>「入れ替えテスト」で最適化</h3>
+      <p>明度が同じはずの 2 色の <b>L を入れ替えても何も変わらなければ合格</b>。予測精度より、明るさ L・鮮やかさ C・色相 H の独立を優先した。</p></div>
+    <div class="card"><h3>立方根 1/3 の正体</h3>
+      <p>最適化の答えは <b>0.323</b>。青が内側に折れるのを直すため<b>手で 1/3 に固定</b> — 誤差はほぼ変わらず。整形手術済み。</p></div>
+  </div>
+  <div class="takeaway">OKLCH は「発見」ではなく「蒸留」<small>CAM16 の予測と Ebner–Fairchild(1998)の等色相データを、行列→立方根→行列の速い形に押し込んだから CSS で気軽に使える</small></div>
+</section>
+
+<!-- 10. 標題頁（L2） -->
 <section class="slide tpage">
   <p class="eyebrow">OKLCH とは</p>
   <h2 class="t2">ツマミ 3 本 ＝<br>立体の中の「住所」</h2>
@@ -367,16 +449,17 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <p class="lede">L は高さ、C は軸からの距離、H は角度 — 円柱座標そのもの。<br>1 本だけ動かしても、ほかの 2 本は釣られません。</p>
 </section>
 
-<!-- 6. 色域の立体（内容頁・chead） -->
+<!-- 11. 色域の立体（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">OKLCH とは</p><span class="t">L=高さ・C=軸からの距離・H=角度</span></div>
   <div class="g3-stage no-nav">
     <canvas id="g3-cv" width="2224" height="1040"></canvas>
     <div class="g3-panel">
       <div class="g3-mode" id="g3-mode" role="group" aria-label="モデル切り替え">
-        <button class="on" data-m="0" type="button">OKLCH</button>
+        <!-- 並び順は表示だけの都合。data-m は w[] / az[] / DM[] の添字なので触らない -->
+        <button class="on" data-m="2" type="button">RGB</button>
+        <button data-m="0" type="button">OKLCH</button>
         <button data-m="1" type="button">HSL</button>
-        <button data-m="2" type="button">RGB</button>
       </div>
       <div class="g3-cur" id="g3-cur">
         <span class="cs" id="g3-css">oklch(0.70 0.120 250)</span>
@@ -388,12 +471,12 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
       <input type="range" id="g3r-c" min="0" max="0.4" step="0.002" value="0.12" aria-label="鮮やかさ C">
       <div class="sl-top"><span><b>H</b>　角度（0–360°）</span><span class="v" id="g3v-h">250°</span></div>
       <input type="range" id="g3r-h" min="0" max="360" step="1" value="250" aria-label="色相 H">
-      <p class="g3-note">ドラッグで回転。いまの色相のところで<br>切り開いてあります — H を回すと切り口も回る。</p>
+      <p class="g3-note">ドラッグで回転。いまの色相のところで切り開いてあります — H を回すと切り口も回る。OKLCH に切り替えると、さっきの色票のギザギザがこの断面に現れる。</p>
     </div>
   </div>
 </section>
 
-<!-- 7. 標題頁・なぜこの形？（L2） -->
+<!-- 12. 標題頁・なぜこの形？（L2） -->
 <section class="slide tpage">
   <p class="eyebrow">なぜこの形？</p>
   <h2 class="t2">この歪みは、<br>箱と目の合作</h2>
@@ -401,16 +484,17 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <p class="lede">ディスプレイがくれるのは、ただの四角い箱。それを人間の目のレンズ越しに見ると、角の高さが揺れ、太さが波打つ。<br>どこまでが箱のせいで、どこからが目のせいか——切り分けて見ていきます。</p>
 </section>
 
-<!-- 8. cusp 稜線（内容頁・chead） -->
+<!-- 13. cusp 稜線（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">なぜこの形？</p><span class="t">「一番鮮やか」をつなぐ稜線は、ジェットコースター</span></div>
   <div class="g3-stage no-nav">
     <canvas id="g5-cv" width="2224" height="1040"></canvas>
     <div class="g3-panel">
       <div class="g3-mode" id="g5-mode" role="group" aria-label="モデル切り替え">
-        <button class="on" data-m="0" type="button">OKLCH</button>
+        <!-- 並び順は表示だけの都合。data-m は w[] / az[] / DM[] の添字なので触らない -->
+        <button class="on" data-m="2" type="button">RGB</button>
+        <button data-m="0" type="button">OKLCH</button>
         <button data-m="1" type="button">HSL</button>
-        <button data-m="2" type="button">RGB</button>
       </div>
       <div class="g5-keys">
         <div><i style="background:oklch(0.968 0.211 110)"></i>黄<b>L 0.968</b></div>
@@ -420,12 +504,12 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
         <div><i style="background:oklch(0.628 0.258 29)"></i>赤<b>L 0.628</b></div>
         <div><i style="background:oklch(0.452 0.313 264)"></i>青<b>L 0.452</b></div>
       </div>
-      <p class="g3-note">光っているのは各色相の「一番鮮やかな色」。高さ(=明るさ)は 0.45〜0.97 まで波打つ。HSL に切り替えると、同じ色たちがまっ平らな「彩度 100% の輪」に化ける。</p>
+      <p class="g3-note">光っているのは各色相の「一番鮮やかな色」— RGB 立方体では中腰の 6 辺そのもの。OKLCH に切り替えると高さ(=明るさ)が 0.45〜0.97 まで波打ち、HSL では逆にまっ平らな「彩度 100% の輪」に化ける。</p>
     </div>
   </div>
 </section>
 
-<!-- 9. 輝度の内訳（L3） -->
+<!-- 14. 輝度の内訳（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">なぜこの形？</p>
     <h2>黄は明るい 2 本を全開、青は一番暗い 1 本だけ</h2></div>
@@ -451,7 +535,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">ジャガイモの縦の歪みは、ディスプレイではなく目の性質<small>Y = 0.2126R + 0.7152G + 0.0722B — 目の感度は黄緑(555nm)でピーク、青の端で急落する。この係数がそのまま稜線の高低差になる</small></div>
 </section>
 
-<!-- 10. 色度図と色域比較（内容頁・chead） -->
+<!-- 15. 色度図と色域比較（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">なぜこの形？</p><span class="t">横の凸凹はディスプレイの都合 — 箱を替えると太る</span></div>
   <div class="cie-wrap no-nav">
@@ -480,88 +564,6 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
     </div>
   </div>
   <div class="takeaway">縦の歪みは目、横の凸凹は箱<small>sRGB の三角形は馬蹄形の「シアンの膨らみ」を大きく削る。紫の縁はもともと直線なのでマゼンタはほぼ無傷 — 天井 1 位はマゼンタ 0.322、最下位はシアン寄りの 0.145</small></div>
-</section>
-
-<!-- 11. 標題頁・どうやって測った？（L2） -->
-<section class="slide tpage">
-  <p class="eyebrow">どうやって測った？</p>
-  <h2 class="t2">その「均等」、<br>誰がどう決めた？</h2>
-  <div class="rule"></div>
-  <p class="lede">「知覚的に均等」は物理からは導けません。人に色を見せて「同じ？」「どれくらい違う？」と聞き続ける——<br>100 年ぶんのその答えの上に、OKLCH は座っています。</p>
-</section>
-
-<!-- 12. Munsell（内容頁・chead） -->
-<section class="slide">
-  <div class="chead"><p class="eyebrow">どうやって測った？ ①</p><span class="t">Munsell（1905）— 並べるのが先、測るのが後</span></div>
-  <div class="mu-wrap no-nav">
-    <div>
-      <div class="mu-grid" id="mu-grid"></div>
-      <div class="mu-cap">縦 = 明度 Value(下が暗い)・横 = 彩度 Chroma(左端が無彩色)</div>
-    </div>
-    <div>
-      <div class="card" style="margin-bottom:16px"><h3>目視で等間隔に並べる</h3>
-        <p>色票を<b>見た目の間隔が均等</b>になるまで並べ替える。測るのはそのあと。</p></div>
-      <div class="card" style="margin-bottom:18px"><h3>1943 年、座標に翻訳</h3>
-        <p>膨大な目視判定を平均し、<b>2,734 枚</b>を CIE 座標へ翻訳。以後の均等空間の教師データに。</p></div>
-      <div class="sl-top"><span>ページ(色相)をめくる</span><span class="v" id="mu-v">29°</span></div>
-      <input type="range" id="mu-h" min="0" max="360" step="1" value="29" aria-label="色相">
-    </div>
-  </div>
-  <div class="takeaway">色票の右端のギザギザ ＝ さっきのジャガイモの断面<small>ASTM D1535 の Value→輝度変換で配置した再現図。ムンセルは 120 年前からこの形と付き合っていた</small></div>
-</section>
-
-<!-- 13. MacAdam（内容頁・chead） -->
-<section class="slide">
-  <div class="chead"><p class="eyebrow">どうやって測った？ ②</p><span class="t">MacAdam（1942）— 「手ブレの範囲」が 1 目盛り</span></div>
-  <div class="cie-wrap no-nav">
-    <canvas id="cie-m" width="940" height="860"></canvas>
-    <div>
-      <div class="card" style="margin-bottom:16px"><h3>同じ色を何百回も合わせる</h3>
-        <p>ダイヤルで色を合わせては記録。答えの<b>散らばり</b>が楕円になる — 楕円の中は「区別がつかない範囲」。</p></div>
-      <div class="card" style="margin-bottom:16px"><h3>場所によって 10 倍違う</h3>
-        <p>緑では大きく、青では小さい。<b>この地図の上では、距離が色の差にならない</b>ことの証明になった。</p></div>
-      <p class="g3-note">楕円は慣例どおり 10 倍に拡大(MacAdam 1942・観察者 PGN・25 点、Wyszecki &amp; Stiles の表より)。白い三角形は sRGB。</p>
-    </div>
-  </div>
-  <div class="takeaway">1931 年の馬蹄形は、「ものさし」としては壊れている<small>この発見が、そのあと 80 年つづく「均等な空間づくり」の出発点になった</small></div>
-</section>
-
-<!-- 14. 明度スケーリング（L3） -->
-<section class="slide">
-  <div class="hd"><p class="eyebrow">どうやって測った？ ③</p>
-    <h2>「この灰色、白の何%の明るさに見える？」</h2></div>
-  <div class="demo no-nav">
-    <div class="sc-ramp"><div class="lb">光の量で等間隔<br><b>(物理)</b></div><div class="sc-cells" id="sc-phys"></div></div>
-    <div class="sc-ramp"><div class="lb">見た目で等間隔<br><b>(知覚)</b></div><div class="sc-cells" id="sc-perc"></div></div>
-    <div class="sc-ctl">
-      <div><div class="sl-top"><span>見た目の明るさ</span><span class="v" id="sc-v">50%</span></div>
-        <input type="range" id="sc-r" min="1" max="100" value="50" aria-label="見た目の明るさ"></div>
-      <div class="sc-out"><div class="sw" id="sc-sw"></div><div class="num">物理の光量<br><b id="sc-y">18.4%</b></div></div>
-    </div>
-  </div>
-  <div class="takeaway">「見た目のちょうど半分」は、物理ではたった 2 割<small>暗いほうに敏感な目を打ち消すのが立方根カーブ。LUTCHI(1991)は延べ 43,332 回の「見た目採点」を集めた — 人どうしのばらつきは明度で ±13%</small></div>
-</section>
-
-<!-- 15. OKLab の組み立て（L3） -->
-<section class="slide">
-  <div class="hd"><p class="eyebrow">どうやって測った？ ④</p>
-    <h2>100 年ぶんの実験を、行列 2 回に蒸留する</h2></div>
-  <div class="tl no-nav">
-    <div><i></i><b>1905</b><span>Munsell<br>色票</span></div>
-    <div><i></i><b>1931</b><span>CIE XYZ<br>「同じ」の地図</span></div>
-    <div><i></i><b>1942</b><span>MacAdam<br>楕円</span></div>
-    <div><i></i><b>1976</b><span>CIELAB<br>立方根</span></div>
-    <div><i></i><b>1998</b><span>IPT・等色相<br>データ</span></div>
-    <div><i></i><b>2017</b><span>CAM16-UCS</span></div>
-    <div class="hot"><i></i><b>2020</b><span>OKLab</span></div>
-  </div>
-  <div class="twocol">
-    <div class="card"><h3>「入れ替えテスト」で最適化</h3>
-      <p>明度が同じはずの 2 色の <b>L を入れ替えても何も変わらなければ合格</b>。「予測が当たる」より L・C・H の独立を優先した。</p></div>
-    <div class="card"><h3>立方根 1/3 の正体</h3>
-      <p>最適化の答えは <b>0.323</b>。青が内側に折れるのを直すため<b>手で 1/3 に固定</b> — 誤差はほぼ変わらず。整形手術済み。</p></div>
-  </div>
-  <div class="takeaway">OKLCH は「発見」ではなく「蒸留」<small>CAM16 の予測と Ebner–Fairchild(1998)の等色相データを、行列→立方根→行列の速い形に押し込んだから CSS で気軽に使える</small></div>
 </section>
 
 <!-- 16. H-K 効果（L3） -->
@@ -615,9 +617,10 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
     <canvas id="g4-cv" width="2224" height="1040"></canvas>
     <div class="g3-panel">
       <div class="g3-mode" id="g4-mode" role="group" aria-label="モデル切り替え">
-        <button class="on" data-m="0" type="button">OKLCH</button>
+        <!-- 並び順は表示だけの都合。data-m は w[] / az[] / DM[] の添字なので触らない -->
+        <button class="on" data-m="2" type="button">RGB</button>
+        <button data-m="0" type="button">OKLCH</button>
         <button data-m="1" type="button">HSL</button>
-        <button data-m="2" type="button">RGB</button>
       </div>
       <div class="g4-lg"><span>sRGB 補間</span><div id="g4b-s"></div></div>
       <div class="g4-lg"><span>in oklch</span><div id="g4b-o"></div></div>
@@ -625,9 +628,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
       <input type="range" id="g4r-h1" min="0" max="360" step="1" value="264" aria-label="始点色相">
       <div class="sl-top"><span>終点の色相</span><span class="v" id="g4v-h2">90°</span></div>
       <input type="range" id="g4r-h2" min="0" max="360" step="1" value="90" aria-label="終点色相">
-      <p class="g3-note">ドラッグで回転。sRGB 補間は空間を最短で突っ切り、
-        無彩色の軸のそばをかすめる——それが泥の正体。
-        RGB 立方体に切り替えると、こんどは sRGB 補間のほうが直線になる。</p>
+      <p class="g3-note">ドラッグで回転。RGB 立方体では sRGB 補間がまっすぐな最短経路。OKLCH に切り替えると、その直線が無彩色の軸のそばをかすめて曲がる——それが泥の正体。</p>
     </div>
   </div>
 </section>
@@ -960,7 +961,7 @@ const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
   const align=az=>(90-(az+CUT-5))*Math.PI/180; /* 主断面がほぼ正面を向く yaw */
   let cur={L:.7,C:.12,h:250},yawOff=0,cutBase=250,yawT=align(250),yaw=yawT,pitch=.38,
       drag=null,chase=true,
-      mode=0,m0=0,m1=0,mt=1,cutA=CUT,phase=null,ph0=0,pend=0,
+      mode=2,m0=2,m1=2,mt=1,cutA=CUT,phase=null,ph0=0,pend=0,
       anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
   /* いまの色の方位(=切り口の位置)。HSL/立方体では clip 後の色で決める */
   const curAz=()=>{if(mode===0)return cur.h;
@@ -1197,7 +1198,8 @@ const D1=200,D2=680,D3=200,easeIO=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
         need=true}
       if(need)draw()}
     requestAnimationFrame(loop)};
-  upd();requestAnimationFrame(loop)})();
+  /* 初期モードによって切り口の方位が変わる。upd() が出した cutBase に合わせて描く */
+  upd();yaw=yawT=align(cutBase)+yawOff;chase=false;draw();requestAnimationFrame(loop)})();
 
 /* ============ グラデーション ============ */
 const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.getElementById('r-h2').value;
@@ -1212,7 +1214,7 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
 (()=>{const cv=document.getElementById('g4-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
   const CX=W*.33,CY=Hh*.5;
   let yaw=(90-177)*Math.PI/180,pitch=.38,drag=null,
-      mode=0,m0=0,m1=0,mt=1,t0=0,cyw=1,syw=0,cpt=1,spt=0,traj=null,dirty=false;
+      mode=2,m0=2,m1=2,mt=1,t0=0,cyw=1,syw=0,cpt=1,spt=0,traj=null,dirty=false;
   const anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
   const mixW=w=>{if(mt>=1)return w[m1];if(mt<=0)return w[m0];
     const a=w[m0],b=w[m1];
@@ -1337,7 +1339,7 @@ const grad=()=>{const h1=+document.getElementById('r-h1').value,h2=+document.get
 (()=>{const cv=document.getElementById('g5-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
   const CX=W*.33,CY=Hh*.5;
   let yaw=(90-187)*Math.PI/180,pitch=.33,drag=null,
-      mode=0,m0=0,m1=0,mt=1,t0=0,cyw=1,syw=0,cpt=1,spt=0;
+      mode=2,m0=2,m1=2,mt=1,t0=0,cyw=1,syw=0,cpt=1,spt=0;
   const anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
   const mixW=w=>{if(mt>=1)return w[m1];if(mt<=0)return w[m0];
     const a=w[m0],b=w[m1];
