@@ -181,16 +181,11 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .preset-chips button{padding:10px 18px;border-radius:10px;border:1px solid var(--line);
   background:var(--bg3);color:var(--ink);font-size:19px;cursor:pointer}
 .preset-chips button:focus-visible{outline:3px solid var(--acc)}
-/* 落とし穴 */
-.pit .n{display:inline-flex;width:44px;height:44px;border-radius:50%;background:var(--acc);
-  color:var(--bg);font-size:24px;font-weight:800;align-items:center;justify-content:center;margin-bottom:12px}
-.gray-pair{display:flex;gap:14px;margin-top:14px}
-.gray-pair div{flex:1;height:74px;border-radius:10px;display:flex;align-items:center;
-  justify-content:center;font-size:19px;color:#fff;text-shadow:0 1px 3px #000;text-align:center}
-.contrast-dots{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
-.contrast-dots span{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:18px;color:var(--dim)}
-.contrast-dots i{width:64px;height:44px;border-radius:8px;display:flex;align-items:center;
-  justify-content:center;color:#fff;font-size:19px;font-weight:700}
+/* OKLCH の限界 ① — 全幅 1 本になったので見本を大きく取る */
+.contrast-dots{display:flex;gap:26px;margin-top:22px;justify-content:center}
+.contrast-dots span{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:22px;color:var(--dim)}
+.contrast-dots i{width:180px;height:96px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;color:#fff;font-size:35px;font-weight:700;font-style:normal}
 /* 対応状況 */
 .browsers{display:flex;gap:16px}
 .browsers div{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
@@ -566,26 +561,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">縦の歪みは目、横の凸凹は箱<small>sRGB の三角形は馬蹄形の「シアンの膨らみ」を大きく削る。紫の縁はもともと直線なのでマゼンタはほぼ無傷 — 天井 1 位はマゼンタ 0.322、最下位はシアン寄りの 0.145</small></div>
 </section>
 
-<!-- 16. H-K 効果（L3） -->
-<section class="slide">
-  <div class="hd"><p class="eyebrow">正直な話</p>
-    <h2>L が同じ ＝ 同じ明るさ、とは限らない</h2></div>
-  <div class="demo no-nav">
-    <div class="hk-q">この 2 枚、どっちが明るく見える？</div>
-    <div class="hk-pair">
-      <div class="hk-pt" style="background:oklch(0.452 0.3132 264)"></div>
-      <div class="hk-pt" style="background:oklch(0.452 0 0)"></div>
-    </div>
-    <div class="hk-ans" id="hk-ans">
-      <div>OKLab L <b>0.452</b> ・ 物理の光量 <b>7.2%</b></div>
-      <div>OKLab L <b>0.452</b> ・ 物理の光量 <b>9.2%</b></div>
-    </div>
-    <button class="hk-btn" id="hk-btn" type="button">答え合わせ</button>
-  </div>
-  <div class="takeaway">「観察条件と背景色に依存しない、完全に均等な明度スケールは存在し得ない」— Björn Ottosson<small>物理は灰のほうが 28% 明るいのに、多くの人には青が明るく見える(Helmholtz–Kohlrausch 効果、OKLab は非対応)</small></div>
-</section>
-
-<!-- 17. 標題頁（L2） -->
+<!-- 16. 標題頁（L2） -->
 <section class="slide tpage">
   <p class="eyebrow">今日から使える ①</p>
   <h2 class="t2">グラデーションの<br>「泥ゾーン」が消える</h2>
@@ -593,7 +569,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <p class="lede">同じ 2 色でも、あいだの通り道はブラウザ任せ。<br>通り道を OKLCH に変えるだけで、中間の濁りが消えます。</p>
 </section>
 
-<!-- 18. グラデーション（内容頁・chead） -->
+<!-- 17. グラデーション（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">グラデーションの泥ゾーン</span></div>
   <div class="demo no-nav">
@@ -610,7 +586,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">書き足すのは <span class="mono">in oklch</span> の 8 文字だけ<small>color-mix() にも同じ指定ができる：color-mix(in oklch, var(--brand) 70%, white)</small></div>
 </section>
 
-<!-- 19. グラデーションの軌跡（内容頁・chead） -->
+<!-- 18. グラデーションの軌跡（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">今日から使える ①</p><span class="t">泥ゾーンを立体で見る</span></div>
   <div class="g3-stage no-nav">
@@ -633,7 +609,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   </div>
 </section>
 
-<!-- 20. from構文（L3） -->
+<!-- 19. from構文（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">今日から使える ②</p>
     <h2>1 色から、状態色を全部「計算」する</h2></div>
@@ -658,7 +634,7 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">ブランド色を差し替えても、hover も disabled も勝手についてくる<small>注意：l は 0–1 の数値。calc(l - 10%) は無効、calc(l - 0.1) と書く</small></div>
 </section>
 
-<!-- 21. テーマ着せ替え（L3） -->
+<!-- 20. テーマ着せ替え（L3） -->
 <section class="slide">
   <div class="hd"><p class="eyebrow">本命はこれ</p>
     <h2>色相を 1 個変える ＝ テーマが丸ごと変わる</h2></div>
@@ -691,33 +667,39 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
   <div class="takeaway">明暗の設計（L の階段）はそのまま、色だけ着せ替わる<small>Tailwind v4 のデフォルトパレットもこの方式で再設計された</small></div>
 </section>
 
-<!-- 22. 落とし穴（L3） -->
+<!-- 21. OKLCH の限界 ①（L3） -->
 <section class="slide">
-  <div class="hd"><p class="eyebrow">ハマりどころ</p>
-    <h2>覚えて帰るのは 2 つだけ</h2></div>
-  <div class="twocol">
-    <div class="card pit">
-      <span class="n">1</span>
-      <h3>同じ L ≠ 同じコントラスト</h3>
-      <p>WCAG は別の物差しで測る。同じ L=0.62 でも色相で <b>3.45〜3.90</b> までばらつく。<b>4.5 ギリギリの色は必ず実測</b>。</p>
-      <div class="contrast-dots">
-        <span><i style="background:oklch(0.62 0.14 20)">3.90</i>赤</span>
-        <span><i style="background:oklch(0.62 0.14 90)">3.66</i>黄</span>
-        <span><i style="background:oklch(0.62 0.14 264)">3.70</i>青</span>
-        <span><i style="background:oklch(0.62 0.14 142)">3.45</i>緑</span>
-      </div>
-    </div>
-    <div class="card pit">
-      <span class="n">2</span>
-      <h3>L=0.5 は中間グレーじゃない</h3>
-      <p>目は暗い側に敏感なので、「体感の半分」は物理的にはかなり暗い。HSL の数字を<b>そのまま移すと全体が沈む</b>。</p>
-      <div class="gray-pair">
-        <div style="background:oklch(0.5 0 0)">oklch(0.5 0 0)<br>= #636363</div>
-        <div style="background:#808080">#808080 は<br>L ≒ 0.60</div>
-      </div>
+  <div class="hd"><p class="eyebrow">OKLCH の限界 ①</p>
+    <h2>同じ L でも、コントラストは揃わない</h2></div>
+  <div class="demo no-nav">
+    <p class="body">WCAG のコントラスト比は輝度 Y から出す、OKLCH とは別の物差し。<br>下の 4 色は <b>L=0.62・C=0.14 で固定</b>、違うのは色相だけ。</p>
+    <div class="contrast-dots">
+      <span><i style="background:oklch(0.62 0.14 20)">3.90</i>赤 20°</span>
+      <span><i style="background:oklch(0.62 0.14 90)">3.66</i>黄 90°</span>
+      <span><i style="background:oklch(0.62 0.14 142)">3.45</i>緑 142°</span>
+      <span><i style="background:oklch(0.62 0.14 264)">3.70</i>青 264°</span>
     </div>
   </div>
-  <div class="takeaway">OKLCH は「予測しやすくする」道具で、検証を省く道具ではない</div>
+  <div class="takeaway">それでも白背景とのコントラスト比は <b>3.45〜3.90</b> に散る<small>4.5 ぎりぎりの色は必ず実測する。OKLCH は「予測しやすくする」道具であって、検証を省く道具ではない</small></div>
+</section>
+
+<!-- 22. OKLCH の限界 ②（L3） -->
+<section class="slide">
+  <div class="hd"><p class="eyebrow">OKLCH の限界 ②</p>
+    <h2>L が同じ ＝ 同じ明るさ、とは限らない</h2></div>
+  <div class="demo no-nav">
+    <div class="hk-q">この 2 枚、どっちが明るく見える？</div>
+    <div class="hk-pair">
+      <div class="hk-pt" style="background:oklch(0.452 0.3132 264)"></div>
+      <div class="hk-pt" style="background:oklch(0.452 0 0)"></div>
+    </div>
+    <div class="hk-ans" id="hk-ans">
+      <div>OKLab L <b>0.452</b> ・ 物理の光量 <b>7.2%</b></div>
+      <div>OKLab L <b>0.452</b> ・ 物理の光量 <b>9.2%</b></div>
+    </div>
+    <button class="hk-btn" id="hk-btn" type="button">答え合わせ</button>
+  </div>
+  <div class="takeaway">「観察条件と背景色に依存しない、完全に均等な明度スケールは存在し得ない」— Björn Ottosson<small>物理は灰のほうが 28% 明るいのに、多くの人には青が明るく見える(Helmholtz–Kohlrausch 効果、OKLab は非対応)</small></div>
 </section>
 
 <!-- 23. 対応状況（L3） -->
