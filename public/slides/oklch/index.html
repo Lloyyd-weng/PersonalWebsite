@@ -304,9 +304,9 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .path-svg .zero-lb,.path-svg .fml{font-size:16px;fill:var(--faint)}
 /* CIE 色度図ページ */
 .cie-wrap{display:grid;grid-template-columns:440px 1fr;gap:32px;flex:1;min-height:0;align-items:center}
-.cie-wrap .card,.mu-wrap .card{padding:15px 20px}
-.cie-wrap .card h3,.mu-wrap .card h3{font-size:22px;margin-bottom:7px}
-.cie-wrap .card p,.mu-wrap .card p{font-size:19px;line-height:1.55}
+.cie-wrap .card{padding:15px 20px}
+.cie-wrap .card h3{font-size:22px;margin-bottom:7px}
+.cie-wrap .card p{font-size:19px;line-height:1.55}
 .cie-wrap canvas{width:440px;height:402px;display:block}
 /* 天井のダンベル図 */
 .db{display:flex;flex-direction:column;gap:13px;justify-content:center}
@@ -324,13 +324,10 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 .db-dv{font-size:19px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 .db-dv.hot{color:var(--acc)}
 .db-note{font-size:17px;color:var(--faint);line-height:1.6;margin:10px 0 0}
-/* Munsell 色票 */
-.mu-wrap{display:grid;grid-template-columns:1fr 330px;gap:32px;flex:1;min-height:0;align-items:center}
-.mu-grid{display:flex;flex-direction:column;gap:5px}
-.mu-row{display:flex;gap:5px;align-items:center}
-.mu-row span{width:30px;font-size:15px;color:var(--faint);text-align:right;margin-right:8px;font-variant-numeric:tabular-nums}
-.mu-row i{width:38px;height:31px;border-radius:5px}
-.mu-cap{font-size:16px;color:var(--faint);margin:10px 0 0 43px}
+/* Munsell 色票(散らばり → カスケード → 色立体) */
+.mu-stage{position:relative;flex:1;min-height:0}
+.mu-stage canvas{position:absolute;left:0;top:0;width:1112px;height:546px;cursor:grab;touch-action:none}
+.mu-mode{position:absolute;right:0;bottom:0;width:390px;margin:0}
 /* 明度スケーリング */
 .sc-ramp{display:grid;grid-template-columns:190px 1fr;gap:16px;align-items:center;margin-bottom:12px}
 .sc-ramp .lb{font-size:18px;color:var(--dim);text-align:right;line-height:1.45}
@@ -428,21 +425,14 @@ input[type=range]:focus-visible{box-shadow:0 0 0 4px var(--acc-soft)}
 <!-- 6. Munsell（内容頁・chead） -->
 <section class="slide">
   <div class="chead"><p class="eyebrow">どうやって測った？ ①</p><span class="t">Munsell（1905）— 並べるのが先、測るのが後</span></div>
-  <div class="mu-wrap no-nav">
-    <div>
-      <div class="mu-grid" id="mu-grid"></div>
-      <div class="mu-cap">縦 = 明度 Value(下が暗い)・横 = 彩度 Chroma(左端が無彩色)</div>
-    </div>
-    <div>
-      <div class="card" style="margin-bottom:16px"><h3>目視で等間隔に並べる</h3>
-        <p>色票を<b>見た目の間隔が均等</b>になるまで並べ替える。測るのはそのあと。</p></div>
-      <div class="card" style="margin-bottom:18px"><h3>1943 年、座標に翻訳</h3>
-        <p>膨大な目視判定を平均し、<b>2,734 枚</b>を CIE 座標へ翻訳。以後の均等空間の教師データに。</p></div>
-      <div class="sl-top"><span>ページ(色相)をめくる</span><span class="v" id="mu-v">29°</span></div>
-      <input type="range" id="mu-h" min="0" max="360" step="1" value="29" aria-label="色相">
+  <div class="mu-stage no-nav">
+    <canvas id="mu-cv" width="2224" height="1092"></canvas>
+    <div class="g3-mode mu-mode" id="mu-mode" role="group" aria-label="段階">
+      <button class="on" data-s="0" type="button">ばらばら</button>
+      <button data-s="1" type="button">並べる</button>
+      <button data-s="2" type="button">組み立てる</button>
     </div>
   </div>
-  <div class="takeaway">色票の右端のギザギザ — あとで出てくる OKLCH の立体の断面そのもの<small>ASTM D1535 の Value→輝度変換で配置した再現図。ムンセルは 120 年前から、同じ形と付き合っていた</small></div>
 </section>
 
 <!-- 7. MacAdam（内容頁・chead） -->
@@ -1759,20 +1749,79 @@ const lmsBars=(el,scale,tick)=>{
     const i=+b.dataset.c;st[i]=st[i]?0:1;b.classList.toggle('on',!!st[i]);upd()}));
   upd()})();
 
-/* ============ Munsell 色票(12 枚目) ============ */
-(()=>{const grid=document.getElementById('mu-grid'),sl=document.getElementById('mu-h'),
-        vv=document.getElementById('mu-v');
-  const rebuild=()=>{const h=+sl.value;vv.textContent=h+'°';let html='';
-    for(let Vm=9;Vm>=1;Vm--){ /* ASTM D1535: Value → 輝度 Y% */
-      const Yp=1.1914*Vm-0.22533*Vm*Vm+0.23352*Vm**3-0.020484*Vm**4+0.00081939*Vm**5,
-            L=Math.cbrt(Yp/100);
-      let cells='';
-      for(let k=0;k<=10;k++){const C=k*0.03;
-        if(k&&C>cmaxLH(L,h))break; /* 色域の外に出たら行はそこで終わり=ギザギザの端 */
-        cells+=`<i style="background:oklch(${L.toFixed(3)} ${C.toFixed(2)} ${h})"></i>`}
-      html+=`<div class="mu-row"><span>${Vm}</span>${cells}</div>`}
-    grid.innerHTML=html};
-  sl.addEventListener('input',rebuild);rebuild()})();
+/* ============ Munsell 色票(6 枚目):散らばり → カスケード → 色立体 ============
+   色票は 12 色相 × Value 1–9 × Chroma 0.03 刻み、sRGB の境界(cmaxLH)で打ち切り。
+   3 段階は同じ色票の 3D 配置を変えているだけ。第 3 段階の座標は 11・13 枚目の wOk と同じなので、
+   出来上がる木はあとで出てくる色域の立体の低解像度版そのもの。
+   カスケードは Windows Flip 3D の鏡像:ページは全部平行、奥ほど右上へずれて小さくなるので、
+   各ページの露出は右端=いちばん鮮やかな列になり、灰色の列は重なりの下に隠れる。ドラッグでめくれる */
+(()=>{const cv=document.getElementById('mu-cv'),ctx=cv.getContext('2d'),W=cv.width,Hh=cv.height;
+  const anim=!matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const NH=12,HUES=Array.from({length:NH},(_,k)=>30*(k+1)); /* 赤(30°)を先頭に 30° 刻み */
+  const VAL=[];for(let Vm=1;Vm<=9;Vm++){ /* ASTM D1535: Value → 輝度 Y% → OKLab L */
+    const Yp=1.1914*Vm-0.22533*Vm*Vm+0.23352*Vm**3-0.020484*Vm**4+0.00081939*Vm**5;VAL.push(Math.cbrt(Yp/100))}
+  const chips=[];
+  HUES.forEach((h,p)=>VAL.forEach(L=>{const cm=cmaxLH(L,h);
+    for(let k=0;k<=10;k++){const C=k*.03;if(k&&C>cm)break; /* 色域の外で行が終わる=ギザギザの端 */
+      chips.push({p,L,C,h,col:`oklch(${L.toFixed(3)} ${C.toFixed(2)} ${h})`})}}));
+  const N=chips.length,HW=24,HT=32,PX0=.165*RSf,F=2600; /* 色票の半幅・半高、ページ中心の x 補正、透視距離 */
+  /* 各色票 = 中心 c と面内の 2 軸 u(彩度方向)・v(明度方向)、a は不透明度。段階ごとに配置関数を持つ */
+  let seed=7;const rnd=()=>(seed=(seed*1103515245+12345)%2147483648)/2147483648;
+  const SCAT=chips.map(()=>{const th=rnd()*Math.PI*2;
+    return{c:[(rnd()-.5)*2600,(rnd()-.5)*1280,0],u:[HW*Math.cos(th),HW*Math.sin(th),0],v:[-HT*Math.sin(th),HT*Math.cos(th),0],a:1}});
+  const OX=260,OY=0,OZ=140; /* カスケード 1 ページぶんのずれ:右・上・奥 */
+  const layCas=(ch,fl)=>{const i=((ch.p-fl+.5)%NH+NH)%NH-.5; /* i<0 は手前へ抜けていく最中、NH-1 超は奥に現れる最中 */
+    return{c:[ch.C*RSf-PX0+i*OX,(ch.L-.5)*VSf+i*OY,-i*OZ],u:[HW,0,0],v:[0,HT,0],
+      a:i<0?Math.max(0,1+i*2):i>NH-1?Math.max(0,(NH-.5-i)*2):1}};
+  const layTree=ch=>{const a=ch.h*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a);
+    return{c:[ch.C*ca*RSf,(ch.L-.5)*VSf,ch.C*sa*RSf],u:[HW*ca,0,HW*sa],v:[0,HT,0],a:1}};
+  const CAM=[{yaw:0,pitch:0,zoom:.8,cx:0,cy:0},{yaw:-.5,pitch:.16,zoom:1.2,cx:-350,cy:40},{yaw:-.6,pitch:.33,zoom:1.2,cx:0,cy:40}];
+  let stage=0,flip=0,cam={...CAM[0]},cur=SCAT,from=null,to=null,camFrom=null,t0=0,drag=null,flipAnim=null;
+  const layout=s=>s===0?SCAT:s===1?chips.map(ch=>layCas(ch,flip)):chips.map(layTree);
+  const DUR=900,STAG=450,ease=u=>u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
+  const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+  const draw=()=>{ctx.clearRect(0,0,W,Hh);
+    const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+    const pj=p=>{const x1=p[0]*cy-p[2]*sy,z1=p[0]*sy+p[2]*cy,y2=p[1]*cp-z1*sp,z2=p[1]*sp+z1*cp,s=cam.zoom*F/(F-z2);
+      return[W/2+cam.cx+x1*s,Hh/2+cam.cy-y2*s,z2]};
+    /* 色票は中心の投影と 2 軸の投影で平行四辺形に近似し、setTransform で角丸のまま描く。奥から順に */
+    const items=cur.map((q,k)=>{if(q.a<=0)return null;
+      const P=pj(q.c),U=pj([q.c[0]+q.u[0],q.c[1]+q.u[1],q.c[2]+q.u[2]]),V=pj([q.c[0]+q.v[0],q.c[1]+q.v[1],q.c[2]+q.v[2]]);
+      return{k,P,ax:U[0]-P[0],ay:U[1]-P[1],bx:V[0]-P[0],by:V[1]-P[1],a:q.a}}).filter(Boolean).sort((m,n)=>m.P[2]-n.P[2]);
+    for(const it of items){ctx.globalAlpha=it.a;ctx.setTransform(it.ax,it.ay,it.bx,it.by,it.P[0],it.P[1]);
+      ctx.fillStyle=chips[it.k].col;ctx.beginPath();ctx.roundRect(-1,-1,2,2,.24);ctx.fill()}
+    ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1};
+  const setStage=s=>{if(s===stage)return;
+    document.querySelectorAll('#mu-mode button').forEach(b=>b.classList.toggle('on',+b.dataset.s===s));
+    stage=s;flipAnim=null;if(s===1)flip=0;
+    const tgt=layout(s),T=CAM[s];
+    if(!anim||!cv.offsetParent){cur=tgt;cam={...T};from=null;draw();return}
+    /* 木を回した後でも最短の弧で戻す */
+    let dy=(cam.yaw-T.yaw)%(2*Math.PI);if(dy>Math.PI)dy-=2*Math.PI;if(dy<-Math.PI)dy+=2*Math.PI;cam.yaw=T.yaw+dy;
+    from=cur.map(q=>({...q}));to=tgt;camFrom={...cam};t0=0};
+  document.querySelectorAll('#mu-mode button').forEach(b=>b.addEventListener('click',()=>setStage(+b.dataset.s)));
+  cv.addEventListener('pointerdown',e=>{if(from)return;drag={x:e.clientX,y:e.clientY};flipAnim=null;
+    try{cv.setPointerCapture(e.pointerId)}catch{}cv.style.cursor='grabbing'});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag={x:e.clientX,y:e.clientY};
+    if(stage===2){cam.yaw+=dx*.008;cam.pitch=Math.max(-1.2,Math.min(1.2,cam.pitch+dy*.006));draw()}
+    else if(stage===1){flip=((flip-dx/180)%NH+NH)%NH;cur=layout(1);draw()}});
+  addEventListener('pointerup',()=>{if(!drag)return;drag=null;cv.style.cursor='grab';
+    if(stage===1)flipAnim={from:flip,to:Math.round(flip),t0:0}}); /* 指を離したら一番近いページで止まる */
+  const loop=ts=>{if(cv.offsetParent){let need=false;
+      if(from){if(!t0)t0=ts;const el=ts-t0;let done=true;
+        cur=to.map((q,k)=>{const e=ease(Math.max(0,Math.min(1,(el-k/N*STAG)/DUR)));if(e<1)done=false;const f=from[k];
+          return{c:lerp3(f.c,q.c,e),u:lerp3(f.u,q.u,e),v:lerp3(f.v,q.v,e),a:f.a+(q.a-f.a)*e}});
+        const ec=ease(Math.min(1,el/(DUR+STAG))),T=CAM[stage];
+        cam={yaw:camFrom.yaw+(T.yaw-camFrom.yaw)*ec,pitch:camFrom.pitch+(T.pitch-camFrom.pitch)*ec,
+          zoom:camFrom.zoom+(T.zoom-camFrom.zoom)*ec,cx:camFrom.cx+(T.cx-camFrom.cx)*ec,cy:camFrom.cy+(T.cy-camFrom.cy)*ec};
+        if(done){from=null;cur=to;cam={...T}}need=true}
+      else if(flipAnim){if(!flipAnim.t0)flipAnim.t0=ts;const e=ease(Math.min(1,(ts-flipAnim.t0)/320));
+        flip=flipAnim.from+(flipAnim.to-flipAnim.from)*e;if(e>=1){flip=(flipAnim.to%NH+NH)%NH;flipAnim=null}
+        cur=layout(1);need=true}
+      else if(stage===2&&!drag&&anim){cam.yaw+=.0025;need=true} /* 木はゆっくり自転。触ると止まる */
+      if(need)draw()}
+    requestAnimationFrame(loop)};
+  draw();requestAnimationFrame(loop)})();
 
 /* ============ 明度スケーリング(14 枚目) ============ */
 (()=>{const ph=document.getElementById('sc-phys'),pe=document.getElementById('sc-perc');
