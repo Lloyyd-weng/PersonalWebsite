@@ -52,6 +52,33 @@ n2m.setCustomTransformer("image", async (block) => {
   }
 });
 
+const escapeAttr = (s) =>
+  s.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
+
+// Callouts are the author's epigraph device, but the library renders them as a
+// blockquote with the icon glued to the front — once styled, indistinguishable
+// from a real quotation. Emit an <aside> the stylesheet can target instead. The
+// blank lines inside are load-bearing: they close the HTML block so the body is
+// still parsed as markdown.
+n2m.setCustomTransformer("callout", async (block) => {
+  const callout = block.callout;
+  // Callouts with nested children: returning a non-string makes notion-to-md fall
+  // back to its own handling, which is the only place that walks those children.
+  if (!callout || block.has_children) return false;
+  // Round-trip the spans through a synthetic paragraph so bold/links/inline code
+  // go through the library's own annotation handling.
+  const body = (
+    await n2m.blockToMarkdown({
+      type: "paragraph",
+      paragraph: { rich_text: callout.rich_text ?? [] },
+    })
+  ).trim();
+  if (!body) return "";
+  const icon = callout.icon?.type === "emoji" ? callout.icon.emoji : "";
+  const attr = icon ? ` data-icon="${escapeAttr(icon)}"` : "";
+  return `<aside class="callout"${attr}>\n\n${body}\n\n</aside>`;
+});
+
 async function downloadImage(url, pageId, blockId) {
   const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
