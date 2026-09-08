@@ -27,7 +27,13 @@ if (!NOTION_TOKEN) {
 }
 
 const notion = new Client({ auth: NOTION_TOKEN });
-const n2m = new NotionToMarkdown({ notionClient: notion });
+const n2m = new NotionToMarkdown({
+  notionClient: notion,
+  // Reference material (research notes, drafts) lives in child pages under the
+  // post. parseChildPages defaults to true, which would inline every one of them
+  // into the body as an h2 section — skip them entirely.
+  config: { parseChildPages: false },
+});
 
 // Mutated per page so the image transformer knows where to save files.
 const current = { pageId: "" };
