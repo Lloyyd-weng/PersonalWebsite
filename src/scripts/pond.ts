@@ -42,12 +42,12 @@ const VISC = 0.03;
 // 「看内容的折射」和「水底光斑」分开调:折射只给几个像素保证能读,光斑用大得多的等效深度。
 const VIEW_DEPTH = 45; // 视线折射:水面坡度 → 内容偏移
 const RIPPLE_H = 6; // 交互波纹高度场 1 个单位 = 多少 px 的水面起伏
-const CAUSTIC_SWELL = 2000; // 涌浪在水底聚光的等效深度(越大光纹越锐)
+const CAUSTIC_SWELL = 1000; // 涌浪在水底聚光的等效深度(越大光纹越锐;2000 起开始聚出亮纹)
+const CAUSTIC_GAIN = 0.4; // 水底光影的总强度:1 = 明显的游动光斑,0 = 没有
 const CAUSTIC_SOFT = 0.3; // 光纹峰值的软化(越大越柔,越小越像泳池)
 const CAUSTIC_RIPPLE = 30; // 交互波纹在水底聚光的等效深度
 const PARALLAX = 42; // 光斜着照下来,水底光影相对水面错开的距离
-const HAZE = 0.12; // 隔水的雾感:内容往水色靠多少
-const BLUR = 0.8; // 隔水的轻微模糊半径
+const HAZE = 0.04; // 隔水的雾感:内容往水色靠多少(太大字会发灰发糊)
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const darkScheme = matchMedia("(prefers-color-scheme: dark)");
@@ -77,6 +77,7 @@ out vec4 outColor;
 uniform sampler2D uText;   // c2 的画面(预乘 alpha)
 uniform sampler2D uH;      // 交互波纹高度场
 uniform vec2 uSize;        // 画面尺寸(CSS px)
+uniform vec2 uTexSize;     // 文字贴图尺寸(设备像素)
 uniform vec2 uGridMul;     // CSS px → 高度场贴图坐标
 uniform vec2 uGridAdd;
 uniform vec2 uTexel;       // 高度场一格的贴图坐标宽度
@@ -115,6 +116,34 @@ void swell(vec2 p, out vec2 grad, out vec3 hess) {
 
 float hAt(vec2 g) { return texture(uH, g).r; }
 
+// 文字贴图用 Catmull-Rom 双三次采样。涌浪让整页一直有零点几像素的偏移,双线性插值会把
+// 相邻像素混在一起,字边就软了;双三次在亚像素偏移下保得住边缘,偏移为零时就是原像素。
+// 4×4 的核用 5 次双线性取样近似(省掉四个角,权重很小)。
+vec4 sampleSharp(vec2 uv) {
+  vec2 p = uv * uTexSize - 0.5;
+  vec2 i = floor(p);
+  vec2 t = p - i;
+  vec2 w0 = t * (-0.5 + t * (1.0 - 0.5 * t));
+  vec2 w1 = 1.0 + t * t * (-2.5 + 1.5 * t);
+  vec2 w2 = t * (0.5 + t * (2.0 - 1.5 * t));
+  vec2 w3 = t * t * (-0.5 + 0.5 * t);
+  vec2 w12 = w1 + w2;
+  vec2 c0 = (i - 0.5) / uTexSize;                 // 第 i-1 格的中心
+  vec2 c3 = (i + 2.5) / uTexSize;                 // 第 i+2 格的中心
+  vec2 c12 = (i + 0.5 + w2 / w12) / uTexSize;     // 第 i、i+1 格之间,让双线性按 w1:w2 混合
+  float a = w12.x * w0.y, b = w0.x * w12.y, c = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;
+  vec4 col = texture(uText, vec2(c12.x, c0.y)) * a
+           + texture(uText, vec2(c0.x, c12.y)) * b
+           + texture(uText, c12) * c
+           + texture(uText, vec2(c3.x, c12.y)) * d
+           + texture(uText, vec2(c12.x, c3.y)) * e;
+  col /= a + b + c + d + e;
+  // 双三次会有一点过冲,收回合法的预乘 alpha 范围
+  col = clamp(col, 0.0, 1.0);
+  col.rgb = min(col.rgb, vec3(col.a));
+  return col;
+}
+
 // 交互波纹部分用差分
 void ripple(vec2 p, out vec2 grad, out vec3 hess) {
   vec2 g = p * uGridMul + uGridAdd;
@@ -137,11 +166,7 @@ void main() {
   vec2 grad = gs + gr;
   vec2 F = S + grad * ${f(VIEW_DEPTH)};   // 不设上限:浪陡的地方字被扯开,本来就是水的样子
 
-  // 隔着水看,内容略软:中心加四个斜角的小核
-  vec2 bl = vec2(${f(BLUR)}) / uSize;
-  vec4 t = texture(uText, F / uSize) * 0.4
-         + (texture(uText, F / uSize + bl) + texture(uText, F / uSize - bl)
-          + texture(uText, F / uSize + vec2(bl.x, -bl.y)) + texture(uText, F / uSize + vec2(-bl.x, bl.y))) * 0.15;
+  vec4 t = sampleSharp(F / uSize);
   vec3 albedo = uBg * (1.0 - t.a) + t.rgb;    // 水底(也就是页面内容)本来的颜色
 
   // 2. 焦散:照到水底 F 点的光,来自斜上方水面的 F - 视差 那一点。
@@ -155,13 +180,14 @@ void main() {
 
   // 3. 打光。浅色模式:水底整体压暗一点点,亮纹才有地方亮回白色;
   //    深色模式:底色本来就黑,亮纹用加法提上去。纯灰阶,不引入彩色
+  const float G = ${f(CAUSTIC_GAIN)};
   vec3 lit = mix(
-    albedo * (0.95 + I * 0.05) + clamp(I, 0.0, 2.2) * 0.01,   // 深色:底色压回近黑,亮纹只提一点
-    albedo * (0.955 + I * 0.035),             // 浅色
+    albedo * (1.0 - G * 0.05 + G * I * 0.05) + G * clamp(I, 0.0, 2.2) * 0.01,  // 深色:底色压回近黑,亮纹只提一点
+    albedo * (1.0 - G * 0.045 + G * I * 0.035),                              // 浅色
     uLight);
 
   // 隔水的雾感:内容的对比度往水色收一点,越深越灰
-  vec3 water = mix(uBg + 0.012, uBg * 0.955, uLight);
+  vec3 water = mix(uBg + 0.012, uBg * (1.0 - G * 0.045), uLight);
   lit = mix(lit, water, ${f(HAZE)});
 
   // 4. 水面本身的一点受光(在 S 点,不跟着折射走 —— 和水底光斑错开,深度感就出来了)
@@ -231,6 +257,7 @@ function mount(target: HTMLElement): (() => void) | null {
   const U = (n: string) => gl.getUniformLocation(prog, n);
   const uGridMul = U("uGridMul"), uGridAdd = U("uGridAdd"), uTexel = U("uTexel");
   const uSize = U("uSize"), uLight = U("uLight"), uBg = U("uBg"), uFg = U("uFg"), uT = U("uT");
+  const uTexSize = U("uTexSize");
   gl.uniform1i(U("uText"), 0);
   gl.uniform1i(U("uH"), 1);
 
@@ -354,6 +381,7 @@ function mount(target: HTMLElement): (() => void) | null {
       gl!.uniform2f(uGridAdd, 0.5 / GW, 0.5 / GH);
       gl!.uniform2f(uTexel, 1 / GW, 1 / GH);
       gl!.uniform2f(uSize, W, H);
+      gl!.uniform2f(uTexSize, bw, bh);
       // 改 canvas 尺寸会清空画面,要重画
       c2.requestPaint?.();
     }
