@@ -371,9 +371,10 @@ float inPara(vec2 ab, vec2 e1, vec2 e2) {
 }
 
 // 池壁上的踏脚凹槽:往墙里挖进去的长方体,各个角用池子的透视投影(JS 算好)。
-// 从斜上方看进洞口能看到:凹槽地面(踏脚面,受光,最亮)、后壁(背光,最暗)、
-// 右侧壁(朝着镜头,半亮;左侧壁背对镜头看不到),以及三条内棱;
-// 洞口上沿下面一道阴影,下沿是踏脚的前沿,一道亮边。后壁垫底,侧壁、地面离镜头近,盖在上面。
+// 挖得够深(比洞口在屏幕上的高度还深),从斜上方看进去,视线在碰到后壁之前就先落到
+// 踏脚面上,所以后壁看不到;洞里只有两个面:踏脚面(水平,受光)和右侧壁(朝着镜头,略暗;
+// 左侧壁背对镜头看不到)。两个面都是亮面,交界的内角只有一点柔和的阴影,不画描线;
+// 「凹进去」靠踏脚面从洞口往里逐渐变暗来表达(越深越照不到光)。洞口下沿是踏脚的前沿,一道亮边。
 // 在池子的透视里,往墙里挖(世界 y 变小)只让屏幕 y 往上移、x 不变,所以「往里」就是一个竖直位移 V
 vec3 pocket(vec2 p, float light, out float cov, out float zmid) {
   cov = 0.0;
@@ -386,21 +387,16 @@ vec3 pocket(vec2 p, float light, out float cov, out float zmid) {
     vec2 ab = para(p, o, U, Wv);
     float open = inPara(ab, U, Wv);
     if (open <= 0.0) continue;
-    float fl = inPara(para(p, o, U, V), U, V);            // 地面:从洞口下沿往里
-    float sd = inPara(para(p, o + U, Wv, V), Wv, V);      // 右侧壁:从洞口右沿往里
-    vec3 col = base * 0.30;                                // 后壁
-    col = mix(col, base * 0.55, sd);
-    col = mix(col, base * 0.78, fl);
-    // 三条内棱:后壁 × 地面、后壁 × 右侧壁、地面 × 右侧壁
+    float fl = inPara(para(p, o, U, V), U, V);            // 踏脚面:从洞口下沿往里
+    // 踏脚面往里逐渐变暗(ab.y:洞口下沿 0 → 上沿 1,越往上看到的地面越靠里)
+    vec3 floorC = base * 0.82 * mix(1.0, 0.5, clamp(ab.y, 0.0, 1.0));
+    vec3 sideC = base * 0.64 * mix(1.0, 0.72, clamp(ab.y, 0.0, 1.0));
+    // 内角:踏脚面和右侧壁的交线是 o+U 往里的那条竖线,只在两侧压一点柔和的暗
     vec2 perp; float t;
-    float e1 = 1.0 - smoothstep(0.25, 0.85, segDist(p, o + V, o + U + V, perp, t));
-    float e2 = 1.0 - smoothstep(0.25, 0.85, segDist(p, o + U + V, o + U + V + Wv, perp, t));
-    float e3 = 1.0 - smoothstep(0.25, 0.85, segDist(p, o + U, o + U + V, perp, t));
-    col *= 1.0 - 0.5 * max(e1, max(e2, e3));
-    // 洞口上沿下面的阴影、下沿(踏脚前沿)的亮边
-    float lw = length(Wv);
-    col *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 1.6, (1.0 - ab.y) * lw));
-    col = mix(col, base * 0.98, 0.55 * (1.0 - smoothstep(0.0, 1.0, ab.y * lw)));
+    float ao = 1.0 - smoothstep(0.0, 2.2, segDist(p, o + U, o + U + V, perp, t));
+    vec3 col = mix(sideC, floorC, fl) * (1.0 - 0.10 * ao);
+    // 洞口下沿(踏脚前沿)一道亮边
+    col = mix(col, base * 0.98, 0.5 * (1.0 - smoothstep(0.0, 1.0, ab.y * length(Wv))));
     c = col;
     cov = open;
     zmid = uPocketB[k].w;
@@ -647,9 +643,9 @@ function ladderGeometry(W: number, H: number, rimW: number, bandX: number, bandT
       shadow.set([...proj(x + 0.6 * hz * SHADOW, y + 0.8 * hz * SHADOW, 0), z <= 0 ? 1 : 0], (i * RAIL_N + k) * 3);
     });
   }
-  // 池壁上的两个踏脚凹槽:往墙里挖进去的长方体,在两根扶手之间(左右各让出 3px),往里挖 5px。
+  // 池壁上的两个踏脚凹槽:往墙里挖进去的长方体,在两根扶手之间(左右各让出 3px)。
   // 洞口用一个角 + 两条边描述;往墙里的方向在这套透视里只是屏幕 y 的位移
-  const Dr = 5 * s;
+  const Dr = 16 * s; // 挖得比洞口在屏幕上的高度深,后壁就被踏脚面挡住、露不出来
   const pocketA = new Float32Array(8), pocketB = new Float32Array(8);
   ([[0.27, 0.51], [0.6, 0.84]] as const).forEach(([z0, z1], k) => {
     const u0 = x0 + 3 * s, u1 = x0 + sp - 3 * s;
