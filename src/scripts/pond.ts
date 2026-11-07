@@ -41,12 +41,11 @@ const VISC = 0.03;
 // 「看内容的折射」和「水底光斑」分开调:折射只给几个像素,光斑用大得多的等效深度。
 const VIEW_DEPTH = 45; // 视线折射:水面坡度 → 池底偏移(再乘水深)
 const RIPPLE_H = 6; // 交互波纹高度场 1 个单位 = 多少 px 的水面起伏
-const CAUSTIC_SWELL = 500; // 长涌浪在池底聚光的等效深度:只留大尺度的明暗起伏
-// 短碎浪:波长 50–120px、振幅很小,专门负责聚出细密的光纹。曲率 ∝ A·k²、坡度 ∝ A·k,
-// 所以短浪能聚光却几乎不晃字;光纹的大小跟着它的波长走,想更细就把 CHOP 的波长再调小
-const CAUSTIC_CHOP = 400; // 碎浪在池底聚光的等效深度:要折叠得够多,亮线才连成网
-const CHOP_VIEW = 0.3; // 碎浪对视线折射的贡献(1 = 按物理算;小一点,字不跟着细碎地抖)
-const CAUSTIC_SOFT = 0.1; // 光纹峰值的软化(越大越柔;小一点亮纹细,不成大块)
+const CAUSTIC_SWELL = 500; // 长涌浪在池底聚光的等效深度(只配合交互波纹出折叠线)
+// 常驻的水底光网:移植自 Basket 今日计划卡的 dwCaustics(迭代反馈域扭曲,见 shader 注释)
+const CAUSTIC_CELL = 38; // 光网场 1 个单位 = 多少 CSS px:小 → 网眼细密,大 → 舒展
+const CAUSTIC_FLOW = 0.6; // 光网流速(场时间 / 秒)。Basket 卡片用 0.05 近乎凝止;这里要配得上水波的速度
+const CAUSTIC_WEB = 0.32; // 光网亮度(浅色;深色按比例另算)
 const CAUSTIC_RIPPLE = 30; // 交互波纹在池底聚光的等效深度
 const CAUSTIC_GAIN = 0.5; // 池底光纹的强度
 const PARALLAX = 30; // 光斜着照下来,池底光影相对水面错开的距离
@@ -94,6 +93,7 @@ uniform float uT;
 uniform float uRim;        // 池沿宽(CSS px)
 uniform float uRadius;     // 池子内侧圆角半径
 uniform vec3 uLadder;      // 扶梯:左竖杆的 x、缩放
+uniform vec4 uSeed;        // 每次打开页面随机(Basket 卡片按日期哈希,这里按访问):光网域偏移 xy、时间相位 z、疏密 w
 uniform vec2 uFloorMin;    // 池底在屏幕上的矩形(透视下比池口小一圈,露出池壁)
 uniform vec2 uFloorMax;
 
@@ -119,52 +119,31 @@ const vec3 WAVES[5] = vec3[5](
   vec3(5.30, 190.0, 0.45)
 );
 
-// 低频值噪声(0..1),用来扭弯碎浪、给水面分出强弱斑块
-float hash1(vec2 p) {
-  p = fract(p * vec2(123.34, 456.21));
-  p += dot(p, p + 45.32);
-  return fract(p.x * p.y);
-}
-float vnoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  float a = hash1(i), b = hash1(i + vec2(1.0, 0.0));
-  float c = hash1(i + vec2(0.0, 1.0)), d = hash1(i + vec2(1.0, 1.0));
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+vec2 rot(vec2 v, float a) {
+  float c = cos(a), s = sin(a);
+  return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
 }
 
-// 短碎浪(角度 rad, 波长 px, 振幅 px),速度同样按深水色散 c ∝ √λ。
-// 直线正弦叠出来是周期性的干涉格子,面积一大就看得出「程序生成」,所以:
-// 方向按黄金角铺开、波长互不成整数比;坐标先被低频噪声扭弯(波前不再是直线);
-// 再用另一层更慢的噪声给强弱分区(有的地方光纹密,有的地方平静,像风一阵阵吹过)
-const vec3 CHOP[8] = vec3[8](
-  vec3(0.31, 131.0, 0.34),
-  vec3(2.71, 109.0, 0.29),
-  vec3(5.11,  94.0, 0.25),
-  vec3(1.23,  83.0, 0.22),
-  vec3(3.63,  73.0, 0.19),
-  vec3(6.03,  64.0, 0.17),
-  vec3(2.15,  57.0, 0.15),
-  vec3(4.55,  50.0, 0.13)
-);
-
-void chop(vec2 p, out vec2 grad, out vec3 hess) {
-  grad = vec2(0.0);
-  hess = vec3(0.0);
-  vec2 q = p / 430.0 + uT * vec2(0.021, -0.016);
-  vec2 pw = p + (vec2(vnoise(q), vnoise(q + 17.3)) - 0.5) * 140.0;
-  float env = smoothstep(0.12, 0.88, vnoise(p / 320.0 - uT * vec2(0.031, 0.012) + 41.0));
-  float amp = 0.35 + 0.95 * env;
-  for (int i = 0; i < 8; i++) {
-    vec3 w = CHOP[i];
-    float spd = ${f(SWELL_SPEED)} * sqrt(w.y / 680.0);
-    float k = 6.2831853 / w.y;
-    vec2 kv = vec2(cos(w.x), sin(w.x)) * k;
-    float th = dot(kv, pw) - spd * k * uT + float(i) * 2.3;
-    float a = w.z * amp;
-    grad += a * cos(th) * kv;
-    hess -= a * sin(th) * vec3(kv.x * kv.x, kv.y * kv.y, kv.x * kv.y);
+// 水底光网:移植自 Basket 今日计划卡的 dwCaustics(DailyWoodMaterial.metal)。
+// 迭代反馈域扭曲 —— 每轮扭曲的输入是上一轮的输出,弯曲自相似地累积,亮脊因此蜿蜒、
+// 疏密天然不均;直线正弦叠加做不到这点(有限几个频率的干涉,大面积看得出规律)。
+// 反馈坐标每轮转一个黄金角、各轮时间异速:6 个无理方向没有公共周期也没有共同轴向,
+// 永不同相,所以看不出拼贴和方格。核 200/length(p/(sin,cos)) 在扭曲相位过零处趋 0,
+// 累加值经 1.20-pow 反转、pow 锐化后,过零轨迹成为细亮的焦散脊。
+// Basket 的注释:机制源自 ShaderToy MdlXz8「Tileable Water Caustic」一系的社区经典迭代焦散。
+// 不要动:-250 偏移(让 |p| ≈ 354 近似恒定)、200 的归一化、末行 1.20 / 1.4 / 6.0 —— 互相耦合。
+float caustics(vec2 uv, float t) {
+  vec2 p = uv - 250.0;
+  vec2 w = p;
+  float acc = 1.0;
+  for (int n = 0; n < 6; n++) {
+    vec2 r = rot(w, 2.39996 * float(n) + 0.7);
+    float tn = t * (1.0 + 0.17 * float(n)) + 1.3 * float(n);
+    w = p + vec2(cos(tn - r.x) + sin(tn + r.y), sin(tn - r.y) + cos(tn + r.x));
+    acc += 200.0 / length(p / vec2(sin(r.x + tn), cos(r.y + tn)));
   }
+  acc /= 5.0;
+  return pow(abs(1.20 - pow(abs(acc), 1.4)), 6.0);
 }
 
 // 常驻涌浪:几道不同方向的慢浪叠加,速度按深水色散 c ∝ √λ。hess = (hxx, hyy, hxy)
@@ -353,11 +332,10 @@ void main() {
   vec3 absorb = mix(ABS_D, ABS_L, light);
 
   // 1. 水面坡度;水深左上浅、右下深(只影响颜色和折射强度)
-  vec2 gs, gr, gc; vec3 hs, hr, hc;
+  vec2 gs, gr; vec3 hs, hr;
   swell(S, gs, hs);
   ripple(S, gr, hr);
-  chop(S, gc, hc);
-  vec2 grad = gs + gr + gc * ${f(CHOP_VIEW)};
+  vec2 grad = gs + gr;
   float depth = 0.72 + 0.28 * clamp(dot(n01, vec2(0.55, 0.45)), 0.0, 1.0);
 
   // 2. 视线:进了水才折射;然后往下走,看先撞上池壁还是池底
@@ -398,19 +376,20 @@ void main() {
     wet = inWater ? clamp((z - ZW) / (1.0 - ZW), 0.0, 1.0) : 0.0;
   }
 
-  // 3. 焦散。照到 X 的光来自斜上方水面 X - 视差 处。
-  //    亮线 = 光线折叠的边界(det = 0 的等值线),线宽用屏幕导数固定在约 1.5px,所以是细线;
-  //    周围再加一点聚光的辉光。导数要在统一的控制流里算,所以放在分支外面
+  // 3. 焦散。照到 X 的光来自斜上方水面 X - 视差 处。两层:
+  //    常驻的光网(caustics,Basket 同款);交互波纹的折叠线(det = 0 的等值线,线宽用屏幕导数
+  //    固定在约 1.5px,手划过的地方才有)。导数要在统一的控制流里算,所以放在分支外面
   vec2 P = X - vec2(0.6, 0.8) * ${f(PARALLAX)};
   swell(P, gs, hs);
   ripple(P, gr, hr);
-  chop(P, gc, hc);
-  vec3 H = hs * ${f(CAUSTIC_SWELL)} + hc * ${f(CAUSTIC_CHOP)} + hr * ${f(CAUSTIC_RIPPLE)};
+  vec3 H = hs * ${f(CAUSTIC_SWELL)} + hr * ${f(CAUSTIC_RIPPLE)};
   float det = (1.0 + H.x) * (1.0 + H.y) - H.z * H.z;
   float wpx = min(fwidth(det), 0.3);   // 池底和池壁交界处 X 会跳,封顶免得那里冒出一道粗亮边
   float line = 1.0 - smoothstep(0.0, 1.5 * wpx + 1e-4, abs(det));
-  float I = min(1.0 / max(abs(det), ${f(CAUSTIC_SOFT)}), 6.0) - 1.0;
-  float Ic = (line * mix(0.24, 0.14, light) + max(I - 1.5, 0.0) * mix(0.03, 0.015, light)) * wet;
+  // 交互波纹顺手把光网也扭一下,两层是同一片水
+  float web = min(caustics((P + gr * 60.0) / (${f(CAUSTIC_CELL)} * uSeed.w) + uSeed.xy, uT * ${f(CAUSTIC_FLOW)} + uSeed.z), 1.5);
+  float Ic = (web * mix(${f(CAUSTIC_WEB * 1.6)}, ${f(CAUSTIC_WEB)}, light)
+            + line * mix(0.24, 0.14, light)) * wet;
   float lamp = exp(-length(X - vec2(uFloorMin.x, uSize.y * 0.55)) / (uSize.y * 0.45));
   float amb = mix(0.55 + 1.1 * lamp, 1.0, light);   // 夜里压暗,水下灯照亮附近
   if (wet > 0.0) {
@@ -502,6 +481,10 @@ function mount(target: HTMLElement): (() => void) | null {
   const uTexSize = U("uTexSize");
   const uRim = U("uRim"), uRadius = U("uRadius"), uLadder = U("uLadder");
   const uFloorMin = U("uFloorMin"), uFloorMax = U("uFloorMax");
+  // 光网的随机身份:Basket 今日计划卡用「日期 + 计划」哈希出 seed,同一天同一块板;
+  // 这里每次打开页面随机一组 —— 域偏移(看到无限光网的哪一块)、时间相位、疏密 ±
+  // 偏移量刻意小(< 8 个场单位):dwCaustics 依赖 |p| ≈ 354 的量级,偏太远会失衡
+  gl.uniform4f(U("uSeed"), Math.random() * 8, Math.random() * 8, Math.random() * 251, 0.85 + Math.random() * 0.35);
   gl.uniform1i(U("uText"), 0);
   gl.uniform1i(U("uH"), 1);
 
