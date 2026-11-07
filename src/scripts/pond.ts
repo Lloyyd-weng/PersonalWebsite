@@ -52,7 +52,7 @@ const PARALLAX = 30; // 光斜着照下来,池底光影相对水面错开的距�
 const TILE = 15; // 瓷砖边长(CSS px):小块马赛克
 const GROUT = Math.max(1, TILE * 0.05); // 勾缝宽(CSS px):按砖的大小缩,砖小了缝也细
 const GROUT_LINES = true; // 瓷砖之间画不画勾缝描边(false 时只留极淡的色差)
-const TEXT_TINT = 0.45; // 文字吃多少池水的颜色:1 = 和瓷砖一样被染蓝,小一点字更清楚
+const TEXT_TINT = 0.7; // 文字吃多少池水的颜色:1 = 和瓷砖一样被染蓝,小一点字更清楚
 // 池水是蓝的,原来的浅灰 --muted 落在上面几乎看不清;泳池模式下换一档对比够的颜色(只改 canvas 里那份)
 const MUTED_ON_WATER = { light: "#3b4654", dark: "#aab4c0" };
 
@@ -208,6 +208,13 @@ float hash(vec2 p) {
   return fract(p.x * p.y);
 }
 
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+
 // ---- 透视:从斜上方往池子里看 ----
 // 池口(池沿内侧)离镜头近,看起来大;池底离得远,看起来小,中间露出四面池壁。
 // 池底在屏幕上的矩形 uFloorMin..uFloorMax 由页面留白决定 —— 页面内容整块落在池底上,
@@ -260,15 +267,18 @@ void wallCoord(vec2 p, float z, out vec2 uv, out vec2 nIn) {
 }
 
 // 瓷砖。q 是世界坐标(px)。GROUT_LINES = 0 时不画勾缝和倒角,只留每块砖之间极淡的色差
-vec3 tiles(vec2 q, float light) {
+// 顺手给出勾缝遮罩 grout 和这块砖的随机值 rnd,印在砖上的文字要用
+vec3 tiles(vec2 q, float light, out float grout, out float rnd) {
   vec2 g = q / ${f(TILE)};
-  vec3 tile = mix(TILE_D, TILE_L, light) * (0.965 + 0.07 * hash(floor(g)));
+  rnd = hash(floor(g));
+  grout = 0.0;
+  vec3 tile = mix(TILE_D, TILE_L, light) * (0.965 + 0.07 * rnd);
 #if ${GROUT_LINES ? 1 : 0}
   vec2 fr = fract(g);
   vec2 e = min(fr, 1.0 - fr) * ${f(TILE)};
   float edge = min(e.x, e.y);
   float aa = max(fwidth(edge), 0.5);
-  float grout = 1.0 - smoothstep(${f(GROUT / 2)} - aa, ${f(GROUT / 2)} + aa, edge);
+  grout = 1.0 - smoothstep(${f(GROUT / 2)} - aa, ${f(GROUT / 2)} + aa, edge);
   tile *= 1.0 - 0.05 * (1.0 - smoothstep(${f(GROUT / 2)}, ${f(GROUT / 2 + TILE / 15)}, edge));
   tile = mix(tile, mix(GROUT_D, GROUT_L, light), grout);
 #endif
@@ -351,9 +361,19 @@ void main() {
   if (onFloor) {
     // 池底:瓷砖 + 画在上面的页面内容(内容本来就在屏幕坐标里,直接取)
     vec4 t = sampleSharp(X / uSize);
-    tA = t.a;
     vec2 pf = vec2(uRim) + (X - uFloorMin) / (uFloorMax - uFloorMin) * (uSize - 2.0 * vec2(uRim));
-    col = tiles(pf - vec2(uRim), light) * (1.0 - t.a) + t.rgb;
+    float grout, rnd;
+    vec3 base = tiles(pf - vec2(uRim), light, grout, rnd);
+    // 文字是印在马赛克上的油墨:勾缝里没有墨;墨色随每块砖的釉面略有深浅;
+    // 泡久了有零星脱落的小点和大片轻微褪色。磨损坐标钉在池底(pf),跟着折射一起晃
+    vec3 inkCol = t.rgb / max(t.a, 1e-3);
+    inkCol *= 0.93 + 0.14 * rnd;
+    // 勾缝只透出一道浅线、不切断笔画(15px 的砖配 14px 的小字,切断就成了镂空字);
+    // 脱落点要稀,多了像噪点而不像磨损
+    float wear = step(0.985, hash(floor(pf / 1.6))) * 0.55
+               + smoothstep(0.55, 0.95, vnoise(pf / 22.0)) * 0.2;
+    tA = t.a * (1.0 - grout * 0.45) * (1.0 - wear);
+    col = mix(base, inkCol, tA);
     // 池壁和池沿挡住斜射的光,在靠左上那两边的池底投下影子;墙脚一圈略暗
     float occl = smoothstep(-8.0, 8.0, sdLevel(X + normalize(LUP) * 34.0, 1.0));
     float nearWall = smoothstep(-40.0, 0.0, sdLevel(X, 1.0));
@@ -363,7 +383,8 @@ void main() {
     // 池壁:朝光的(下、右)亮,背光的(上、左)暗;墙脚更暗
     vec2 uv, nIn;
     wallCoord(X, z, uv, nIn);
-    col = tiles(uv - vec2(uRim, 0.0), light);
+    float gw, rw;
+    col = tiles(uv - vec2(uRim, 0.0), light, gw, rw);
     col *= 0.80 + 0.22 * dot(nIn, normalize(LUP));
     col *= 1.0 - 0.18 * smoothstep(0.75, 1.0, z);
     if (nIn.y > 0.5) {
@@ -394,6 +415,8 @@ void main() {
   float amb = mix(0.55 + 1.1 * lamp, 1.0, light);   // 夜里压暗,水下灯照亮附近
   if (wet > 0.0) {
     col *= mix(amb, mix(amb, 1.0, 0.6), tA) * (1.0 + Ic * ${f(CAUSTIC_GAIN / 0.5)});
+    // 光网也照在墨面上:深色的墨乘法提不亮,补一点加法,光纹才会从字上掠过
+    col += Ic * tA * mix(0.18, 0.28, light) * vec3(0.7, 0.9, 1.0);
   } else {
     col *= mix(0.62, 1.0, light);   // 夜里,水线以上的干池壁也暗
   }
@@ -401,6 +424,8 @@ void main() {
   // 4. 池水吸收:光在水里走得越远越蓝;文字少染一点,保证读得清
   vec3 tint = exp(-absorb * depth * wet);
   col *= mix(tint, mix(vec3(1.0), tint, ${f(TEXT_TINT)}), tA);
+  // 水的散射光蒙在墨上:纯黑的字在水下变成深海军蓝,和池水是同一层
+  col += mix(vec3(0.010, 0.035, 0.080), vec3(0.030, 0.090, 0.160), light) * depth * wet * tA;
   col += (1.0 - light) * LAMP * lamp * 0.10 * wet;
 
   // 5. 水面:水线一道亮线;波峰高光;左上一片天光
