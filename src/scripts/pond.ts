@@ -46,9 +46,9 @@ const CAUSTIC_SOFT = 0.15; // 光纹峰值的软化(越大越柔;小一点亮纹
 const CAUSTIC_RIPPLE = 30; // 交互波纹在池底聚光的等效深度
 const CAUSTIC_GAIN = 0.5; // 池底光纹的强度
 const PARALLAX = 30; // 光斜着照下来,池底光影相对水面错开的距离
-const TILE = 60; // 瓷砖边长(CSS px)
-const GROUT = 3; // 勾缝宽(CSS px)
-const GROUT_LINES = false; // 瓷砖之间画不画勾缝描边(false 时只留极淡的色差)
+const TILE = 15; // 瓷砖边长(CSS px):小块马赛克
+const GROUT = Math.max(1, TILE * 0.05); // 勾缝宽(CSS px):按砖的大小缩,砖小了缝也细
+const GROUT_LINES = true; // 瓷砖之间画不画勾缝描边(false 时只留极淡的色差)
 const TEXT_TINT = 0.45; // 文字吃多少池水的颜色:1 = 和瓷砖一样被染蓝,小一点字更清楚
 // 池水是蓝的,原来的浅灰 --muted 落在上面几乎看不清;泳池模式下换一档对比够的颜色(只改 canvas 里那份)
 const MUTED_ON_WATER = { light: "#3b4654", dark: "#aab4c0" };
@@ -231,14 +231,14 @@ void wallCoord(vec2 p, float z, out vec2 uv, out vec2 nIn) {
 // 瓷砖。q 是世界坐标(px)。GROUT_LINES = 0 时不画勾缝和倒角,只留每块砖之间极淡的色差
 vec3 tiles(vec2 q, float light) {
   vec2 g = q / ${f(TILE)};
-  vec3 tile = mix(TILE_D, TILE_L, light) * (0.975 + 0.05 * hash(floor(g)));
+  vec3 tile = mix(TILE_D, TILE_L, light) * (0.965 + 0.07 * hash(floor(g)));
 #if ${GROUT_LINES ? 1 : 0}
   vec2 fr = fract(g);
   vec2 e = min(fr, 1.0 - fr) * ${f(TILE)};
   float edge = min(e.x, e.y);
   float aa = max(fwidth(edge), 0.5);
   float grout = 1.0 - smoothstep(${f(GROUT / 2)} - aa, ${f(GROUT / 2)} + aa, edge);
-  tile *= 1.0 - 0.05 * (1.0 - smoothstep(${f(GROUT / 2)}, ${f(GROUT / 2 + 4)}, edge));
+  tile *= 1.0 - 0.05 * (1.0 - smoothstep(${f(GROUT / 2)}, ${f(GROUT / 2 + TILE / 15)}, edge));
   tile = mix(tile, mix(GROUT_D, GROUT_L, light), grout);
 #endif
   return tile;
@@ -249,7 +249,7 @@ vec3 chrome(float hl, float light) {
   return mix(base * (0.7 + 0.3 * hl), vec3(1.0), pow(max(hl, 0.0), 6.0) * mix(0.5, 0.85, light));
 }
 
-// 扶梯挂在上池壁靠右:两根竖杆顺着墙往下,三根踏杆。坐标用墙面的 (u, z)
+// 扶梯挂在上池壁靠右:两根竖杆顺着墙往下,两根踏杆。坐标用墙面的 (u, z)
 float ladderWall(float u, float z, out float hl) {
   float s = uLadder.y, x0 = uLadder.x;
   float R = 3.0 * s, aa = 0.8;
@@ -260,8 +260,8 @@ float ladderWall(float u, float z, out float hl) {
     float c = (1.0 - smoothstep(R - aa, R + aa, dx)) * step(z, 0.93);
     if (c > m) { m = c; hl = 1.0 - dx / R; }
   }
-  for (int k = 0; k < 3; k++) {
-    float dz = abs(z - (0.36 + float(k) * 0.24)) * WALL_H;
+  for (int k = 0; k < 2; k++) {
+    float dz = abs(z - (0.45 + float(k) * 0.30)) * WALL_H;
     float c = (1.0 - smoothstep(R - aa, R + aa, dz)) * step(x0, u) * step(u, x0 + 48.0 * s);
     if (c > m) { m = c; hl = 1.0 - dz / R; }
   }
@@ -573,12 +573,10 @@ function mount(target: HTMLElement): (() => void) | null {
       const ls = Math.min(1, Math.max(0.55, W / 1600));
       gl!.uniform1f(uRim, rimW);
       gl!.uniform1f(uRadius, rimW * 1.4);
-      // 透视下露出来的池壁宽度。上池壁露得最多(镜头略偏下),扶梯挂在那里。
-      // 宽度受页面留白约束:左右要小于内容的左右留白(桌面 96px、手机 48px),
-      // 底部要小于 main 的 pb-20(80px),这样页面内容整块落在池底上,不会压到池壁
-      const bandX = Math.min(60, Math.max(12, W * 0.032));
-      const bandT = Math.min(72, Math.max(24, H * 0.075));
-      const bandB = Math.min(36, Math.max(14, H * 0.035));
+      // 透视下露出来的池壁宽度:和池沿差不多宽,上池壁略多一点(扶梯挂在那里)。
+      // 必须小于页面留白(左右:桌面 96px、手机 48px;底部:main 的 pb-20 = 80px),
+      // 页面内容才会整块落在池底上,不压到池壁
+      const bandX = rimW, bandB = rimW, bandT = rimW * 1.2;
       gl!.uniform2f(uFloorMin, rimW + bandX, rimW + bandT);
       gl!.uniform2f(uFloorMax, W - rimW - bandX, H - rimW - bandB);
       gl!.uniform3f(uLadder, W - rimW - bandX - 130 * ls, ls, 0);
