@@ -41,8 +41,12 @@ const VISC = 0.03;
 // 「看内容的折射」和「水底光斑」分开调:折射只给几个像素,光斑用大得多的等效深度。
 const VIEW_DEPTH = 45; // 视线折射:水面坡度 → 池底偏移(再乘水深)
 const RIPPLE_H = 6; // 交互波纹高度场 1 个单位 = 多少 px 的水面起伏
-const CAUSTIC_SWELL = 1500; // 涌浪在池底聚光的等效深度:再大会过聚焦,亮的反而成大片
-const CAUSTIC_SOFT = 0.15; // 光纹峰值的软化(越大越柔;小一点亮纹细,不成大块)
+const CAUSTIC_SWELL = 500; // 长涌浪在池底聚光的等效深度:只留大尺度的明暗起伏
+// 短碎浪:波长 50–120px、振幅很小,专门负责聚出细密的光纹。曲率 ∝ A·k²、坡度 ∝ A·k,
+// 所以短浪能聚光却几乎不晃字;光纹的大小跟着它的波长走,想更细就把 CHOP 的波长再调小
+const CAUSTIC_CHOP = 400; // 碎浪在池底聚光的等效深度:要折叠得够多,亮线才连成网
+const CHOP_VIEW = 0.3; // 碎浪对视线折射的贡献(1 = 按物理算;小一点,字不跟着细碎地抖)
+const CAUSTIC_SOFT = 0.1; // 光纹峰值的软化(越大越柔;小一点亮纹细,不成大块)
 const CAUSTIC_RIPPLE = 30; // 交互波纹在池底聚光的等效深度
 const CAUSTIC_GAIN = 0.5; // 池底光纹的强度
 const PARALLAX = 30; // 光斜着照下来,池底光影相对水面错开的距离
@@ -114,6 +118,54 @@ const vec3 WAVES[5] = vec3[5](
   vec3(1.20, 260.0, 0.70),
   vec3(5.30, 190.0, 0.45)
 );
+
+// 低频值噪声(0..1),用来扭弯碎浪、给水面分出强弱斑块
+float hash1(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  float a = hash1(i), b = hash1(i + vec2(1.0, 0.0));
+  float c = hash1(i + vec2(0.0, 1.0)), d = hash1(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// 短碎浪(角度 rad, 波长 px, 振幅 px),速度同样按深水色散 c ∝ √λ。
+// 直线正弦叠出来是周期性的干涉格子,面积一大就看得出「程序生成」,所以:
+// 方向按黄金角铺开、波长互不成整数比;坐标先被低频噪声扭弯(波前不再是直线);
+// 再用另一层更慢的噪声给强弱分区(有的地方光纹密,有的地方平静,像风一阵阵吹过)
+const vec3 CHOP[8] = vec3[8](
+  vec3(0.31, 131.0, 0.34),
+  vec3(2.71, 109.0, 0.29),
+  vec3(5.11,  94.0, 0.25),
+  vec3(1.23,  83.0, 0.22),
+  vec3(3.63,  73.0, 0.19),
+  vec3(6.03,  64.0, 0.17),
+  vec3(2.15,  57.0, 0.15),
+  vec3(4.55,  50.0, 0.13)
+);
+
+void chop(vec2 p, out vec2 grad, out vec3 hess) {
+  grad = vec2(0.0);
+  hess = vec3(0.0);
+  vec2 q = p / 430.0 + uT * vec2(0.021, -0.016);
+  vec2 pw = p + (vec2(vnoise(q), vnoise(q + 17.3)) - 0.5) * 140.0;
+  float env = smoothstep(0.12, 0.88, vnoise(p / 320.0 - uT * vec2(0.031, 0.012) + 41.0));
+  float amp = 0.35 + 0.95 * env;
+  for (int i = 0; i < 8; i++) {
+    vec3 w = CHOP[i];
+    float spd = ${f(SWELL_SPEED)} * sqrt(w.y / 680.0);
+    float k = 6.2831853 / w.y;
+    vec2 kv = vec2(cos(w.x), sin(w.x)) * k;
+    float th = dot(kv, pw) - spd * k * uT + float(i) * 2.3;
+    float a = w.z * amp;
+    grad += a * cos(th) * kv;
+    hess -= a * sin(th) * vec3(kv.x * kv.x, kv.y * kv.y, kv.x * kv.y);
+  }
+}
 
 // 常驻涌浪:几道不同方向的慢浪叠加,速度按深水色散 c ∝ √λ。hess = (hxx, hyy, hxy)
 void swell(vec2 p, out vec2 grad, out vec3 hess) {
@@ -301,10 +353,11 @@ void main() {
   vec3 absorb = mix(ABS_D, ABS_L, light);
 
   // 1. 水面坡度;水深左上浅、右下深(只影响颜色和折射强度)
-  vec2 gs, gr; vec3 hs, hr;
+  vec2 gs, gr, gc; vec3 hs, hr, hc;
   swell(S, gs, hs);
   ripple(S, gr, hr);
-  vec2 grad = gs + gr;
+  chop(S, gc, hc);
+  vec2 grad = gs + gr + gc * ${f(CHOP_VIEW)};
   float depth = 0.72 + 0.28 * clamp(dot(n01, vec2(0.55, 0.45)), 0.0, 1.0);
 
   // 2. 视线:进了水才折射;然后往下走,看先撞上池壁还是池底
@@ -345,17 +398,22 @@ void main() {
     wet = inWater ? clamp((z - ZW) / (1.0 - ZW), 0.0, 1.0) : 0.0;
   }
 
-  // 3. 焦散(只在水下)。照到 X 的光来自斜上方水面 X - 视差 处
+  // 3. 焦散。照到 X 的光来自斜上方水面 X - 视差 处。
+  //    亮线 = 光线折叠的边界(det = 0 的等值线),线宽用屏幕导数固定在约 1.5px,所以是细线;
+  //    周围再加一点聚光的辉光。导数要在统一的控制流里算,所以放在分支外面
+  vec2 P = X - vec2(0.6, 0.8) * ${f(PARALLAX)};
+  swell(P, gs, hs);
+  ripple(P, gr, hr);
+  chop(P, gc, hc);
+  vec3 H = hs * ${f(CAUSTIC_SWELL)} + hc * ${f(CAUSTIC_CHOP)} + hr * ${f(CAUSTIC_RIPPLE)};
+  float det = (1.0 + H.x) * (1.0 + H.y) - H.z * H.z;
+  float wpx = min(fwidth(det), 0.3);   // 池底和池壁交界处 X 会跳,封顶免得那里冒出一道粗亮边
+  float line = 1.0 - smoothstep(0.0, 1.5 * wpx + 1e-4, abs(det));
+  float I = min(1.0 / max(abs(det), ${f(CAUSTIC_SOFT)}), 6.0) - 1.0;
+  float Ic = (line * mix(0.24, 0.14, light) + max(I - 1.5, 0.0) * mix(0.03, 0.015, light)) * wet;
   float lamp = exp(-length(X - vec2(uFloorMin.x, uSize.y * 0.55)) / (uSize.y * 0.45));
+  float amb = mix(0.55 + 1.1 * lamp, 1.0, light);   // 夜里压暗,水下灯照亮附近
   if (wet > 0.0) {
-    vec2 P = X - vec2(0.6, 0.8) * ${f(PARALLAX)};
-    swell(P, gs, hs);
-    ripple(P, gr, hr);
-    vec3 H = hs * ${f(CAUSTIC_SWELL)} + hr * ${f(CAUSTIC_RIPPLE)};
-    float det = (1.0 + H.x) * (1.0 + H.y) - H.z * H.z;
-    float I = min(1.0 / max(abs(det), ${f(CAUSTIC_SOFT)}), 3.2) - 1.0;
-    float Ic = max(I - 1.0, 0.0) * mix(0.12, 0.07, light) * wet;   // 只取聚得最狠的那一截,成细线
-    float amb = mix(0.55 + 1.1 * lamp, 1.0, light);                 // 夜里压暗,水下灯照亮附近
     col *= mix(amb, mix(amb, 1.0, 0.6), tA) * (1.0 + Ic * ${f(CAUSTIC_GAIN / 0.5)});
   } else {
     col *= mix(0.62, 1.0, light);   // 夜里,水线以上的干池壁也暗
