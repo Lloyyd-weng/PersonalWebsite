@@ -368,11 +368,18 @@ void main() {
     // 泡久了有零星脱落的小点和大片轻微褪色。磨损坐标钉在池底(pf),跟着折射一起晃
     vec3 inkCol = t.rgb / max(t.a, 1e-3);
     inkCol *= 0.93 + 0.14 * rnd;
-    // 勾缝只透出一道浅线、不切断笔画(15px 的砖配 14px 的小字,切断就成了镂空字);
-    // 脱落点要稀,多了像噪点而不像磨损
-    float wear = step(0.985, hash(floor(pf / 1.6))) * 0.55
-               + smoothstep(0.55, 0.95, vnoise(pf / 22.0)) * 0.2;
-    tA = t.a * (1.0 - grout * 0.45) * (1.0 - wear);
+    // 勾缝只透出一道浅线、不切断笔画(15px 的砖配 14px 的小字,切断就成了镂空字)。
+    // 磨损三层,全用连续噪声(按格子挑点会是一个个小方块),每层坐标先转个角度,
+    // 避开值噪声沿横竖轴排的格子感:
+    //   颗粒 —— 极细的墨色不匀,像丝网印刷 / 旧漆膜,整片都有、很淡;
+    //   剥落 —— 两个尺度叠加后只取最高的一小撮:大小不一、边缘参差、很稀,也不剥到透底;
+    //   褪色 —— 大片轻微发浅
+    float grain = 0.6 * vnoise(rot(pf, 0.7) / 1.8) + 0.4 * vnoise(rot(pf, 2.1) / 0.9 + 5.7);
+    float flake = 0.6 * vnoise(rot(pf, 0.4) / 7.0 + 1.3) + 0.4 * vnoise(rot(pf, 1.9) / 2.6 + 3.1);
+    float chip = smoothstep(0.73, 0.79, flake) * (0.6 + 0.3 * grain);
+    float fade = smoothstep(0.55, 0.95, vnoise(rot(pf, 1.1) / 22.0)) * 0.2;
+    float ink = (0.86 + 0.14 * grain) * (1.0 - chip) * (1.0 - fade);
+    tA = t.a * (1.0 - grout * 0.45) * ink;
     col = mix(base, inkCol, tA);
     // 池壁和池沿挡住斜射的光,在靠左上那两边的池底投下影子;墙脚一圈略暗
     float occl = smoothstep(-8.0, 8.0, sdLevel(X + normalize(LUP) * 34.0, 1.0));
