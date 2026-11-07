@@ -21,10 +21,33 @@ type Ctx2D = CanvasRenderingContext2D & {
 type DrawableCanvas = HTMLCanvasElement & { requestPaint?: () => void };
 
 const CELL = 4; // 高度场一格对应的 CSS 像素
-const DAMP = 0.984; // 每步衰减
 const STEP_MS = 1000 / 60; // 固定步长,高刷屏上波速不翻倍
-const REFRACT = 16; // 梯度 → 折射偏移(CSS px)
-const SWAY = 0.55; // 常驻的轻微晃动幅度(CSS px)
+
+// ---- 波速:交互波纹和常驻涌浪要在同一个量级,不然一眼就像两套水 ----
+// 深水的色散关系是 c ∝ √λ:波长越长跑得越快。涌浪按这个关系从 SWELL_SPEED 往下排;
+// 交互波纹是短波,给一个和最长涌浪相当的速度,两者看起来才是同一片水。
+const RIPPLE_SPEED = 170; // 交互波纹的传播速度(CSS px/s);170 是这个格式的上限(c² = 0.5)
+const SWELL_SPEED = 150; // 最长那道涌浪(λ = 680px)的速度(CSS px/s)
+// 波动方程的 c²(单位:格²/步²)。显式格式要求 c² ≤ 0.5 才稳定;原来写死的就是 0.5,约 170px/s
+const C2 = Math.min(0.5, (RIPPLE_SPEED / ((CELL * 1000) / STEP_MS)) ** 2);
+// 每步衰减按「每走一格衰减多少」折算:波走得慢了,每步的衰减也要跟着放轻,不然走不远就没了
+const DAMP = 0.988 ** (Math.sqrt(C2) / Math.SQRT1_2);
+// 一点粘性:每步往邻格平均靠一点,专门压掉格子尺度的毛刺(波走慢了以后毛刺散得慢,会把字撕碎)
+const VISC = 0.03;
+
+// ---- 「水深」的几个旋钮(单位都是 CSS px)----
+// 人眼判断水深靠这几样:水底有游动的光斑(焦散)、水面波纹和它投在水底的光影错开(视差)、
+// 浪是大而慢的涌动而不是碎波、隔着一层水的东西发灰发软。注意锐利的光纹网反而是浅水
+// (泳池)的特征,深水的光斑更柔更散,所以光斑留柔和档。
+// 「看内容的折射」和「水底光斑」分开调:折射只给几个像素保证能读,光斑用大得多的等效深度。
+const VIEW_DEPTH = 45; // 视线折射:水面坡度 → 内容偏移
+const RIPPLE_H = 6; // 交互波纹高度场 1 个单位 = 多少 px 的水面起伏
+const CAUSTIC_SWELL = 2000; // 涌浪在水底聚光的等效深度(越大光纹越锐)
+const CAUSTIC_SOFT = 0.3; // 光纹峰值的软化(越大越柔,越小越像泳池)
+const CAUSTIC_RIPPLE = 30; // 交互波纹在水底聚光的等效深度
+const PARALLAX = 42; // 光斜着照下来,水底光影相对水面错开的距离
+const HAZE = 0.12; // 隔水的雾感:内容往水色靠多少
+const BLUR = 0.8; // 隔水的轻微模糊半径
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const darkScheme = matchMedia("(prefers-color-scheme: dark)");
@@ -46,41 +69,106 @@ void main() {
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
+const f = (n: number) => n.toFixed(4);
 const FRAG = `#version 300 es
 precision highp float;
 in vec2 vUv;
 out vec4 outColor;
 uniform sampler2D uText;   // c2 的画面(预乘 alpha)
-uniform sampler2D uH;      // 高度场
-uniform vec2 uGridMul;     // vUv → 高度场贴图坐标
+uniform sampler2D uH;      // 交互波纹高度场
+uniform vec2 uSize;        // 画面尺寸(CSS px)
+uniform vec2 uGridMul;     // CSS px → 高度场贴图坐标
 uniform vec2 uGridAdd;
 uniform vec2 uTexel;       // 高度场一格的贴图坐标宽度
-uniform vec2 uPx;          // 1 CSS px 对应的 vUv 宽度
 uniform vec3 uBg;
 uniform vec3 uFg;
+uniform float uLight;      // 1 = 浅色模式,0 = 深色模式
 uniform float uT;
+
+const float CELL = ${f(CELL)};
+
+// 常驻涌浪:几道不同方向、不同波长的慢浪叠在一起(角度 rad, 波长 px, 振幅 px)。
+// 单独一道看不出什么,叠起来在水底聚出会游动的焦散网。速度不单独给,按深水色散 c ∝ √λ 算
+const vec3 WAVES[5] = vec3[5](
+  vec3(0.30, 680.0, 2.40),
+  vec3(2.10, 470.0, 1.60),
+  vec3(4.00, 360.0, 1.10),
+  vec3(1.20, 260.0, 0.70),
+  vec3(5.30, 190.0, 0.45)
+);
+
+// 水面在 p 点的坡度与曲率(hess = hxx, hyy, hxy),涌浪部分用解析式
+void swell(vec2 p, out vec2 grad, out vec3 hess) {
+  grad = vec2(0.0);
+  hess = vec3(0.0);
+  for (int i = 0; i < 5; i++) {
+    vec3 w = WAVES[i];
+    float spd = ${f(SWELL_SPEED)} * sqrt(w.y / 680.0);
+    float k = 6.2831853 / w.y;
+    vec2 kv = vec2(cos(w.x), sin(w.x)) * k;
+    float th = dot(kv, p) - spd * k * uT + float(i) * 1.7;
+    float s = sin(th), c = cos(th);
+    grad += w.z * c * kv;
+    hess -= w.z * s * vec3(kv.x * kv.x, kv.y * kv.y, kv.x * kv.y);
+  }
+}
+
+float hAt(vec2 g) { return texture(uH, g).r; }
+
+// 交互波纹部分用差分
+void ripple(vec2 p, out vec2 grad, out vec3 hess) {
+  vec2 g = p * uGridMul + uGridAdd;
+  vec2 ex = vec2(uTexel.x, 0.0), ey = vec2(0.0, uTexel.y);
+  float c = hAt(g);
+  float l = hAt(g - ex), r = hAt(g + ex), u = hAt(g - ey), d = hAt(g + ey);
+  float ul = hAt(g - ex - ey), ur = hAt(g + ex - ey), dl = hAt(g - ex + ey), dr = hAt(g + ex + ey);
+  grad = vec2(r - l, d - u) * (${f(RIPPLE_H)} / (2.0 * CELL));
+  hess = vec3(r + l - 2.0 * c, d + u - 2.0 * c, (dr - ur - dl + ul) * 0.25)
+       * (${f(RIPPLE_H)} / (CELL * CELL));
+}
+
 void main() {
-  vec2 g = vUv * uGridMul + uGridAdd;
-  float hl = texture(uH, g - vec2(uTexel.x, 0.0)).r;
-  float hr = texture(uH, g + vec2(uTexel.x, 0.0)).r;
-  float hu = texture(uH, g - vec2(0.0, uTexel.y)).r;
-  float hd = texture(uH, g + vec2(0.0, uTexel.y)).r;
-  vec2 grad = vec2(hr - hl, hd - hu);
+  vec2 S = vUv * uSize;                       // 屏幕上这一点(水面)
 
-  // 常驻的轻微晃动:让内容像沉在静水下面,不碰也在微微浮动
-  vec2 sway = vec2(
-    sin(vUv.y * 11.0 + uT * 0.9),
-    sin(vUv.x * 7.0 + uT * 0.7 + 1.3)
-  ) * ${SWAY.toFixed(2)};
+  // 1. 视线穿过水面折射,看到水底偏移过的位置 F
+  vec2 gs, gr; vec3 hs, hr;
+  swell(S, gs, hs);
+  ripple(S, gr, hr);
+  vec2 grad = gs + gr;
+  vec2 F = S + grad * ${f(VIEW_DEPTH)};   // 不设上限:浪陡的地方字被扯开,本来就是水的样子
 
-  vec2 uv = vUv + (grad * ${REFRACT.toFixed(1)} + sway) * uPx;
-  vec4 t = texture(uText, uv);
-  vec3 col = uBg * (1.0 - t.a) + t.rgb;
+  // 隔着水看,内容略软:中心加四个斜角的小核
+  vec2 bl = vec2(${f(BLUR)}) / uSize;
+  vec4 t = texture(uText, F / uSize) * 0.4
+         + (texture(uText, F / uSize + bl) + texture(uText, F / uSize - bl)
+          + texture(uText, F / uSize + vec2(bl.x, -bl.y)) + texture(uText, F / uSize + vec2(-bl.x, bl.y))) * 0.15;
+  vec3 albedo = uBg * (1.0 - t.a) + t.rgb;    // 水底(也就是页面内容)本来的颜色
 
-  // 受光:朝光的波面往前景色偏一点,背光的往反方向。纯灰阶,不引入彩色
-  float s = dot(grad, vec2(-0.6, -0.8));
-  col += (uFg - uBg) * clamp(s * 0.9, -0.07, 0.07);
-  outColor = vec4(col, 1.0);
+  // 2. 焦散:照到水底 F 点的光,来自斜上方水面的 F - 视差 那一点。
+  //    水面曲率把光聚拢(亮纹)或散开(暗区),强度 = 1 / |det(I + 深度 × 曲率)|
+  vec2 P = F - vec2(0.6, 0.8) * ${f(PARALLAX)};
+  swell(P, gs, hs);
+  ripple(P, gr, hr);
+  vec3 H = hs * ${f(CAUSTIC_SWELL)} + hr * ${f(CAUSTIC_RIPPLE)};
+  float det = (1.0 + H.x) * (1.0 + H.y) - H.z * H.z;
+  float I = min(1.0 / max(abs(det), ${f(CAUSTIC_SOFT)}), 3.2) - 1.0;   // 0 = 平均光照
+
+  // 3. 打光。浅色模式:水底整体压暗一点点,亮纹才有地方亮回白色;
+  //    深色模式:底色本来就黑,亮纹用加法提上去。纯灰阶,不引入彩色
+  vec3 lit = mix(
+    albedo * (0.95 + I * 0.05) + clamp(I, 0.0, 2.2) * 0.01,   // 深色:底色压回近黑,亮纹只提一点
+    albedo * (0.955 + I * 0.035),             // 浅色
+    uLight);
+
+  // 隔水的雾感:内容的对比度往水色收一点,越深越灰
+  vec3 water = mix(uBg + 0.012, uBg * 0.955, uLight);
+  lit = mix(lit, water, ${f(HAZE)});
+
+  // 4. 水面本身的一点受光(在 S 点,不跟着折射走 —— 和水底光斑错开,深度感就出来了)
+  float sh = dot(grad, vec2(-0.6, -0.8));
+  lit += (uFg - uBg) * clamp(sh * 0.6, -0.06, 0.06);
+
+  outColor = vec4(clamp(lit, 0.0, 1.0), 1.0);
 }`;
 
 function parseRgb(s: string): [number, number, number] {
@@ -115,7 +203,13 @@ function makeProgram(gl: WebGL2RenderingContext): WebGLProgram | null {
 }
 
 // 只在 dev 下挂到 window.__pond,用来验证「拆掉后复原」「离开视口停循环」;生产构建会被摇掉
-const debug = { frames: 0, stop: () => {}, start: () => {} };
+const debug = {
+  frames: 0,
+  stop: () => {},
+  start: () => {},
+  // 读高度场,用来实测波纹传播速度
+  field: (): { h: Float32Array; GW: number; GH: number; drop: (x: number, y: number) => void } | null => null,
+};
 
 /** 把 target 沉进水面。返回拆除函数;挂不上时返回 null,页面原样不动。 */
 function mount(target: HTMLElement): (() => void) | null {
@@ -136,7 +230,7 @@ function mount(target: HTMLElement): (() => void) | null {
 
   const U = (n: string) => gl.getUniformLocation(prog, n);
   const uGridMul = U("uGridMul"), uGridAdd = U("uGridAdd"), uTexel = U("uTexel");
-  const uPx = U("uPx"), uBg = U("uBg"), uFg = U("uFg"), uT = U("uT");
+  const uSize = U("uSize"), uLight = U("uLight"), uBg = U("uBg"), uFg = U("uFg"), uT = U("uT");
   gl.uniform1i(U("uText"), 0);
   gl.uniform1i(U("uH"), 1);
 
@@ -226,8 +320,11 @@ function mount(target: HTMLElement): (() => void) | null {
   }
 
   function readColors() {
-    gl!.uniform3f(uBg, ...parseRgb(getComputedStyle(document.body).backgroundColor));
+    const bg = parseRgb(getComputedStyle(document.body).backgroundColor);
+    gl!.uniform3f(uBg, ...bg);
     gl!.uniform3f(uFg, ...parseRgb(getComputedStyle(target).color));
+    const lum = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2];
+    gl!.uniform1f(uLight, lum > 0.5 ? 1 : 0);
   }
 
   // ---- 尺寸 ----
@@ -253,10 +350,10 @@ function mount(target: HTMLElement): (() => void) | null {
       prev = new Float32Array(GW * GH);
       gl!.activeTexture(gl!.TEXTURE1);
       gl!.texImage2D(gl!.TEXTURE_2D, 0, gl!.R16F, GW, GH, 0, gl!.RED, gl!.FLOAT, cur);
-      gl!.uniform2f(uGridMul, W / CELL / GW, H / CELL / GH);
+      gl!.uniform2f(uGridMul, 1 / (CELL * GW), 1 / (CELL * GH));
       gl!.uniform2f(uGridAdd, 0.5 / GW, 0.5 / GH);
       gl!.uniform2f(uTexel, 1 / GW, 1 / GH);
-      gl!.uniform2f(uPx, 1 / W, 1 / H);
+      gl!.uniform2f(uSize, W, H);
       // 改 canvas 尺寸会清空画面,要重画
       c2.requestPaint?.();
     }
@@ -292,7 +389,9 @@ function mount(target: HTMLElement): (() => void) | null {
     for (let y = 1; y < GH - 1; y++) {
       for (let x = 1; x < GW - 1; x++) {
         const i = y * GW + x;
-        prev[i] = ((cur[i - 1] + cur[i + 1] + cur[i - GW] + cur[i + GW]) * 0.5 - prev[i]) * DAMP;
+        const sum = cur[i - 1] + cur[i + 1] + cur[i - GW] + cur[i + GW];
+        const next = (2 - 4 * C2) * cur[i] + C2 * sum - prev[i];
+        prev[i] = (next + VISC * (sum * 0.25 - next)) * DAMP;
       }
     }
     const t = cur;
@@ -309,7 +408,7 @@ function mount(target: HTMLElement): (() => void) | null {
     }
     if (now > nextDrop) {
       // 偶尔落一滴,不碰的时候水面也是活的
-      if (nextDrop) drop(Math.random() * W, Math.random() * H, 2.5, -0.5 - Math.random() * 0.4);
+      if (nextDrop) drop(Math.random() * W, Math.random() * H, 4, -0.5 - Math.random() * 0.4);
       nextDrop = now + 2200 + Math.random() * 2800;
     }
     const g = gl!;
@@ -354,7 +453,7 @@ function mount(target: HTMLElement): (() => void) | null {
       // 沿路径补点,快速划过也是连续的一道
       const n = Math.max(1, Math.ceil(dist / (CELL * 2)));
       for (let k = 1; k <= n; k++) {
-        drop(px + ((x - px) * k) / n, py + ((y - py) * k) / n, 2, -amp / n);
+        drop(px + ((x - px) * k) / n, py + ((y - py) * k) / n, 4, -amp / n);
       }
     }
     px = x;
@@ -364,7 +463,7 @@ function mount(target: HTMLElement): (() => void) | null {
   function onDown(e: PointerEvent) {
     if (!W) return;
     const r = holder.getBoundingClientRect();
-    drop(e.clientX - r.left, e.clientY - r.top, 4, -0.9);
+    drop(e.clientX - r.left, e.clientY - r.top, 5, -1.4);
   }
   function onLeave() {
     px = -1;
@@ -379,6 +478,10 @@ function mount(target: HTMLElement): (() => void) | null {
       c2.requestPaint?.();
       dirty = true;
     });
+  }
+
+  if (import.meta.env.DEV) {
+    debug.field = () => ({ h: cur, GW, GH, drop: (x: number, y: number) => drop(x, y, 3, -1) });
   }
 
   holder.addEventListener("pointermove", onMove, { passive: true });
