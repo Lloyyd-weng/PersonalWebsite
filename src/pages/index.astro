@@ -4,7 +4,7 @@ import { SITE, LINKS } from "../consts";
 ---
 
 <Base>
-  <main class="flex min-h-dvh flex-col px-12 pb-20 sm:px-24">
+  <main id="pond" class="flex min-h-dvh flex-col px-12 pb-20 sm:px-24">
     <div class="flex items-center pt-24 pb-12 sm:flex-1 sm:py-0">
       <h1 class="text-balance text-6xl font-bold tracking-tight sm:text-8xl">
         {SITE.headline}
@@ -67,3 +67,9 @@ import { SITE, LINKS } from "../consts";
     </ul>
   </main>
 </Base>
+
+<script>
+  // 整屏沉进水面:只在支持 HTML-in-Canvas 的浏览器里生效,其余浏览器什么都不做
+  import { initPond } from "../scripts/pond";
+  initPond();
+</script>
