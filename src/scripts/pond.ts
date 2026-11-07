@@ -92,7 +92,13 @@ uniform float uLight;      // 1 = 浅色(白天),0 = 深色(夜泳池)
 uniform float uT;
 uniform float uRim;        // 池沿宽(CSS px)
 uniform float uRadius;     // 池子内侧圆角半径
-uniform vec3 uLadder;      // 扶梯:左竖杆的 x、缩放
+uniform vec4 uRail[32];    // 扶梯两根扶手的折线(屏幕 xy、z = 高出池沿的高度 px(负 = 池沿下的深度)、w = 管半径)
+uniform vec3 uShadow[32];  // 扶手投在池沿上的影子折线(xy,z = 这一点有没有影子)
+uniform vec4 uTread[2];    // 水下两块踏板:两端的屏幕坐标
+uniform vec2 uTreadDep;    // 两块踏板在池沿下的深度(px)
+uniform vec4 uLadderInfo;  // x = 水线深度(px),y = 踏板半宽,z = 扶梯缩放
+uniform vec4 uEntry;       // 两根扶手入水的位置
+uniform vec4 uLadderBox;   // 扶梯(含影子)在屏幕上的包围盒:盒外的像素直接跳过扶梯的计算
 uniform vec4 uSeed;        // 每次打开页面随机(Basket 卡片按日期哈希,这里按访问):光网域偏移 xy、时间相位 z、疏密 w
 uniform vec2 uFloorMin;    // 池底在屏幕上的矩形(透视下比池口小一圈,露出池壁)
 uniform vec2 uFloorMax;
@@ -285,31 +291,84 @@ vec3 tiles(vec2 q, float light, out float grout, out float rnd) {
   return tile;
 }
 
-vec3 chrome(float hl, float light) {
-  vec3 base = mix(vec3(0.38, 0.40, 0.43), vec3(0.74, 0.76, 0.79), light);
-  return mix(base * (0.7 + 0.3 * hl), vec3(1.0), pow(max(hl, 0.0), 6.0) * mix(0.5, 0.85, light));
+// ---- 扶梯:两根拱形不锈钢扶手 + 两块水下踏板(几何在 JS 的 ladderGeometry 里算好)----
+const int RAIL_N = 16;   // 每根扶手的折线点数
+
+bool inLadderBox(vec2 p) {
+  return p.x > uLadderBox.x && p.y > uLadderBox.y && p.x < uLadderBox.z && p.y < uLadderBox.w;
 }
 
-// 扶梯挂在上池壁靠右:两根竖杆顺着墙往下,两根踏杆。坐标用墙面的 (u, z)
-float ladderWall(float u, float z, out float hl) {
-  float s = uLadder.y, x0 = uLadder.x;
-  float R = 3.0 * s, aa = 0.8;
-  float m = 0.0;
-  hl = 0.0;
-  for (int i = 0; i < 2; i++) {
-    float dx = abs(u - x0 - float(i) * 48.0 * s);
-    float c = (1.0 - smoothstep(R - aa, R + aa, dx)) * step(z, 0.93);
-    if (c > m) { m = c; hl = 1.0 - dx / R; }
+// 不锈钢圆管:v 是在管截面上的位置(-1..1)。漫反射 + 窄高光 + 环境反射
+// (朝光那侧映着天,背光那侧映着池水的蓝)
+vec3 steel(vec2 v, float light) {
+  vec3 n = vec3(v, sqrt(1.0 - clamp(dot(v, v), 0.0, 1.0)));
+  vec3 L = normalize(vec3(-0.6, -0.8, 1.3));
+  float diff = max(dot(n, L), 0.0);
+  float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 60.0);
+  vec3 env = mix(vec3(0.97, 0.98, 1.0), vec3(0.45, 0.72, 0.95),
+                 smoothstep(-0.5, 0.7, dot(v, -normalize(LUP))));
+  vec3 base = mix(vec3(0.42, 0.44, 0.47), vec3(0.72, 0.74, 0.77), light);
+  return base * (0.5 + 0.5 * diff) * mix(vec3(1.0), env, 0.4) + spec * mix(0.55, 0.95, light);
+}
+
+float segDist(vec2 p, vec2 a, vec2 b, out vec2 perp, out float t) {
+  vec2 ba = b - a, pa = p - a;
+  t = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+  perp = pa - ba * t;
+  return length(perp);
+}
+
+// 扶手:两根折线里离 p 最近的一段。wet = 0 只看水上的段,1 只看水下的段(两端都比水线深)
+float rail(vec2 p, float wet, out vec2 v, out float dep) {
+  float best = 1e9, cov = 0.0;
+  v = vec2(0.0);
+  dep = 0.0;
+  for (int i = 0; i < 2 * RAIL_N - 1; i++) {
+    if (i == RAIL_N - 1) continue;   // 两根扶手之间不连
+    vec4 a = uRail[i], b = uRail[i + 1];
+    float segWet = step(uLadderInfo.x - 0.01, -a.z) * step(uLadderInfo.x - 0.01, -b.z);
+    if (abs(segWet - wet) > 0.5) continue;
+    vec2 perp; float t;
+    float r = mix(a.w, b.w, 0.5);
+    float dd = segDist(p, a.xy, b.xy, perp, t) - r;
+    if (dd < best) {
+      best = dd;
+      v = perp / r;
+      dep = -mix(a.z, b.z, t);
+      cov = 1.0 - smoothstep(-0.7, 0.7, dd);
+    }
   }
+  return cov;
+}
+
+// 扶手投在池沿上的影子(只有高出池沿的那几段有),软边
+float railShadow(vec2 p) {
+  float sh = 0.0;
+  float r = 3.0 * uLadderInfo.z;
+  for (int i = 0; i < 2 * RAIL_N - 1; i++) {
+    if (i == RAIL_N - 1) continue;
+    vec3 a = uShadow[i], b = uShadow[i + 1];
+    if (a.z < 0.5 || b.z < 0.5) continue;
+    vec2 perp; float t;
+    sh = max(sh, 1.0 - smoothstep(r - 1.5, r + 2.5, segDist(p, a.xy, b.xy, perp, t)));
+  }
+  return sh;
+}
+
+// 水下的白色踏板:两根扶手之间一块圆角板。dep = 深度(px)
+float tread(vec2 p, out float dep) {
+  float cov = 0.0;
+  dep = 0.0;
   for (int k = 0; k < 2; k++) {
-    float dz = abs(z - (0.45 + float(k) * 0.30)) * WALL_H;
-    float c = (1.0 - smoothstep(R - aa, R + aa, dz)) * step(x0, u) * step(u, x0 + 48.0 * s);
-    if (c > m) { m = c; hl = 1.0 - dz / R; }
+    vec2 perp; float t;
+    float dd = segDist(p, uTread[k].xy, uTread[k].zw, perp, t) - uLadderInfo.y;
+    float c = 1.0 - smoothstep(-0.7, 0.7, dd);
+    if (c > cov) { cov = c; dep = uTreadDep[k]; }
   }
-  return m;
+  return cov;
 }
 
-// 池沿:水磨石颗粒 + 靠水一侧往下卷的圆角沿口 + 跨在上池沿的扶手和它的影子
+// 池沿:水磨石颗粒 + 靠水一侧往下卷的圆角沿口 + 扶梯的底座和影子
 vec3 rim(vec2 S, float d, float light) {
   vec3 base = mix(RIM_D, RIM_L, light);
   vec3 c = base * (0.985 + 0.03 * hash(floor(S / 40.0)));
@@ -320,19 +379,15 @@ vec3 rim(vec2 S, float d, float light) {
   vec2 ex = vec2(1.0, 0.0);
   vec2 out_ = normalize(vec2(sdPool(S + ex) - sdPool(S - ex), sdPool(S + ex.yx) - sdPool(S - ex.yx)));
   c *= 1.0 + lip * (0.10 * dot(-out_, normalize(LUP)) - 0.05);
-  // 扶手:从池沿外侧伸过来,接上墙上的竖杆
-  float s = uLadder.y, R = 3.0 * s;
-  float lm = 0.0, hl = 0.0, sh = 0.0;
+  // 扶手投在池沿上的影子;扶手底座是一圈圆形不锈钢盖板(只在扶梯包围盒里算)
+  if (!inLadderBox(S)) return c;
+  c *= 1.0 - 0.30 * railShadow(S);
   for (int i = 0; i < 2; i++) {
-    float x = uLadder.x + float(i) * 48.0 * s;
-    float inY = smoothstep(0.25 * uRim - 1.0, 0.25 * uRim + 1.0, S.y) * step(S.y, uRim + 2.0);
-    float dx = abs(S.x - x);
-    float c1 = (1.0 - smoothstep(R - 0.8, R + 0.8, dx)) * inY;
-    if (c1 > lm) { lm = c1; hl = 1.0 - dx / R; }
-    sh = max(sh, (1.0 - smoothstep(R - 1.5, R + 1.5, abs(S.x - x - 5.0 * s))) * inY);
+    vec2 q = (S - uRail[i * RAIL_N].xy) / (vec2(5.5, 4.2) * uLadderInfo.z);
+    float plate = 1.0 - smoothstep(0.85, 1.1, length(q));
+    c = mix(c, steel(q * 0.6, light) * 0.95, plate);
   }
-  c *= 1.0 - 0.22 * sh * (1.0 - lm);
-  return mix(c, chrome(hl, light), lm);
+  return c;
 }
 
 void main() {
@@ -394,13 +449,6 @@ void main() {
     col = tiles(uv - vec2(uRim, 0.0), light, gw, rw);
     col *= 0.80 + 0.22 * dot(nIn, normalize(LUP));
     col *= 1.0 - 0.18 * smoothstep(0.75, 1.0, z);
-    if (nIn.y > 0.5) {
-      float hl, h2;
-      float sh = ladderWall(uv.x - 6.0 * uLadder.y, z - 0.06, h2);
-      float lm = ladderWall(uv.x, z, hl);
-      col *= 1.0 - 0.30 * sh * (1.0 - lm);
-      col = mix(col, chrome(hl, light), lm);
-    }
     wet = inWater ? clamp((z - ZW) / (1.0 - ZW), 0.0, 1.0) : 0.0;
   }
 
@@ -435,6 +483,24 @@ void main() {
   col += mix(vec3(0.010, 0.035, 0.080), vec3(0.030, 0.090, 0.160), light) * depth * wet * tA;
   col += (1.0 - light) * LAMP * lamp * 0.10 * wet;
 
+  // 扶梯水下的部分:跟着水波晃(折射)、越深越蓝;踏板在扶手后面
+  if (inWater && inLadderBox(S)) {
+    vec2 Sw = S + grad * ${f(VIEW_DEPTH * 0.5)};
+    vec2 vv; float dp, td;
+    float ct = tread(Sw, td);
+    float cw = rail(Sw, 1.0, vv, dp);
+    vec3 treadCol = mix(vec3(0.60, 0.64, 0.68), vec3(0.95, 0.97, 0.98), light);
+    // 染色比池底轻:扶梯离水面近,光在水里走的路短
+    col = mix(col, treadCol * exp(-absorb * depth * clamp(td / 30.0, 0.0, 1.0) * 0.55), ct);
+    col = mix(col, steel(vv, light) * exp(-absorb * depth * clamp(dp / 30.0, 0.0, 1.0) * 0.55), cw);
+    // 扶手入水的地方一圈细亮的水纹
+    for (int i = 0; i < 2; i++) {
+      vec2 c = i == 0 ? uEntry.xy : uEntry.zw;
+      float e = length((S - c) * vec2(1.0, 1.7));
+      col += (1.0 - smoothstep(0.0, 1.2, abs(e - 5.5 * uLadderInfo.z))) * mix(0.18, 0.35, light);
+    }
+  }
+
   // 5. 水面:水线一道亮线;波峰高光;左上一片天光
   col += (1.0 - smoothstep(0.0, 2.5, abs(dWater))) * mix(0.04, 0.08, light);
   if (inWater) {
@@ -447,6 +513,12 @@ void main() {
   // 6. 池沿在最上面,不折射;边界抗锯齿
   float d = sdPool(S);
   col = mix(col, rim(S, d, light), smoothstep(-0.8, 0.8, d));
+  // 7. 扶手水上的部分在最上面:不折射、不染色
+  if (inLadderBox(S)) {
+    vec2 vd; float dpd;
+    float cd = rail(S, 0.0, vd, dpd);
+    col = mix(col, steel(vd, light), cd);
+  }
   outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
@@ -481,6 +553,72 @@ function makeProgram(gl: WebGL2RenderingContext): WebGLProgram | null {
   return prog;
 }
 
+// ---- 扶梯几何 ----
+// 两根拱形不锈钢扶手:底座 → 竖直上升 → 半圆拱跨过池沿 → 垂直下到水里,水下挂两块白色踏板。
+// 池沿只有 ~26px、镜头从上往下看,按严格透视,高出地面的部分会被推出画面,拱就看不到了;
+// 所以高出池沿的部分用斜投影:高度 h 往右上偏 (0.5h, -0.3h),让拱落在画面里,
+// 像参考照片那样斜着看到弧线。池沿以下的部分顺着池壁往下:深度 d → (-0.22d, 0.9d),
+// 和池壁那条透视带对得上。算好的屏幕折线交给 shader 画成圆管。
+const RAIL_N = 16; // 与 shader 的 RAIL_N 一致
+const ZW_JS = 0.16; // 与 shader 的 ZW 一致
+const zetaJs = (z: number) => (1.8 * z) / (1 + 0.8 * z); // 与 shader 的 zeta 一致
+
+function ladderGeometry(W: number, rimW: number, bandT: number, s: number) {
+  const sp = 34 * s; // 两根扶手的间距
+  const x0 = W - rimW - 70 * s - sp; // 左边那根的地面 x
+  // 底座放在画面上沿外面(像照片被裁掉一截):池沿只有 ~26px,底座放在池沿上的话,
+  // 拱只有 20 来 px 宽,会卷成一个问号。放远了拱才舒展,画面里看到的是从上沿弯下来的一段
+  const yA = -14 * s; // 底座(在画面外)
+  const yW = rimW + 8 * s; // 下到水里的那段离池壁 8px
+  const legH = 14 * s; // 拱下面的竖直段
+  const rr = (yW - yA) / 2; // 拱的半跨度
+  const ym = (yA + yW) / 2;
+  // 水线:池壁上 z = ZW 那一圈在屏幕上的 y,换算成斜投影下的深度
+  const yWater = rimW + zetaJs(ZW_JS) * bandT;
+  const dW = Math.max(1, (yWater - yW) / 0.9);
+  const dMax = Math.max(dW + 6, (rimW + bandT - 2 - yW) / 0.9); // 下到快到池底
+  const path: [number, number][] = [[yA, 0], [yA, legH]];
+  for (let k = 1; k <= 8; k++) {
+    const a = (Math.PI * k) / 8;
+    path.push([ym - rr * Math.cos(a), legH + rr * 0.6 * Math.sin(a)]); // 扁一点的椭圆拱
+  }
+  path.push([yW, legH * 0.4], [yW, 0], [yW, -dW], [yW, -dMax * 0.6], [yW, -dMax]);
+  while (path.length < RAIL_N) path.push(path[path.length - 1]);
+
+  const proj = (x: number, y: number, h: number): [number, number] =>
+    h >= 0 ? [x + 0.5 * h, y - 0.3 * h] : [x + 0.22 * h, y - 0.9 * h];
+  const r0 = 2.6 * s;
+  const rail = new Float32Array(RAIL_N * 2 * 4);
+  const shadow = new Float32Array(RAIL_N * 2 * 3);
+  for (let i = 0; i < 2; i++) {
+    const x = x0 + i * sp;
+    path.forEach(([y, h], k) => {
+      const [px, py] = proj(x, y, h);
+      rail.set([px, py, h, r0 * (1 + Math.max(h, 0) / 120)], (i * RAIL_N + k) * 4);
+      // 影子:光从左上来,高出池沿的点把影子投到右下
+      shadow.set([x + 0.48 * h, y + 0.64 * h, h >= 0 ? 1 : 0], (i * RAIL_N + k) * 3);
+    });
+  }
+  const treadDep = new Float32Array([dMax * 0.42, dMax * 0.8]);
+  const tread = new Float32Array(8);
+  treadDep.forEach((d, k) => {
+    tread.set([...proj(x0, yW + 3 * s, -d), ...proj(x0 + sp, yW + 3 * s, -d)], k * 4);
+  });
+  const entry = new Float32Array([...proj(x0, yW, -dW), ...proj(x0 + sp, yW, -dW)]);
+  // 包围盒:扶手、影子、踏板、入水水纹全算进去,再留一圈余量(折射会让水下部分晃几像素)
+  const xs: number[] = [], ys: number[] = [];
+  for (let k = 0; k < RAIL_N * 2; k++) {
+    xs.push(rail[k * 4], shadow[k * 3]);
+    ys.push(rail[k * 4 + 1], shadow[k * 3 + 1]);
+  }
+  for (let k = 0; k < 4; k++) xs.push(tread[k * 2]), ys.push(tread[k * 2 + 1]);
+  const pad = 14 * s + 10;
+  const box = new Float32Array([
+    Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) + pad, Math.max(...ys) + pad,
+  ]);
+  return { rail, shadow, tread, treadDep, dW, treadR: 3.2 * s, entry, box, s };
+}
+
 // 只在 dev 下挂到 window.__pond,用来验证「拆掉后复原」「离开视口停循环」;生产构建会被摇掉
 const debug = {
   frames: 0,
@@ -511,7 +649,10 @@ function mount(target: HTMLElement): (() => void) | null {
   const uGridMul = U("uGridMul"), uGridAdd = U("uGridAdd"), uTexel = U("uTexel");
   const uSize = U("uSize"), uLight = U("uLight"), uT = U("uT");
   const uTexSize = U("uTexSize");
-  const uRim = U("uRim"), uRadius = U("uRadius"), uLadder = U("uLadder");
+  const uRim = U("uRim"), uRadius = U("uRadius");
+  const uRail = U("uRail"), uShadow = U("uShadow"), uTread = U("uTread");
+  const uTreadDep = U("uTreadDep"), uLadderInfo = U("uLadderInfo"), uEntry = U("uEntry");
+  const uLadderBox = U("uLadderBox");
   const uFloorMin = U("uFloorMin"), uFloorMax = U("uFloorMax");
   // 光网的随机身份:Basket 今日计划卡用「日期 + 计划」哈希出 seed,同一天同一块板;
   // 这里每次打开页面随机一组 —— 域偏移(看到无限光网的哪一块)、时间相位、疏密 ±
@@ -641,9 +782,8 @@ function mount(target: HTMLElement): (() => void) | null {
       gl!.uniform2f(uTexel, 1 / GW, 1 / GH);
       gl!.uniform2f(uSize, W, H);
       gl!.uniform2f(uTexSize, bw, bh);
-      // 池沿和扶梯随屏幕宽度缩放:手机上窄一点,扶梯小一点
+      // 池沿随屏幕宽度缩放:手机上窄一点
       const rimW = Math.min(26, Math.max(14, W * 0.014));
-      const ls = Math.min(1, Math.max(0.55, W / 1600));
       gl!.uniform1f(uRim, rimW);
       gl!.uniform1f(uRadius, rimW * 1.4);
       // 透视下露出来的池壁宽度:和池沿差不多宽,上池壁略多一点(扶梯挂在那里)。
@@ -652,7 +792,14 @@ function mount(target: HTMLElement): (() => void) | null {
       const bandX = rimW, bandB = rimW, bandT = rimW * 1.2;
       gl!.uniform2f(uFloorMin, rimW + bandX, rimW + bandT);
       gl!.uniform2f(uFloorMax, W - rimW - bandX, H - rimW - bandB);
-      gl!.uniform3f(uLadder, W - rimW - bandX - 130 * ls, ls, 0);
+      const lad = ladderGeometry(W, rimW, bandT, Math.min(1.2, Math.max(0.6, W / 1500)));
+      gl!.uniform4fv(uRail, lad.rail);
+      gl!.uniform3fv(uShadow, lad.shadow);
+      gl!.uniform4fv(uTread, lad.tread);
+      gl!.uniform2fv(uTreadDep, lad.treadDep);
+      gl!.uniform4f(uLadderInfo, lad.dW, lad.treadR, lad.s, 0);
+      gl!.uniform4fv(uEntry, lad.entry);
+      gl!.uniform4fv(uLadderBox, lad.box);
       // 改 canvas 尺寸会清空画面,要重画
       c2.requestPaint?.();
     }
