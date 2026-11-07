@@ -43,9 +43,9 @@ const VIEW_DEPTH = 45; // 视线折射:水面坡度 → 池底偏移(再乘水�
 const RIPPLE_H = 6; // 交互波纹高度场 1 个单位 = 多少 px 的水面起伏
 const CAUSTIC_SWELL = 500; // 长涌浪在池底聚光的等效深度(只配合交互波纹出折叠线)
 // 常驻的水底光网:移植自 Basket 今日计划卡的 dwCaustics(迭代反馈域扭曲,见 shader 注释)
-const CAUSTIC_CELL = 38; // 光网场 1 个单位 = 多少 CSS px:小 → 网眼细密,大 → 舒展
+const CAUSTIC_CELL = 60; // 光网场 1 个单位 = 多少 CSS px:小 → 网眼细密,大 → 舒展
 const CAUSTIC_FLOW = 0.6; // 光网流速(场时间 / 秒)。Basket 卡片用 0.05 近乎凝止;这里要配得上水波的速度
-const CAUSTIC_WEB = 0.32; // 光网亮度(浅色;深色按比例另算)
+const CAUSTIC_WEB = 0.2; // 光网亮度(浅色;深色按比例另算)
 const CAUSTIC_RIPPLE = 30; // 交互波纹在池底聚光的等效深度
 const CAUSTIC_GAIN = 0.5; // 池底光纹的强度
 const PARALLAX = 30; // 光斜着照下来,池底光影相对水面错开的距离
