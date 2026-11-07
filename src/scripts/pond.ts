@@ -35,19 +35,22 @@ const DAMP = 0.988 ** (Math.sqrt(C2) / Math.SQRT1_2);
 // 一点粘性:每步往邻格平均靠一点,专门压掉格子尺度的毛刺(波走慢了以后毛刺散得慢,会把字撕碎)
 const VISC = 0.03;
 
-// ---- 「水深」的几个旋钮(单位都是 CSS px)----
-// 人眼判断水深靠这几样:水底有游动的光斑(焦散)、水面波纹和它投在水底的光影错开(视差)、
-// 浪是大而慢的涌动而不是碎波、隔着一层水的东西发灰发软。注意锐利的光纹网反而是浅水
-// (泳池)的特征,深水的光斑更柔更散,所以光斑留柔和档。
-// 「看内容的折射」和「水底光斑」分开调:折射只给几个像素保证能读,光斑用大得多的等效深度。
-const VIEW_DEPTH = 45; // 视线折射:水面坡度 → 内容偏移
+// ---- 泳池 ----
+// 从正上方看一个泳池:一圈池沿、池底瓷砖、蓝色池水、右上角一架扶梯,页面内容画在池底。
+// 颜色只活在这个 shader 里,global.css 的黑白 token 一个没动;不支持时页面仍是原来的黑白。
+// 「看内容的折射」和「水底光斑」分开调:折射只给几个像素,光斑用大得多的等效深度。
+const VIEW_DEPTH = 45; // 视线折射:水面坡度 → 池底偏移(再乘水深)
 const RIPPLE_H = 6; // 交互波纹高度场 1 个单位 = 多少 px 的水面起伏
-const CAUSTIC_SWELL = 1000; // 涌浪在水底聚光的等效深度(越大光纹越锐;2000 起开始聚出亮纹)
-const CAUSTIC_GAIN = 0.4; // 水底光影的总强度:1 = 明显的游动光斑,0 = 没有
-const CAUSTIC_SOFT = 0.3; // 光纹峰值的软化(越大越柔,越小越像泳池)
-const CAUSTIC_RIPPLE = 30; // 交互波纹在水底聚光的等效深度
-const PARALLAX = 42; // 光斜着照下来,水底光影相对水面错开的距离
-const HAZE = 0.04; // 隔水的雾感:内容往水色靠多少(太大字会发灰发糊)
+const CAUSTIC_SWELL = 1500; // 涌浪在池底聚光的等效深度:再大会过聚焦,亮的反而成大片
+const CAUSTIC_SOFT = 0.15; // 光纹峰值的软化(越大越柔;小一点亮纹细,不成大块)
+const CAUSTIC_RIPPLE = 30; // 交互波纹在池底聚光的等效深度
+const CAUSTIC_GAIN = 0.5; // 池底光纹的强度
+const PARALLAX = 30; // 光斜着照下来,池底光影相对水面错开的距离
+const TILE = 60; // 瓷砖边长(CSS px)
+const GROUT = 3; // 勾缝宽(CSS px)
+const TEXT_TINT = 0.45; // 文字吃多少池水的颜色:1 = 和瓷砖一样被染蓝,小一点字更清楚
+// 池水是蓝的,原来的浅灰 --muted 落在上面几乎看不清;泳池模式下换一档对比够的颜色(只改 canvas 里那份)
+const MUTED_ON_WATER = { light: "#3b4654", dark: "#aab4c0" };
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const darkScheme = matchMedia("(prefers-color-scheme: dark)");
@@ -81,15 +84,26 @@ uniform vec2 uTexSize;     // 文字贴图尺寸(设备像素)
 uniform vec2 uGridMul;     // CSS px → 高度场贴图坐标
 uniform vec2 uGridAdd;
 uniform vec2 uTexel;       // 高度场一格的贴图坐标宽度
-uniform vec3 uBg;
-uniform vec3 uFg;
-uniform float uLight;      // 1 = 浅色模式,0 = 深色模式
+uniform float uLight;      // 1 = 浅色(白天),0 = 深色(夜泳池)
 uniform float uT;
+uniform float uRim;        // 池沿宽(CSS px)
+uniform float uRadius;     // 池子内侧圆角半径
+uniform vec3 uLadder;      // 扶梯:原点 x、y 与缩放
 
 const float CELL = ${f(CELL)};
+const vec2 LUP = vec2(-0.6, -0.8);   // 指向光源:左上
 
-// 常驻涌浪:几道不同方向、不同波长的慢浪叠在一起(角度 rad, 波长 px, 振幅 px)。
-// 单独一道看不出什么,叠起来在水底聚出会游动的焦散网。速度不单独给,按深水色散 c ∝ √λ 算
+// ---- 调色板:白天 / 夜里 ----
+const vec3 RIM_L = vec3(0.953, 0.947, 0.935);   // 米白水磨石池沿
+const vec3 RIM_D = vec3(0.150, 0.150, 0.155);
+const vec3 TILE_L = vec3(0.86, 0.93, 0.98);     // 池底瓷砖(没被水染色时)
+const vec3 TILE_D = vec3(0.34, 0.45, 0.56);
+const vec3 GROUT_L = vec3(0.97, 0.99, 1.00);    // 勾缝
+const vec3 GROUT_D = vec3(0.44, 0.54, 0.64);
+const vec3 ABS_L = vec3(1.05, 0.42, 0.10);      // 池水吸收:红光吃得最多,所以越深越蓝
+const vec3 ABS_D = vec3(1.90, 1.00, 0.45);
+const vec3 LAMP = vec3(0.30, 0.80, 1.00);       // 夜里墙上那盏水下灯
+
 const vec3 WAVES[5] = vec3[5](
   vec3(0.30, 680.0, 2.40),
   vec3(2.10, 470.0, 1.60),
@@ -98,7 +112,7 @@ const vec3 WAVES[5] = vec3[5](
   vec3(5.30, 190.0, 0.45)
 );
 
-// 水面在 p 点的坡度与曲率(hess = hxx, hyy, hxy),涌浪部分用解析式
+// 常驻涌浪:几道不同方向的慢浪叠加,速度按深水色散 c ∝ √λ。hess = (hxx, hyy, hxy)
 void swell(vec2 p, out vec2 grad, out vec3 hess) {
   grad = vec2(0.0);
   hess = vec3(0.0);
@@ -116,35 +130,7 @@ void swell(vec2 p, out vec2 grad, out vec3 hess) {
 
 float hAt(vec2 g) { return texture(uH, g).r; }
 
-// 文字贴图用 Catmull-Rom 双三次采样。涌浪让整页一直有零点几像素的偏移,双线性插值会把
-// 相邻像素混在一起,字边就软了;双三次在亚像素偏移下保得住边缘,偏移为零时就是原像素。
-// 4×4 的核用 5 次双线性取样近似(省掉四个角,权重很小)。
-vec4 sampleSharp(vec2 uv) {
-  vec2 p = uv * uTexSize - 0.5;
-  vec2 i = floor(p);
-  vec2 t = p - i;
-  vec2 w0 = t * (-0.5 + t * (1.0 - 0.5 * t));
-  vec2 w1 = 1.0 + t * t * (-2.5 + 1.5 * t);
-  vec2 w2 = t * (0.5 + t * (2.0 - 1.5 * t));
-  vec2 w3 = t * t * (-0.5 + 0.5 * t);
-  vec2 w12 = w1 + w2;
-  vec2 c0 = (i - 0.5) / uTexSize;                 // 第 i-1 格的中心
-  vec2 c3 = (i + 2.5) / uTexSize;                 // 第 i+2 格的中心
-  vec2 c12 = (i + 0.5 + w2 / w12) / uTexSize;     // 第 i、i+1 格之间,让双线性按 w1:w2 混合
-  float a = w12.x * w0.y, b = w0.x * w12.y, c = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;
-  vec4 col = texture(uText, vec2(c12.x, c0.y)) * a
-           + texture(uText, vec2(c0.x, c12.y)) * b
-           + texture(uText, c12) * c
-           + texture(uText, vec2(c3.x, c12.y)) * d
-           + texture(uText, vec2(c12.x, c3.y)) * e;
-  col /= a + b + c + d + e;
-  // 双三次会有一点过冲,收回合法的预乘 alpha 范围
-  col = clamp(col, 0.0, 1.0);
-  col.rgb = min(col.rgb, vec3(col.a));
-  return col;
-}
-
-// 交互波纹部分用差分
+// 交互波纹:差分求坡度与曲率
 void ripple(vec2 p, out vec2 grad, out vec3 hess) {
   vec2 g = p * uGridMul + uGridAdd;
   vec2 ex = vec2(uTexel.x, 0.0), ey = vec2(0.0, uTexel.y);
@@ -156,45 +142,170 @@ void ripple(vec2 p, out vec2 grad, out vec3 hess) {
        * (${f(RIPPLE_H)} / (CELL * CELL));
 }
 
-void main() {
-  vec2 S = vUv * uSize;                       // 屏幕上这一点(水面)
+// 文字贴图用 Catmull-Rom 双三次采样:亚像素偏移下字边不糊,偏移为零时就是原像素。
+// 4×4 的核用 5 次双线性取样近似(省掉四个角,权重很小)。
+vec4 sampleSharp(vec2 uv) {
+  vec2 p = uv * uTexSize - 0.5;
+  vec2 i = floor(p);
+  vec2 t = p - i;
+  vec2 w0 = t * (-0.5 + t * (1.0 - 0.5 * t));
+  vec2 w1 = 1.0 + t * t * (-2.5 + 1.5 * t);
+  vec2 w2 = t * (0.5 + t * (2.0 - 1.5 * t));
+  vec2 w3 = t * t * (-0.5 + 0.5 * t);
+  vec2 w12 = w1 + w2;
+  vec2 c0 = (i - 0.5) / uTexSize;
+  vec2 c3 = (i + 2.5) / uTexSize;
+  vec2 c12 = (i + 0.5 + w2 / w12) / uTexSize;
+  float a = w12.x * w0.y, b = w0.x * w12.y, c = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;
+  vec4 col = texture(uText, vec2(c12.x, c0.y)) * a
+           + texture(uText, vec2(c0.x, c12.y)) * b
+           + texture(uText, c12) * c
+           + texture(uText, vec2(c3.x, c12.y)) * d
+           + texture(uText, vec2(c12.x, c3.y)) * e;
+  col /= a + b + c + d + e;
+  col = clamp(col, 0.0, 1.0);
+  col.rgb = min(col.rgb, vec3(col.a));
+  return col;
+}
 
-  // 1. 视线穿过水面折射,看到水底偏移过的位置 F
+float hash(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+// 池子内侧(水面边界)的圆角矩形 SDF:< 0 在水里,> 0 在池沿上
+float sdPool(vec2 p) {
+  vec2 c = uSize * 0.5;
+  vec2 q = abs(p - c) - (c - vec2(uRim + uRadius));
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uRadius;
+}
+
+// 池底瓷砖:方格 + 勾缝 + 每块一点色差 + 边缘一圈浅浅的倒角
+vec3 tiles(vec2 p, float light) {
+  vec2 q = (p - vec2(uRim)) / ${f(TILE)};
+  vec2 fr = fract(q);
+  vec2 e = min(fr, 1.0 - fr) * ${f(TILE)};
+  float edge = min(e.x, e.y);
+  float aa = max(fwidth(edge), 0.5);
+  float grout = 1.0 - smoothstep(${f(GROUT / 2)} - aa, ${f(GROUT / 2)} + aa, edge);
+  vec3 tile = mix(TILE_D, TILE_L, light) * (0.965 + 0.07 * hash(floor(q)));
+  tile *= 1.0 - 0.05 * (1.0 - smoothstep(${f(GROUT / 2)}, ${f(GROUT / 2 + 4)}, edge));
+  return mix(tile, mix(GROUT_D, GROUT_L, light), grout);
+}
+
+// 扶梯:两根竖杆 + 三根踏杆。返回覆盖率;hl = 圆管截面上的位置(中心 1,边缘 0),用来打高光
+float ladder(vec2 p, float yMin, float yMax, out float hl) {
+  vec2 q = (p - uLadder.xy) / uLadder.z;
+  float aa = 0.8 / uLadder.z;
+  float R = 2.8;
+  float m = 0.0;
+  hl = 0.0;
+  for (int i = 0; i < 2; i++) {
+    float dx = abs(q.x - float(i) * 48.0);
+    float c = (1.0 - smoothstep(R - aa, R + aa, dx)) * step(yMin, q.y) * step(q.y, yMax);
+    if (c > m) { m = c; hl = 1.0 - dx / R; }
+  }
+  for (int k = 0; k < 3; k++) {
+    float y0 = 38.0 + float(k) * 42.0;
+    float dy = abs(q.y - y0);
+    float c = (1.0 - smoothstep(R - aa, R + aa, dy))
+            * step(0.0, q.x) * step(q.x, 48.0) * step(yMin, y0) * step(y0, yMax);
+    if (c > m) { m = c; hl = 1.0 - dy / R; }
+  }
+  return m;
+}
+
+vec3 chrome(float hl, float light) {
+  vec3 base = mix(vec3(0.38, 0.40, 0.43), vec3(0.74, 0.76, 0.79), light);
+  return mix(base * (0.7 + 0.3 * hl), vec3(1.0), pow(max(hl, 0.0), 6.0) * mix(0.5, 0.85, light));
+}
+
+// 池沿:水磨石颗粒 + 靠水一侧往下卷的圆角沿口 + 扶手和它的影子
+vec3 rim(vec2 S, float d, float light) {
+  vec3 base = mix(RIM_D, RIM_L, light);
+  vec3 c = base * (0.985 + 0.03 * hash(floor(S / 40.0)));
+  c = mix(c, base * mix(1.7, 0.72, light), step(0.982, hash(floor(S / 1.6))) * 0.8);
+  c = mix(c, base * mix(1.3, 0.86, light), step(0.990, hash(floor(S / 1.6) + 17.0)) * 0.6);
+  c = mix(c, base * mix(1.5, 0.78, light), step(0.996, hash(floor(S / 4.0) + 3.0)) * 0.7);
+  // 沿口:法线朝水;朝光的那几条边亮,背光的暗
+  float lip = 1.0 - smoothstep(0.0, 7.0, d);
+  vec2 ex = vec2(1.0, 0.0);
+  vec2 out_ = normalize(vec2(sdPool(S + ex) - sdPool(S - ex), sdPool(S + ex.yx) - sdPool(S - ex.yx)));
+  c *= 1.0 + lip * (0.10 * dot(-out_, normalize(LUP)) - 0.05);
+  // 扶手(水上部分)跨在池沿上,影子落在池沿
+  float yTop = -0.7 * uRim / uLadder.z;
+  float h1, h2;
+  float sh = ladder(S + normalize(LUP) * 6.0 * uLadder.z, yTop, 0.0, h2);
+  float lm = ladder(S, yTop, 0.0, h1);
+  c *= 1.0 - 0.25 * sh * (1.0 - lm);
+  return mix(c, chrome(h1, light), lm);
+}
+
+void main() {
+  vec2 S = vUv * uSize;
+  float light = uLight;
+  vec2 n01 = S / uSize;
+
+  // 1. 水面坡度;水深左上浅、右下深
   vec2 gs, gr; vec3 hs, hr;
   swell(S, gs, hs);
   ripple(S, gr, hr);
   vec2 grad = gs + gr;
-  vec2 F = S + grad * ${f(VIEW_DEPTH)};   // 不设上限:浪陡的地方字被扯开,本来就是水的样子
+  float depth = 0.72 + 0.28 * clamp(dot(n01, vec2(0.55, 0.45)), 0.0, 1.0);
 
+  // 2. 视线折射后看到的池底:瓷砖 + 画在上面的页面内容
+  vec2 F = S + grad * ${f(VIEW_DEPTH)} * depth;
   vec4 t = sampleSharp(F / uSize);
-  vec3 albedo = uBg * (1.0 - t.a) + t.rgb;    // 水底(也就是页面内容)本来的颜色
+  vec3 col = tiles(F, light) * (1.0 - t.a) + t.rgb;
 
-  // 2. 焦散:照到水底 F 点的光,来自斜上方水面的 F - 视差 那一点。
-  //    水面曲率把光聚拢(亮纹)或散开(暗区),强度 = 1 / |det(I + 深度 × 曲率)|
+  // 3. 焦散:照到 F 的光来自斜上方水面 F - 视差 处,强度 = 1 / |det(I + 深度 × 曲率)|
   vec2 P = F - vec2(0.6, 0.8) * ${f(PARALLAX)};
   swell(P, gs, hs);
   ripple(P, gr, hr);
   vec3 H = hs * ${f(CAUSTIC_SWELL)} + hr * ${f(CAUSTIC_RIPPLE)};
   float det = (1.0 + H.x) * (1.0 + H.y) - H.z * H.z;
-  float I = min(1.0 / max(abs(det), ${f(CAUSTIC_SOFT)}), 3.2) - 1.0;   // 0 = 平均光照
+  float I = min(1.0 / max(abs(det), ${f(CAUSTIC_SOFT)}), 3.2) - 1.0;
 
-  // 3. 打光。浅色模式:水底整体压暗一点点,亮纹才有地方亮回白色;
-  //    深色模式:底色本来就黑,亮纹用加法提上去。纯灰阶,不引入彩色
-  const float G = ${f(CAUSTIC_GAIN)};
-  vec3 lit = mix(
-    albedo * (1.0 - G * 0.05 + G * I * 0.05) + G * clamp(I, 0.0, 2.2) * 0.01,  // 深色:底色压回近黑,亮纹只提一点
-    albedo * (1.0 - G * 0.045 + G * I * 0.035),                              // 浅色
-    uLight);
+  // 夜里:整体压暗,墙上一盏灯照亮附近的池底
+  float lamp = exp(-length(F - vec2(uRim, uSize.y * 0.55)) / (uSize.y * 0.45));
+  float amb = mix(0.55 + 1.1 * lamp, 1.0, light);
+  // 泳池的光纹是「暗底上几道细亮线」:亮的部分给足,暗的部分只压一点,不然整片像迷彩
+  // 只取聚得最狠的那一截(I > 1),亮纹才是细线而不是大片
+  float Ic = max(I - 1.0, 0.0) * mix(0.12, 0.07, light);
+  // 灯光主要照池底;文字只吃四成,不然离灯远的字会暗下去
+  col *= mix(amb, mix(amb, 1.0, 0.6), t.a) * (1.0 + Ic * ${f(CAUSTIC_GAIN / 0.5)});
 
-  // 隔水的雾感:内容的对比度往水色收一点,越深越灰
-  vec3 water = mix(uBg + 0.012, uBg * (1.0 - G * 0.045), uLight);
-  lit = mix(lit, water, ${f(HAZE)});
+  // 4. 池沿投在池底的影子、墙角的暗、扶梯的影子
+  float occl = smoothstep(-6.0, 6.0, sdPool(F + normalize(LUP) * 22.0));
+  float nearWall = smoothstep(-36.0, 0.0, sdPool(F));
+  float hx;
+  float lsh = ladder(F + normalize(LUP) * 20.0 * uLadder.z, 0.0, 150.0, hx);
+  col *= (1.0 - 0.32 * occl) * (1.0 - 0.15 * nearWall) * (1.0 - 0.16 * lsh);
 
-  // 4. 水面本身的一点受光(在 S 点,不跟着折射走 —— 和水底光斑错开,深度感就出来了)
-  float sh = dot(grad, vec2(-0.6, -0.8));
-  lit += (uFg - uBg) * clamp(sh * 0.6, -0.06, 0.06);
+  // 5. 池水吸收:瓷砖染蓝;文字少染一点,保证读得清
+  vec3 absorb = mix(ABS_D, ABS_L, light);
+  vec3 tint = exp(-absorb * depth);
+  col *= mix(tint, mix(vec3(1.0), tint, ${f(TEXT_TINT)}), t.a);
+  col += (1.0 - light) * LAMP * lamp * 0.10;
 
-  outColor = vec4(clamp(lit, 0.0, 1.0), 1.0);
+  // 6. 扶梯水下部分:离水面近,折射弱;越往下染色越重
+  float hl;
+  vec2 Lp = S + grad * ${f(VIEW_DEPTH)} * 0.45;
+  float lm = ladder(Lp, 0.0, 150.0, hl);
+  float ld = clamp((Lp.y - uLadder.y) / (150.0 * uLadder.z), 0.0, 1.0);
+  col = mix(col, chrome(hl, light) * exp(-absorb * depth * (0.15 + 0.75 * ld)), lm);
+
+  // 7. 水面:波峰上的高光 + 左上一片天光反射
+  vec3 nrm = normalize(vec3(-grad * 2.0, 1.0));
+  vec3 hv = normalize(normalize(vec3(-0.35, -0.45, 1.0)) + vec3(0.0, 0.0, 1.0));
+  col += pow(max(dot(nrm, hv), 0.0), 220.0) * mix(0.25, 0.55, light);
+  col += (1.0 - smoothstep(0.0, 0.85, length((n01 - vec2(0.12, 0.08)) * vec2(1.0, 1.4)))) * mix(0.02, 0.06, light);
+
+  // 8. 池沿在水面之上,不折射;边界抗锯齿
+  float d = sdPool(S);
+  col = mix(col, rim(S, d, light), smoothstep(-0.8, 0.8, d));
+  outColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
 function parseRgb(s: string): [number, number, number] {
@@ -256,8 +367,9 @@ function mount(target: HTMLElement): (() => void) | null {
 
   const U = (n: string) => gl.getUniformLocation(prog, n);
   const uGridMul = U("uGridMul"), uGridAdd = U("uGridAdd"), uTexel = U("uTexel");
-  const uSize = U("uSize"), uLight = U("uLight"), uBg = U("uBg"), uFg = U("uFg"), uT = U("uT");
+  const uSize = U("uSize"), uLight = U("uLight"), uT = U("uT");
   const uTexSize = U("uTexSize");
+  const uRim = U("uRim"), uRadius = U("uRadius"), uLadder = U("uLadder");
   gl.uniform1i(U("uText"), 0);
   gl.uniform1i(U("uH"), 1);
 
@@ -348,10 +460,10 @@ function mount(target: HTMLElement): (() => void) | null {
 
   function readColors() {
     const bg = parseRgb(getComputedStyle(document.body).backgroundColor);
-    gl!.uniform3f(uBg, ...bg);
-    gl!.uniform3f(uFg, ...parseRgb(getComputedStyle(target).color));
     const lum = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2];
     gl!.uniform1f(uLight, lum > 0.5 ? 1 : 0);
+    const muted = lum > 0.5 ? MUTED_ON_WATER.light : MUTED_ON_WATER.dark;
+    if (target.style.getPropertyValue("--muted") !== muted) target.style.setProperty("--muted", muted);
   }
 
   // ---- 尺寸 ----
@@ -382,6 +494,12 @@ function mount(target: HTMLElement): (() => void) | null {
       gl!.uniform2f(uTexel, 1 / GW, 1 / GH);
       gl!.uniform2f(uSize, W, H);
       gl!.uniform2f(uTexSize, bw, bh);
+      // 池沿和扶梯随屏幕宽度缩放:手机上窄一点,扶梯小一点,避开大标题
+      const rimW = Math.min(26, Math.max(14, W * 0.014));
+      const ls = Math.min(1, Math.max(0.55, W / 1600));
+      gl!.uniform1f(uRim, rimW);
+      gl!.uniform1f(uRadius, rimW * 1.4);
+      gl!.uniform3f(uLadder, W - rimW - 118 * ls, rimW, ls);
       // 改 canvas 尺寸会清空画面,要重画
       c2.requestPaint?.();
     }
