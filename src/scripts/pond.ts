@@ -49,6 +49,11 @@ const CAUSTIC_WEB = 0.2; // 光网亮度(浅色;深色按比例另算)
 const CAUSTIC_RIPPLE = 30; // 交互波纹在池底聚光的等效深度
 const CAUSTIC_GAIN = 0.5; // 池底光纹的强度
 const PARALLAX = 30; // 光斜着照下来,池底光影相对水面错开的距离
+// 池壁的透视压缩:深度 z(0 = 池沿,1 = 池底)→ 屏幕上的位置 zeta(z) = (1+P)z / (1+Pz)。
+// P 越大,越往下压得越扁:池沿处的斜率是池底处的 (1+P)² 倍。原来用 0.8(3.2 倍),
+// 下面那个踏脚凹槽只有上面的 68% 高,像镜头贴着水面;0.25(约 1.56 倍)更像从池子上方看。
+// 池壁、扶手、凹槽共用这一条,shader 和 JS 都从这里取
+const PERSP = 0.25;
 const TILE = 15; // 瓷砖边长(CSS px):小块马赛克
 const GROUT = Math.max(1, TILE * 0.05); // 勾缝宽(CSS px):按砖的大小缩,砖小了缝也细
 const GROUT_LINES = true; // 瓷砖之间画不画勾缝描边(false 时只留极淡的色差)
@@ -229,8 +234,8 @@ float vnoise(vec2 p) {
 const float ZW = 0.16;
 const float WALL_H = ${f(TILE * 2.6)};   // 池壁高度(世界 px),池壁上大约两排半砖
 
-// 透视压缩:靠近池沿的那段在屏幕上占得宽,越往下越窄
-float zeta(float z) { return 1.8 * z / (1.0 + 0.8 * z); }
+// 透视压缩:靠近池沿的那段在屏幕上占得宽,越往下越窄(P 见 TS 侧的 PERSP)
+float zeta(float z) { return ${f(1 + PERSP)} * z / (1.0 + ${f(PERSP)} * z); }
 
 // 深度 z 那一圈的轮廓(圆角矩形)SDF,顺手给出那一圈的矩形
 float sdLevel(vec2 p, float z, out vec2 mn, out vec2 mx) {
@@ -603,7 +608,7 @@ const ZW_JS = 0.16; // 与 shader 的 ZW 一致
 
 function ladderGeometry(W: number, H: number, rimW: number, bandX: number, bandT: number, bandB: number, s: number) {
   // 与 shader 的 zeta / sdLevel 同一套;z < 0 时按 z = 0 处的斜率线性外推
-  const zeta = (z: number) => (z >= 0 ? (1.8 * z) / (1 + 0.8 * z) : 1.8 * z);
+  const zeta = (z: number) => (z >= 0 ? ((1 + PERSP) * z) / (1 + PERSP * z) : (1 + PERSP) * z);
   const proj = (xw: number, yw: number, z: number): [number, number] => {
     const e = zeta(z);
     const mnx = rimW + bandX * e, mxx = W - rimW - bandX * e;
