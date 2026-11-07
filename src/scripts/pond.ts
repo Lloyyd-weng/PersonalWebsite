@@ -94,7 +94,8 @@ uniform float uRim;        // 池沿宽(CSS px)
 uniform float uRadius;     // 池子内侧圆角半径
 uniform vec4 uRail[32];    // 扶梯两根扶手的折线(屏幕 xy、z = 深度(池深为 1,负 = 高出池沿)、w = 管半径)
 uniform vec3 uShadow[32];  // 扶手投在池沿上的影子折线(xy,z = 这一点有没有影子)
-uniform vec2 uPocket;      // 池壁上踏脚凹槽的左右边界(世界 x)
+uniform vec4 uPocketA[2];  // 踏脚凹槽(往墙里挖的长方体):xy = 洞口左下角,zw = 洞口下沿(左→右)
+uniform vec4 uPocketB[2];  // xy = 洞口左沿(下→上),z = 往墙里挖进去的深度在屏幕上的位移(y),w = 凹槽中间的深度
 uniform vec4 uLadderInfo;  // y = 扶手管半径,z = 扶梯缩放
 uniform vec4 uEntry;       // 两根扶手入水的位置
 uniform vec4 uLadderBox;   // 扶梯(含影子)在屏幕上的包围盒:盒外的像素直接跳过扶梯的计算
@@ -357,6 +358,56 @@ float railShadow(vec2 p) {
   return sh;
 }
 
+// 平行四边形坐标:p = o + a·e1 + b·e2,返回 (a, b)
+vec2 para(vec2 p, vec2 o, vec2 e1, vec2 e2) {
+  float d = e1.x * e2.y - e1.y * e2.x;
+  vec2 q = p - o;
+  return vec2((q.x * e2.y - q.y * e2.x) / d, (e1.x * q.y - e1.y * q.x) / d);
+}
+float inPara(vec2 ab, vec2 e1, vec2 e2) {
+  float l1 = length(e1), l2 = length(e2);
+  return smoothstep(-0.5, 0.5, ab.x * l1) * smoothstep(-0.5, 0.5, (1.0 - ab.x) * l1)
+       * smoothstep(-0.5, 0.5, ab.y * l2) * smoothstep(-0.5, 0.5, (1.0 - ab.y) * l2);
+}
+
+// 池壁上的踏脚凹槽:往墙里挖进去的长方体,各个角用池子的透视投影(JS 算好)。
+// 从斜上方看进洞口能看到:凹槽地面(踏脚面,受光,最亮)、后壁(背光,最暗)、
+// 右侧壁(朝着镜头,半亮;左侧壁背对镜头看不到),以及三条内棱;
+// 洞口上沿下面一道阴影,下沿是踏脚的前沿,一道亮边。后壁垫底,侧壁、地面离镜头近,盖在上面。
+// 在池子的透视里,往墙里挖(世界 y 变小)只让屏幕 y 往上移、x 不变,所以「往里」就是一个竖直位移 V
+vec3 pocket(vec2 p, float light, out float cov, out float zmid) {
+  cov = 0.0;
+  zmid = 0.0;
+  vec3 c = vec3(0.0);
+  vec3 base = mix(TILE_D, TILE_L, light);
+  for (int k = 0; k < 2; k++) {
+    vec2 o = uPocketA[k].xy, U = uPocketA[k].zw, Wv = uPocketB[k].xy;
+    vec2 V = vec2(0.0, uPocketB[k].z);
+    vec2 ab = para(p, o, U, Wv);
+    float open = inPara(ab, U, Wv);
+    if (open <= 0.0) continue;
+    float fl = inPara(para(p, o, U, V), U, V);            // 地面:从洞口下沿往里
+    float sd = inPara(para(p, o + U, Wv, V), Wv, V);      // 右侧壁:从洞口右沿往里
+    vec3 col = base * 0.30;                                // 后壁
+    col = mix(col, base * 0.55, sd);
+    col = mix(col, base * 0.78, fl);
+    // 三条内棱:后壁 × 地面、后壁 × 右侧壁、地面 × 右侧壁
+    vec2 perp; float t;
+    float e1 = 1.0 - smoothstep(0.25, 0.85, segDist(p, o + V, o + U + V, perp, t));
+    float e2 = 1.0 - smoothstep(0.25, 0.85, segDist(p, o + U + V, o + U + V + Wv, perp, t));
+    float e3 = 1.0 - smoothstep(0.25, 0.85, segDist(p, o + U, o + U + V, perp, t));
+    col *= 1.0 - 0.5 * max(e1, max(e2, e3));
+    // 洞口上沿下面的阴影、下沿(踏脚前沿)的亮边
+    float lw = length(Wv);
+    col *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 1.6, (1.0 - ab.y) * lw));
+    col = mix(col, base * 0.98, 0.55 * (1.0 - smoothstep(0.0, 1.0, ab.y * lw)));
+    c = col;
+    cov = open;
+    zmid = uPocketB[k].w;
+  }
+  return c;
+}
+
 // 池沿:水磨石颗粒 + 靠水一侧往下卷的圆角沿口 + 扶梯的底座和影子
 vec3 rim(vec2 S, float d, float light) {
   vec3 base = mix(RIM_D, RIM_L, light);
@@ -438,23 +489,6 @@ void main() {
     col = tiles(uv - vec2(uRim, 0.0), light, gw, rw);
     col *= 0.80 + 0.22 * dot(nIn, normalize(LUP));
     col *= 1.0 - 0.18 * smoothstep(0.75, 1.0, z);
-    // 扶手下面,上池壁挖出两个踏脚的凹槽(长方形的洞)。用墙面坐标画,透视、折射、染色都跟池壁走。
-    // 洞里:上半是凹槽的后壁,背光很暗;靠下一条是踏脚的平面,从上面看得到,亮一点
-    if (nIn.y > 0.5 && inLadderBox(X)) {
-      float pxz = (uFloorMin.y - uRim) * 1.8 / ((1.0 + 0.8 * z) * (1.0 + 0.8 * z));   // 1 个 z 单位 ≈ 多少屏幕 px
-      float inU = smoothstep(uPocket.x - 0.7, uPocket.x + 0.7, uv.x)
-                * (1.0 - smoothstep(uPocket.y - 0.7, uPocket.y + 0.7, uv.x));
-      float pocket = 0.0, pt = 0.0;
-      for (int k = 0; k < 2; k++) {
-        float z0 = k == 0 ? 0.27 : 0.60;   // 透视把池壁压得很扁,凹槽要高一点才看得出是洞
-        float z1 = z0 + 0.24;
-        float m = inU * smoothstep(-0.7, 0.7, (z - z0) * pxz) * smoothstep(-0.7, 0.7, (z1 - z) * pxz);
-        if (m > pocket) { pocket = m; pt = (z - z0) / (z1 - z0); }
-      }
-      vec3 inside = col * mix(0.36, 0.52, pt);
-      inside = mix(inside, col * 1.08, smoothstep(0.48, 0.6, pt));
-      col = mix(col, inside, pocket);
-    }
     wet = inWater ? clamp((z - ZW) / (1.0 - ZW), 0.0, 1.0) : 0.0;
   }
 
@@ -492,6 +526,10 @@ void main() {
   // 扶手水下的部分:跟着水波晃(折射)、越深越蓝
   if (inWater && inLadderBox(S)) {
     vec2 Sw = S + grad * ${f(VIEW_DEPTH * 0.5)};
+    // 踏脚凹槽在池壁上,和池壁一样完整折射(用 X),按它的深度染色
+    float pcov, pz;
+    vec3 pcol = pocket(X, light, pcov, pz);
+    if (pcov > 0.0) col = mix(col, pcol * exp(-absorb * depth * clamp((pz - ZW) / (1.0 - ZW), 0.0, 1.0)), pcov);
     vec2 vv; float dp;
     float cw = rail(Sw, 1.0, vv, dp);
     // 染色比池底轻:扶手离水面近,光在水里走的路短
@@ -609,8 +647,17 @@ function ladderGeometry(W: number, H: number, rimW: number, bandX: number, bandT
       shadow.set([...proj(x + 0.6 * hz * SHADOW, y + 0.8 * hz * SHADOW, 0), z <= 0 ? 1 : 0], (i * RAIL_N + k) * 3);
     });
   }
-  // 池壁上的两个踏脚凹槽:在两根扶手之间,左右各让出 3px
-  const pocket = new Float32Array([x0 + 3 * s, x0 + sp - 3 * s]);
+  // 池壁上的两个踏脚凹槽:往墙里挖进去的长方体,在两根扶手之间(左右各让出 3px),往里挖 5px。
+  // 洞口用一个角 + 两条边描述;往墙里的方向在这套透视里只是屏幕 y 的位移
+  const Dr = 5 * s;
+  const pocketA = new Float32Array(8), pocketB = new Float32Array(8);
+  ([[0.27, 0.51], [0.6, 0.84]] as const).forEach(([z0, z1], k) => {
+    const u0 = x0 + 3 * s, u1 = x0 + sp - 3 * s;
+    const Fbl = proj(u0, rimW, z1), Fbr = proj(u1, rimW, z1), Ftl = proj(u0, rimW, z0);
+    const dy = proj(u0, rimW - Dr, z1)[1] - Fbl[1];
+    pocketA.set([Fbl[0], Fbl[1], Fbr[0] - Fbl[0], Fbr[1] - Fbl[1]], k * 4);
+    pocketB.set([Ftl[0] - Fbl[0], Ftl[1] - Fbl[1], dy, (z0 + z1) / 2], k * 4);
+  });
   const entry = new Float32Array([...proj(x0, yW, ZW_JS), ...proj(x0 + sp, yW, ZW_JS)]);
   // 包围盒:扶手、影子全算进去,再留一圈余量(折射会让水下部分晃几像素;凹槽在扶手之间,也在盒里)
   const xs: number[] = [], ys: number[] = [];
@@ -622,7 +669,7 @@ function ladderGeometry(W: number, H: number, rimW: number, bandX: number, bandT
   const box = new Float32Array([
     Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) + pad, Math.max(...ys) + pad,
   ]);
-  return { rail, shadow, pocket, railR: r0, entry, box, s };
+  return { rail, shadow, pocketA, pocketB, railR: r0, entry, box, s };
 }
 
 // 只在 dev 下挂到 window.__pond,用来验证「拆掉后复原」「离开视口停循环」;生产构建会被摇掉
@@ -656,7 +703,8 @@ function mount(target: HTMLElement): (() => void) | null {
   const uSize = U("uSize"), uLight = U("uLight"), uT = U("uT");
   const uTexSize = U("uTexSize");
   const uRim = U("uRim"), uRadius = U("uRadius");
-  const uRail = U("uRail"), uShadow = U("uShadow"), uPocket = U("uPocket");
+  const uRail = U("uRail"), uShadow = U("uShadow");
+  const uPocketA = U("uPocketA"), uPocketB = U("uPocketB");
   const uLadderInfo = U("uLadderInfo"), uEntry = U("uEntry");
   const uLadderBox = U("uLadderBox");
   const uFloorMin = U("uFloorMin"), uFloorMax = U("uFloorMax");
@@ -801,7 +849,8 @@ function mount(target: HTMLElement): (() => void) | null {
       const lad = ladderGeometry(W, H, rimW, bandX, bandT, bandB, Math.min(1.2, Math.max(0.6, W / 1500)));
       gl!.uniform4fv(uRail, lad.rail);
       gl!.uniform3fv(uShadow, lad.shadow);
-      gl!.uniform2fv(uPocket, lad.pocket);
+      gl!.uniform4fv(uPocketA, lad.pocketA);
+      gl!.uniform4fv(uPocketB, lad.pocketB);
       gl!.uniform4f(uLadderInfo, 0, lad.railR, lad.s, 0);
       gl!.uniform4fv(uEntry, lad.entry);
       gl!.uniform4fv(uLadderBox, lad.box);
