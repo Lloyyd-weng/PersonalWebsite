@@ -372,11 +372,11 @@ void main() {
     // 磨损三层,全用连续噪声(按格子挑点会是一个个小方块),每层坐标先转个角度,
     // 避开值噪声沿横竖轴排的格子感:
     //   颗粒 —— 极细的墨色不匀,像丝网印刷 / 旧漆膜,整片都有、很淡;
-    //   剥落 —— 两个尺度叠加后只取最高的一小撮:大小不一、边缘参差、很稀,也不剥到透底;
+    //   剥落 —— 两个尺度叠加后只取最高的一小撮:小而不规则、很稀、只剥浅浅一层;
     //   褪色 —— 大片轻微发浅
     float grain = 0.6 * vnoise(rot(pf, 0.7) / 1.8) + 0.4 * vnoise(rot(pf, 2.1) / 0.9 + 5.7);
-    float flake = 0.6 * vnoise(rot(pf, 0.4) / 7.0 + 1.3) + 0.4 * vnoise(rot(pf, 1.9) / 2.6 + 3.1);
-    float chip = smoothstep(0.73, 0.79, flake) * (0.6 + 0.3 * grain);
+    float flake = 0.6 * vnoise(rot(pf, 0.4) / 3.4 + 1.3) + 0.4 * vnoise(rot(pf, 1.9) / 1.4 + 3.1);
+    float chip = smoothstep(0.79, 0.84, flake) * (0.4 + 0.25 * grain);   // 轻微:小、稀、剥得浅
     float fade = smoothstep(0.55, 0.95, vnoise(rot(pf, 1.1) / 22.0)) * 0.2;
     float ink = (0.86 + 0.14 * grain) * (1.0 - chip) * (1.0 - fade);
     tA = t.a * (1.0 - grout * 0.45) * ink;
