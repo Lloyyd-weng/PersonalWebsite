@@ -1,17 +1,27 @@
-// 首页整屏的「水面」效果 —— HTML-in-Canvas 的渐进增强(试做,2026-11-07)
+// 首页整屏的「水面」效果 —— 渐进增强(试做,2026-11-07;手动贴图路径 2026-11-08)
 //
-// 只在支持 HTML-in-Canvas 的浏览器(Chrome 157+)里生效。不支持、用户开了「减弱动画」、
-// 或 WebGL 起不来时,什么都不做,页面保持原样 —— 内容始终先作为普通 HTML 写在页面里,
-// 这里只是在支持时把整个 <main>「搬进」canvas;运行中任何一步出错,都会把它搬回原位。
+// shader 只需要一张「页面内容」的贴图。贴图有两种来源,其余(shader、波动方程、扶梯几何、
+// 输入)两条路径完全共用:
+//   native —— 支持 HTML-in-Canvas 的浏览器(Chrome 157+):把整个 <main>「搬进」canvas,
+//             用 drawElementImage 让浏览器自己画。
+//   manual —— 其余浏览器(Safari、iPhone 上的所有浏览器、Firefox):<main> 留在原位,
+//             照着它的真实排版把文字画进一块离屏 canvas(paintText)。
+//             URL 带 ?pond=manual 可以在 Chrome 里强制走这条,方便对比。
+// 用户开了「减弱动画」或 WebGL2 起不来时,什么都不做,页面保持原样 —— 内容始终先作为普通
+// HTML 写在页面里;运行中任何一步出错,都会拆掉效果、恢复原样。
 //
-// 结构(照 html-in-canvas.dev 的 wishing-pond):
+// native 的结构(照 html-in-canvas.dev 的 wishing-pond):
 //   holder —— 原位留下的占位容器,高度跟 <main> 同步,撑住页面布局。
 //   c2  —— 2D canvas,content="drawable",真实的 <main> 就在它里面。paint 事件里用
 //          drawElementImage 画一份不变形的画面;2D 绘制会让浏览器自动同步点击区域,
 //          所以链接、选字、键盘焦点、页内查找都落在内容真实的位置上。
 //   glc —— WebGL2 canvas,盖在 c2 上面,pointer-events: none(点击穿透到 c2)。
 //          把 c2 当贴图,按水面高度场的梯度做折射偏移,再加一点受光明暗。
-//   高度场 —— CPU 上跑的经典二缓冲波动方程,粗网格,每帧当 R16F 贴图传上去。
+// manual 的结构:
+//   <main> —— 原位不动,照常排版、照常接收点击 / 选字 / 焦点;只把字的填色和下划线设成透明。
+//   glc —— 垫在 <main> 里、内容下面(z-index:-1),看到的字是 glc 里折射后的那一份。
+//   c2  —— 不进 DOM 的离屏 canvas,paintText 在上面画字,当贴图传给 glc。
+// 高度场 —— CPU 上跑的经典二缓冲波动方程,粗网格,每帧当 R16F 贴图传上去。
 //
 // 水面偏移只有几个像素,点击区域按不变形的位置算,误差在可接受范围内。
 
@@ -19,6 +29,16 @@ type Ctx2D = CanvasRenderingContext2D & {
   drawElementImage(el: Element, x: number, y: number, w: number, h: number): void;
 };
 type DrawableCanvas = HTMLCanvasElement & { requestPaint?: () => void };
+type Mode = "native" | "manual";
+
+// manual 路径下 <main> 自己的字要隐形,只留 glc 里折射后的那份。用 -webkit-text-fill-color
+// 而不是 color: transparent —— 前者只管填色,computed color 不变,hover 变色照样读得到,
+// paintText 才知道该用什么颜色画;下划线默认跟 currentColor,要单独设透明。
+// 选字的底色、键盘焦点的描边不受影响,照常显示在水面上
+const MANUAL_CSS = `.pond-manual, .pond-manual * {
+  -webkit-text-fill-color: transparent;
+  text-decoration-color: transparent;
+}`;
 
 const CELL = 4; // 高度场一格对应的 CSS 像素
 const STEP_MS = 1000 / 60; // 固定步长,高刷屏上波速不翻倍
@@ -683,7 +703,8 @@ const debug = {
 };
 
 /** 把 target 沉进水面。返回拆除函数;挂不上时返回 null,页面原样不动。 */
-function mount(target: HTMLElement): (() => void) | null {
+function mount(target: HTMLElement, mode: Mode): (() => void) | null {
+  const native = mode === "native";
   // ---- 先把 GL 准备好,失败就直接放弃,DOM 一下都不碰 ----
   const glc = document.createElement("canvas");
   const gl = glc.getContext("webgl2", { alpha: false, antialias: false });
@@ -726,14 +747,21 @@ function mount(target: HTMLElement): (() => void) | null {
   }
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 
+  // 文字贴图的来源:native 时是装着真实 <main> 的 drawable canvas,manual 时是不进 DOM 的离屏 canvas
   const c2 = document.createElement("canvas") as DrawableCanvas;
   const ctx = c2.getContext("2d") as Ctx2D | null;
   if (!ctx) return null;
 
   // ---- 状态 ----
-  const holder = document.createElement("div");
+  const holder = document.createElement("div"); // 只有 native 用
+  const host = native ? holder : target; // 指针事件、坐标原点、可见性都以它为准
+  const manualStyle = document.createElement("style");
+  manualStyle.textContent = MANUAL_CSS;
   const targetStyle = target.getAttribute("style");
   let alive = true;
+  let shown = native; // manual:第一帧画出来之前不隐藏 <main> 的字,免得闪一下空白
+  let needsPaint = false; // manual:下一帧要重画文字贴图
+  let needsMeasure = true; // manual:排版变了,要重新量每个字的位置
   // target 的布局尺寸。注意不能用 getBoundingClientRect 量 canvas 里的元素 ——
   // 它返回的是「画出来之后」的几何,画多大量出来就多大,会自己绕圈
   let tw = target.offsetWidth, th = target.offsetHeight;
@@ -746,19 +774,32 @@ function mount(target: HTMLElement): (() => void) | null {
   let last = 0, acc = 0, nextDrop = 0;
   let px = -1, py = -1, pt = 0;
 
-  // ---- DOM:原位留一个等高的占位,target 整个搬进 canvas ----
-  // canvas 里的子元素按 shrink-to-fit 排版(宽度缩到内容的 max-content),
-  // 所以要显式撑满 canvas,才和原来在 body 里的宽度一致;class 一个都不用改
-  holder.style.cssText = `position:relative;height:${th}px`;
-  target.style.width = "100%";
   const fill = "position:absolute;inset:0;width:100%;height:100%;display:block;";
-  c2.style.cssText = fill;
-  glc.style.cssText = fill + "pointer-events:none;";
-  c2.setAttribute("content", "drawable");
-  target.setAttribute("drawable", "");
-  target.replaceWith(holder);
-  c2.append(target);
-  holder.append(c2, glc);
+  if (native) {
+    // ---- DOM:原位留一个等高的占位,target 整个搬进 canvas ----
+    // canvas 里的子元素按 shrink-to-fit 排版(宽度缩到内容的 max-content),
+    // 所以要显式撑满 canvas,才和原来在 body 里的宽度一致;class 一个都不用改
+    holder.style.cssText = `position:relative;height:${th}px`;
+    target.style.width = "100%";
+    c2.style.cssText = fill;
+    glc.style.cssText = fill + "pointer-events:none;";
+    c2.setAttribute("content", "drawable");
+    target.setAttribute("drawable", "");
+    target.replaceWith(holder);
+    c2.append(target);
+    holder.append(c2, glc);
+  } else {
+    // ---- DOM:target 不动,glc 垫在它的内容下面 ----
+    // isolation 让 target 自成一个层叠上下文,z-index:-1 的 glc 只沉到 target 的内容下面,
+    // 不会沉到 body 背景后面去。glc 是绝对定位,不参与 target 的 flex 排版。
+    // 第一帧画出来之前 glc 先藏着(没画过的 WebGL canvas 是一块黑)
+    target.style.position = "relative";
+    target.style.isolation = "isolate";
+    glc.style.cssText = fill + "pointer-events:none;z-index:-1;visibility:hidden;";
+    glc.setAttribute("aria-hidden", "true");
+    document.head.append(manualStyle);
+    target.prepend(glc);
+  }
 
   const ro = new ResizeObserver((entries) =>
     guard(() => {
@@ -783,10 +824,25 @@ function mount(target: HTMLElement): (() => void) | null {
     io.disconnect();
     document.removeEventListener("visibilitychange", onVis);
     darkScheme.removeEventListener("change", onScheme);
-    target.removeAttribute("drawable");
+    document.fonts?.removeEventListener("loadingdone", onFonts);
+    // manual 时 host 就是 target,会留在页面上,监听器要一个个摘掉(native 的 holder 整个丢掉,摘了也无妨)
+    host.removeEventListener("pointermove", onMove);
+    host.removeEventListener("pointerdown", onDown);
+    host.removeEventListener("pointerleave", onLeave);
+    host.removeEventListener("pointerup", onLeave);
+    host.removeEventListener("pointercancel", onLeave);
+    target.removeEventListener("pointerover", onHover);
+    target.removeEventListener("pointerout", onHover);
     if (targetStyle === null) target.removeAttribute("style");
     else target.setAttribute("style", targetStyle);
-    holder.replaceWith(target); // holder 连同两块 canvas、监听器一起丢掉
+    if (native) {
+      target.removeAttribute("drawable");
+      holder.replaceWith(target); // holder 连同两块 canvas 一起丢掉
+    } else {
+      target.classList.remove("pond-manual");
+      manualStyle.remove();
+      glc.remove();
+    }
     gl!.getExtension("WEBGL_lose_context")?.loseContext();
   }
 
@@ -812,9 +868,11 @@ function mount(target: HTMLElement): (() => void) | null {
   // ---- 尺寸 ----
   function layout() {
     if (!tw || !th) return;
-    if (Math.abs(parseFloat(holder.style.height) - th) > 0.5) {
+    if (native && Math.abs(parseFloat(holder.style.height) - th) > 0.5) {
       holder.style.height = `${th}px`;
     }
+    // target 尺寸一变,里面的字多半换了行,要重新量
+    needsMeasure = true;
     const nd = Math.min(window.devicePixelRatio || 1, 2);
     if (tw !== W || th !== H || nd !== dpr) {
       W = tw;
@@ -842,8 +900,9 @@ function mount(target: HTMLElement): (() => void) | null {
       gl!.uniform1f(uRim, rimW);
       gl!.uniform1f(uRadius, rimW * 1.4);
       // 透视下露出来的池壁宽度:和池沿差不多宽,上池壁略多一点(扶梯挂在那里)。
-      // 必须小于页面留白(左右:桌面 96px、手机 48px;底部:main 的 pb-20 = 80px),
-      // 页面内容才会整块落在池底上,不压到池壁
+      // 必须小于页面留白(左右:桌面 96px、手机 32px;底部:桌面 80px、手机 40px;
+      // 顶部:手机上标题块至少 40px),页面内容才会整块落在池底上,不压到池壁。
+      // 手机上 rimW = 14:左右 / 底部要 28px,顶部约 31px
       const bandX = rimW, bandB = rimW, bandT = rimW * 1.2;
       gl!.uniform2f(uFloorMin, rimW + bandX, rimW + bandT);
       gl!.uniform2f(uFloorMax, W - rimW - bandX, H - rimW - bandB);
@@ -856,22 +915,168 @@ function mount(target: HTMLElement): (() => void) | null {
       gl!.uniform4fv(uEntry, lad.entry);
       gl!.uniform4fv(uLadderBox, lad.box);
       // 改 canvas 尺寸会清空画面,要重画
-      c2.requestPaint?.();
+      requestPaint();
     }
+    // manual:尺寸没变也可能换了行(字体加载完之类),每次都重画
+    if (!native) requestPaint();
     kick();
   }
 
-  // ---- 2D:画不变形的画面 ----
-  c2.addEventListener("paint", () =>
-    guard(() => {
-      // 主题一变,文字颜色跟着变就会触发 paint;顺手重读颜色,背景永远跟得上
-      readColors();
-      ctx.clearRect(0, 0, c2.width, c2.height);
-      ctx.drawElementImage(target, 0, 0, W * dpr, H * dpr);
-      dirty = true;
+  function requestPaint() {
+    if (native) {
+      c2.requestPaint?.();
+    } else {
+      needsPaint = true;
       kick();
-    }),
-  );
+    }
+  }
+
+  // ---- 2D(native):让浏览器画不变形的画面 ----
+  if (native) {
+    c2.addEventListener("paint", () =>
+      guard(() => {
+        // 主题一变,文字颜色跟着变就会触发 paint;顺手重读颜色,背景永远跟得上
+        readColors();
+        ctx.clearRect(0, 0, c2.width, c2.height);
+        ctx.drawElementImage(target, 0, 0, W * dpr, H * dpr);
+        dirty = true;
+        kick();
+      }),
+    );
+  }
+
+  // ---- 2D(manual):照着 target 的真实排版,自己把字画进 c2 ----
+  // 每个字的位置直接向浏览器要(Range.getClientRects),不自己排版:换行、字距、tracking、
+  // text-balance、大小写变换全由浏览器算好,canvas 只负责在同一个位置、用同一个字体把字形画出来。
+  // 逐字画会丢掉连字(fi、fl),位置仍然准,水底下看不出来。
+  // 只画文字和下划线 —— 首页现在只有这两样;以后首页加了图片 / 图标,这里要跟着补
+  type Glyph = { ch: string; x: number; y: number }; // x = 字的左边,y = 基线(都是 target 内的 CSS px)
+  type Run = {
+    el: Element; // 文字节点的父元素,颜色从它读(hover 会变,所以每次画都重读)
+    font: string;
+    glyphs: Glyph[];
+    // 下划线:每个折行片段一条。颜色、位置、粗细跟着画下划线的那个祖先元素
+    deco: Element | null;
+    lines: { x0: number; x1: number; y: number; h: number }[];
+  };
+  let runs: Run[] = [];
+
+  const fontOf = (cs: CSSStyleDeclaration) =>
+    `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+
+  function measureText() {
+    const origin = target.getBoundingClientRect();
+    const range = document.createRange();
+    const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+    runs = [];
+    for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+      const text = n.data;
+      const el = n.parentElement;
+      if (!el || !text.trim()) continue;
+      const cs = getComputedStyle(el);
+      const font = fontOf(cs);
+      ctx!.font = font;
+      // 字体的上下沿;DOM 里一个字的矩形就是这个高度,基线在 上沿 + ascent
+      const fm = ctx!.measureText("Hg");
+      const fs = parseFloat(cs.fontSize);
+      const asc = fm.fontBoundingBoxAscent ?? fs * 0.8, desc = fm.fontBoundingBoxDescent ?? fs * 0.2;
+      const baseline = (r: DOMRect) => r.top - origin.top + (r.height + asc - desc) / 2;
+      const tt = cs.textTransform;
+      const glyphs: Glyph[] = [];
+      let i = 0;
+      for (const ch of text) {
+        const len = ch.length; // 代理对占两个 code unit
+        if (ch.trim()) {
+          range.setStart(n, i);
+          range.setEnd(n, i + len);
+          const r = range.getClientRects()[0];
+          if (r && r.width > 0) {
+            glyphs.push({
+              ch: tt === "uppercase" ? ch.toUpperCase() : tt === "lowercase" ? ch.toLowerCase() : ch,
+              x: r.left - origin.left,
+              y: baseline(r),
+            });
+          }
+        }
+        i += len;
+      }
+      // text-decoration 会从祖先传下来,往上找到画下划线的那个元素(到 target 为止)
+      let deco: Element | null = null;
+      for (let e: Element | null = el; e && target.contains(e); e = e.parentElement) {
+        const ecs = getComputedStyle(e);
+        if ((ecs.textDecorationLine || ecs.textDecoration || "").includes("underline")) {
+          deco = e;
+          break;
+        }
+      }
+      const lines: Run["lines"] = [];
+      if (deco) {
+        const dcs = getComputedStyle(deco);
+        // text-underline-offset 从字母基线量起;粗细 auto 时浏览器按字体给,14px 的字大约 1px
+        const off = parseFloat(dcs.textUnderlineOffset) || 0;
+        const thick =
+          parseFloat(dcs.textDecorationThickness) || Math.max(1, Math.round(parseFloat(dcs.fontSize) / 14));
+        range.selectNodeContents(n);
+        for (const r of range.getClientRects()) {
+          if (r.width > 0) lines.push({ x0: r.left - origin.left, x1: r.right - origin.left, y: baseline(r) + off, h: thick });
+        }
+      }
+      runs.push({ el, font, glyphs, deco, lines });
+    }
+  }
+
+  function paintText() {
+    readColors(); // 先定下 --muted,下面读到的颜色才是泳池模式的
+    if (needsMeasure) {
+      measureText();
+      needsMeasure = false;
+    }
+    const c = ctx!;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, c2.width, c2.height);
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.textBaseline = "alphabetic";
+    c.textAlign = "left";
+    // 1. 下划线
+    for (const run of runs) {
+      if (!run.deco) continue;
+      c.fillStyle = getComputedStyle(run.deco).color;
+      for (const l of run.lines) c.fillRect(l.x0, l.y, l.x1 - l.x0, l.h);
+    }
+    // 2. 下划线碰到字的下伸部分(p、g、y)时断开,跟浏览器的 text-decoration-skip-ink 一样:
+    //    把带下划线的字描粗一圈,从下划线上抠掉
+    c.globalCompositeOperation = "destination-out";
+    c.lineJoin = "round";
+    for (const run of runs) {
+      if (!run.deco || !run.lines.length) continue;
+      c.font = run.font;
+      c.lineWidth = run.lines[0].h * 2 + 1;
+      for (const g of run.glyphs) c.strokeText(g.ch, g.x, g.y);
+    }
+    c.globalCompositeOperation = "source-over";
+    // 3. 字
+    for (const run of runs) {
+      c.font = run.font;
+      c.fillStyle = getComputedStyle(run.el).color;
+      for (const g of run.glyphs) c.fillText(g.ch, g.x, g.y);
+    }
+    dirty = true;
+  }
+
+  // hover 会改链接的颜色:只在指针换到另一个链接(或离开链接)时重画
+  let hoverLink: Element | null = null;
+  function onHover(e: PointerEvent) {
+    const to = (e.type === "pointerover" ? e.target : e.relatedTarget) as Element | null;
+    const link = to && target.contains(to) ? to.closest("a") : null;
+    if (link !== hoverLink) {
+      hoverLink = link;
+      requestPaint();
+    }
+  }
+  function onFonts() {
+    needsMeasure = true;
+    requestPaint();
+  }
 
   // ---- 水面 ----
   function drop(cx: number, cy: number, r: number, amp: number) {
@@ -915,6 +1120,10 @@ function mount(target: HTMLElement): (() => void) | null {
     const g = gl!;
     g.activeTexture(g.TEXTURE1);
     g.texSubImage2D(g.TEXTURE_2D, 0, 0, 0, GW, GH, g.RED, g.FLOAT, cur);
+    if (needsPaint) {
+      needsPaint = false;
+      paintText();
+    }
     if (dirty) {
       g.activeTexture(g.TEXTURE0);
       g.pixelStorei(g.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -924,6 +1133,12 @@ function mount(target: HTMLElement): (() => void) | null {
     }
     g.uniform1f(uT, now / 1000);
     g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
+    if (!shown) {
+      // manual:水面第一帧画好了,这时才把 <main> 的字藏起来、把 glc 亮出来,同一帧上屏
+      shown = true;
+      target.classList.add("pond-manual");
+      glc.style.visibility = "";
+    }
   }
 
   function frame(now: number) {
@@ -944,7 +1159,7 @@ function mount(target: HTMLElement): (() => void) | null {
   // ---- 输入 ----
   function onMove(e: PointerEvent) {
     if (!W) return;
-    const r = holder.getBoundingClientRect();
+    const r = host.getBoundingClientRect();
     const x = e.clientX - r.left, y = e.clientY - r.top;
     const now = e.timeStamp;
     if (px >= 0 && now - pt < 120) {
@@ -963,9 +1178,10 @@ function mount(target: HTMLElement): (() => void) | null {
   }
   function onDown(e: PointerEvent) {
     if (!W) return;
-    const r = holder.getBoundingClientRect();
+    const r = host.getBoundingClientRect();
     drop(e.clientX - r.left, e.clientY - r.top, 5, -1.4);
   }
+  // 鼠标离开,或手指抬起 / 被浏览器收走:下一次按下不要和上一次的位置连成一道
   function onLeave() {
     px = -1;
   }
@@ -976,7 +1192,7 @@ function mount(target: HTMLElement): (() => void) | null {
   function onScheme() {
     guard(() => {
       readColors();
-      c2.requestPaint?.();
+      requestPaint();
       dirty = true;
     });
   }
@@ -985,15 +1201,23 @@ function mount(target: HTMLElement): (() => void) | null {
     debug.field = () => ({ h: cur, GW, GH, drop: (x: number, y: number) => drop(x, y, 3, -1) });
   }
 
-  holder.addEventListener("pointermove", onMove, { passive: true });
-  holder.addEventListener("pointerdown", onDown, { passive: true });
-  holder.addEventListener("pointerleave", onLeave);
+  host.addEventListener("pointermove", onMove, { passive: true });
+  host.addEventListener("pointerdown", onDown, { passive: true });
+  host.addEventListener("pointerleave", onLeave);
+  host.addEventListener("pointerup", onLeave);
+  host.addEventListener("pointercancel", onLeave);
+  if (!native) {
+    target.addEventListener("pointerover", onHover);
+    target.addEventListener("pointerout", onHover);
+    document.fonts?.addEventListener("loadingdone", onFonts);
+    document.fonts?.ready.then(() => guard(onFonts));
+  }
   document.addEventListener("visibilitychange", onVis);
   darkScheme.addEventListener("change", onScheme);
   glc.addEventListener("webglcontextlost", () => teardown());
-  ro.observe(holder);
+  ro.observe(host);
   ro.observe(target);
-  io.observe(holder);
+  io.observe(host);
 
   guard(() => {
     readColors();
@@ -1004,11 +1228,13 @@ function mount(target: HTMLElement): (() => void) | null {
 
 export function initPond() {
   const target = document.getElementById("pond");
-  if (!target || !supportsHtmlInCanvas()) return;
+  if (!target) return;
+  const forceManual = new URLSearchParams(location.search).get("pond") === "manual";
+  const mode: Mode = supportsHtmlInCanvas() && !forceManual ? "native" : "manual";
 
   let stop: (() => void) | null = null;
   const start = () => {
-    if (!stop && !reduceMotion.matches) stop = mount(target);
+    if (!stop && !reduceMotion.matches) stop = mount(target, mode);
   };
   const halt = () => {
     stop?.();

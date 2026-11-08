@@ -4,8 +4,19 @@ import { SITE, LINKS } from "../consts";
 ---
 
 <Base>
-  <main id="pond" class="flex min-h-dvh flex-col px-12 pb-20 sm:px-24">
-    <div class="flex items-center pt-24 pb-12 sm:flex-1 sm:py-0">
+  {
+    /*
+      手机上整页要塞进一屏(见下面的 one-screen):标题块 flex-1 吃掉剩余高度、标题在里面居中,
+      底部那组内容排得紧凑,链接和 now 两列并排。高度用 svh 不用 vh —— iOS 的 vh 按工具栏收起后的
+      大视口算,底部会被工具栏挡掉一截。左右 / 底部留白不能小于泳池池沿 + 池壁(手机上约 28–31px),
+      否则字会压到池壁上,见 pond.ts 的 layout()
+    */
+  }
+  <main
+    id="pond"
+    class="flex min-h-svh flex-col px-8 pb-10 sm:px-24 sm:pb-20"
+  >
+    <div class="flex flex-1 items-center py-10 sm:py-0">
       <h1 class="text-balance text-6xl font-bold tracking-tight sm:text-8xl">
         {SITE.headline}
       </h1>
@@ -13,7 +24,7 @@ import { SITE, LINKS } from "../consts";
 
     <p class="font-mono text-sm text-muted">{SITE.tagline}</p>
 
-    <div class="mt-8 grid max-w-2xl grid-cols-1 gap-10 sm:grid-cols-2">
+    <div class="mt-5 grid max-w-2xl grid-cols-2 gap-6 sm:mt-8 sm:gap-10">
       <ul class="flex flex-col gap-2.5 font-mono text-sm uppercase tracking-widest">
         <li>
           <a href="/work" class="underline underline-offset-4 hover:text-muted"
@@ -47,7 +58,7 @@ import { SITE, LINKS } from "../consts";
     </div>
 
     <ul
-      class="mt-16 flex flex-wrap gap-x-6 gap-y-2 font-mono text-sm uppercase tracking-widest"
+      class="mt-8 flex flex-wrap gap-x-6 gap-y-2 font-mono text-sm uppercase tracking-widest sm:mt-16"
     >
       {
         LINKS.map((link) => (
@@ -68,8 +79,44 @@ import { SITE, LINKS } from "../consts";
   </main>
 </Base>
 
+<style is:global>
+  /*
+    一屏放得下时锁住滚动:overflow 管滚动,overscroll-behavior 管 iOS 的橡皮筋回弹。
+    touch-action: pinch-zoom 让手指在页面上拖动不再被浏览器当成滚动手势收走(收走时会发
+    pointercancel,水面波纹就断了),同时保留双指缩放 —— 用 none 会连缩放一起禁掉。
+    只挂在 one-screen 上:放不下要滚动时(横屏、页面缩放、大字号)这三条都不生效
+  */
+  html.one-screen,
+  html.one-screen body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  html.one-screen body {
+    touch-action: pinch-zoom;
+  }
+</style>
+
 <script>
-  // 整屏沉进水面:只在支持 HTML-in-Canvas 的浏览器里生效,其余浏览器什么都不做
   import { initPond } from "../scripts/pond";
+
+  // 内容高度不超过一屏才锁滚动。放不下时锁住,下面的链接就永远点不到了,所以每次尺寸变化都重判。
+  // main 是 min-h-svh:放得下时它正好等于 min-height,放不下时被内容撑高。拿它自己的 min-height
+  // (算好的 px)来比,不拿 window.innerHeight —— iOS 上 innerHeight 会随工具栏收起变大,
+  // 内容高度刚好落在两者之间时,锁会在「滚下去 → 放得下 → 锁住弹回顶部 → 放不下」之间来回跳
+  const main = document.getElementById("pond");
+  if (main) {
+    const root = document.documentElement;
+    const fit = () =>
+      root.classList.toggle(
+        "one-screen",
+        main.offsetHeight <= parseFloat(getComputedStyle(main).minHeight) + 1,
+      );
+    new ResizeObserver(fit).observe(main);
+    addEventListener("resize", fit);
+    fit();
+  }
+
+  // 整屏沉进水面:支持 HTML-in-Canvas 的浏览器用原生 drawElementImage,其余浏览器自己把字画进贴图;
+  // WebGL2 起不来或用户开了「减弱动画」时什么都不做
   initPond();
 </script>
