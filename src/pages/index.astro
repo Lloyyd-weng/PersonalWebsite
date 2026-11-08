@@ -8,23 +8,30 @@ import { SITE, LINKS } from "../consts";
     /*
       手机上整页要塞进一屏(见下面的 one-screen):标题块 flex-1 吃掉剩余高度、标题在里面居中,
       底部那组内容排得紧凑,链接和 now 两列并排。高度用 svh 不用 vh —— iOS 的 vh 按工具栏收起后的
-      大视口算,底部会被工具栏挡掉一截。左右 / 底部留白不能小于泳池池沿 + 池壁(手机上约 28–31px),
-      否则字会压到池壁上,见 pond.ts 的 layout()
+      大视口算,底部会被工具栏挡掉一截。
+      留白:泳池池底的边在离屏幕边缘约 28px 处(池沿 + 池壁,见 pond.ts 的 layout()),
+      左右 44px、底部 56px,字离池底的边各留 16 / 28px。
+      标题字号:手机上跟着可用宽度微缩(100vw 减去两侧 44px,除以 5),保证最宽那行
+      「building his」(60px 时宽 297px)放得下、标题始终三行 —— 掉到四行,iPhone SE 就放不进一屏了。
+      402px 宽以上就是满的 60px。改了左右留白,这里的 5.5rem 要跟着改。
+      两列之间只留 16px:360px 宽的屏幕上「open artifact」(128px)才不折行
     */
   }
   <main
     id="pond"
-    class="flex min-h-svh flex-col px-8 pb-10 sm:px-24 sm:pb-20"
+    class="flex min-h-svh flex-col px-11 pb-14 sm:px-24 sm:pb-20"
   >
     <div class="flex flex-1 items-center py-10 sm:py-0">
-      <h1 class="text-balance text-6xl font-bold tracking-tight sm:text-8xl">
+      <h1
+        class="text-[length:min(3.75rem,calc((100vw_-_5.5rem)/5))] leading-none text-balance font-bold tracking-tight sm:text-8xl"
+      >
         {SITE.headline}
       </h1>
     </div>
 
     <p class="font-mono text-sm text-muted">{SITE.tagline}</p>
 
-    <div class="mt-5 grid max-w-2xl grid-cols-2 gap-6 sm:mt-8 sm:gap-10">
+    <div class="mt-5 grid max-w-2xl grid-cols-2 gap-4 sm:mt-8 sm:gap-10">
       <ul class="flex flex-col gap-2.5 font-mono text-sm uppercase tracking-widest">
         <li>
           <a href="/work" class="underline underline-offset-4 hover:text-muted"

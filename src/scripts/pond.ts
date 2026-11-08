@@ -900,7 +900,7 @@ function mount(target: HTMLElement, mode: Mode): (() => void) | null {
       gl!.uniform1f(uRim, rimW);
       gl!.uniform1f(uRadius, rimW * 1.4);
       // 透视下露出来的池壁宽度:和池沿差不多宽,上池壁略多一点(扶梯挂在那里)。
-      // 必须小于页面留白(左右:桌面 96px、手机 32px;底部:桌面 80px、手机 40px;
+      // 必须小于页面留白(左右:桌面 96px、手机 44px;底部:桌面 80px、手机 56px;
       // 顶部:手机上标题块至少 40px),页面内容才会整块落在池底上,不压到池壁。
       // 手机上 rimW = 14:左右 / 底部要 28px,顶部约 31px
       const bandX = rimW, bandB = rimW, bandT = rimW * 1.2;
