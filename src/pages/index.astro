@@ -14,12 +14,14 @@ import { SITE, LINKS } from "../consts";
       标题字号:手机上跟着可用宽度微缩(100vw 减去两侧 44px,除以 5),保证最宽那行
       「building his」(60px 时宽 297px)放得下、标题始终三行 —— 掉到四行,iPhone SE 就放不进一屏了。
       402px 宽以上就是满的 60px。改了左右留白,这里的 5.5rem 要跟着改。
-      两列之间只留 16px:360px 宽的屏幕上「open artifact」(128px)才不折行
+      两列之间只留 16px:360px 宽的屏幕上「open artifact」(128px)才不折行。
+      select-none:首页的字不让选中 —— 字是印在池底的,选中时冒出的底色浮在水面上很突兀;
+      手机上长按拖动也不会被选字抢走,能一直画波纹。长按链接的系统菜单(预览、拷贝链接)保留
     */
   }
   <main
     id="pond"
-    class="flex min-h-svh flex-col px-11 pb-14 sm:px-24 sm:pb-20"
+    class="flex min-h-svh select-none flex-col px-11 pb-14 sm:px-24 sm:pb-20"
   >
     <div class="flex flex-1 items-center py-10 sm:py-0">
       <h1
