@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>日本散歩、9年分</title>
+<style>
+/* ================================================================
+   日本散歩 9 年 — 社内晩会クイズ deck
+   ・1280×720 画布、→ / Space / Enter で次、← で戻る、R でアニメ再生、F で全画面
+   ・Google Meet の画面共有前提：濃色背景、線は 2px 以上、文字は小窓でも読める大きさ、
+     アニメはゆっくり（1 演出 2〜5 秒）
+   ・データは stats.json（統計値と日付のみ、座標なし）から必要な項目だけ埋め込み
+   ・差し替え予定の文言・選択肢・場所・ルートは <script> 冒頭の CONFIG に集約
+   ================================================================ */
+:root{
+  --bg:#0d1015; --bg2:#151a21; --bg3:#1e242d; --line:#2e3742;
+  --ink:#f2f4f7; --dim:#a6b0bd; --faint:#727d8b;
+  --acc:#ffb547; --acc-hi:#ffe0a3; --acc-d:#3a2a12;
+  --cool:#5cc8ff; --cool-d:#2c5876; --bar:#4a5a6d;
+}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink)}
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif;
+  -webkit-font-smoothing:antialiased;font-feature-settings:"palt"}
+.num,.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+svg text{font-family:inherit}
+
+/* ---- runtime ---- */
+#deck{position:fixed;left:50%;top:50%;width:1280px;height:720px}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;
+  padding:56px 80px 64px;box-sizing:border-box;background:var(--bg);overflow:hidden}
+.slide.on{display:flex}
+#pageno{position:fixed;right:26px;bottom:18px;font-size:18px;color:var(--faint);z-index:5}
+#secbar{position:fixed;left:26px;bottom:20px;display:flex;gap:10px;z-index:5}
+#secbar i{width:34px;height:6px;border-radius:3px;background:var(--line)}
+#secbar i.done{background:#5b4520}
+#secbar i.cur{background:var(--acc)}
+body.on-cover #pageno,body.on-cover #secbar{display:none}
+@media print{
+  html,body{overflow:visible}
+  #deck{position:static;transform:none!important;width:auto;height:auto}
+  .slide{display:flex;position:relative;width:1280px;height:720px;page-break-after:always}
+  #pageno,#secbar{display:none}
+  @page{size:1280px 720px;margin:0}
+}
+
+/* ---- 共通 ---- */
+.eyebrow{margin:0;font-size:22px;font-weight:700;letter-spacing:.2em;color:var(--acc)}
+.eyebrow.cool{color:var(--cool)}
+h2{margin:0}
+.fade{opacity:0}
+
+/* 表紙 */
+.cover{justify-content:center;
+  background:radial-gradient(900px 520px at 78% 30%,#2a2214 0%,transparent 70%),var(--bg)}
+.cover h1{margin:18px 0 0;font-size:104px;font-weight:800;line-height:1.2;letter-spacing:.01em}
+.cover h1 em{font-style:normal;color:var(--acc)}
+.cover .sub{margin:26px 0 0;font-size:32px;color:var(--dim);line-height:1.6}
+.cover .howto{margin-top:64px;display:inline-flex;align-items:center;gap:18px;align-self:flex-start;
+  padding:18px 28px;border:3px solid var(--line);border-radius:16px;font-size:28px}
+.cover .howto b{color:var(--acc)}
+.cover .path{position:absolute;right:70px;top:120px;width:380px;opacity:.9}
+
+/* 章扉（直接見せる節） */
+.sect{justify-content:center}
+.sect .no{font-size:30px;font-weight:700;color:var(--faint);letter-spacing:.1em}
+.sect h2{margin-top:18px;font-size:84px;font-weight:800;line-height:1.3}
+.sect .lede{margin-top:26px;font-size:32px;color:var(--dim);line-height:1.6}
+
+/* クイズ問題 */
+.quiz .qh{margin-top:14px;font-size:58px;font-weight:800;line-height:1.3}
+.opts{margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:22px 28px}
+.opt{display:flex;align-items:center;gap:26px;padding:22px 30px;border:3px solid var(--line);
+  border-radius:20px;background:var(--bg2)}
+.opt .k{flex:none;width:68px;height:68px;border-radius:50%;display:grid;place-items:center;
+  font-size:38px;font-weight:800;background:var(--bg3);color:var(--ink)}
+.opt .v{font-size:46px;font-weight:700}
+.opt .v small{font-size:30px;font-weight:600;color:var(--dim);margin-left:6px}
+.quiz .foot{margin-top:auto;display:flex;align-items:center;gap:22px;font-size:26px;color:var(--dim)}
+.quiz .foot b{color:var(--ink)}
+.timer{flex:1;height:8px;border-radius:4px;background:var(--bg3);overflow:hidden}
+.timer i{display:block;height:100%;width:100%;background:var(--acc);transform-origin:left}
+
+/* 答え合わせ見出し */
+.ahead{display:flex;align-items:center;gap:22px}
+.ahead .badge{padding:8px 20px;border-radius:12px;background:var(--acc);color:#1a1205;
+  font-size:30px;font-weight:800}
+.ahead .q{font-size:30px;color:var(--dim);font-weight:600}
+.ahead>*{white-space:nowrap}
+.ahead .ex{margin-left:auto;font-size:26px;color:var(--dim)}
+.ahead .ex b{color:var(--acc);font-size:38px;font-weight:800;margin-right:10px}
+
+/* 1. オドメーター */
+.odo-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.odo{display:flex;align-items:flex-end;gap:10px}
+.wheel{height:200px;width:132px;overflow:hidden;border-radius:18px;background:var(--bg2);
+  border:3px solid var(--line);position:relative}
+.wheel::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(var(--bg2) 0%,transparent 22%,transparent 78%,var(--bg2) 100%)}
+.strip{display:flex;flex-direction:column}
+.strip span{height:200px;line-height:200px;text-align:center;font-size:168px;font-weight:800;color:var(--acc)}
+.odo .comma{font-size:120px;font-weight:800;color:var(--faint);line-height:1;padding-bottom:20px}
+.odo .unit{font-size:72px;font-weight:800;color:var(--ink);margin-left:16px;padding-bottom:22px}
+.odo-sub{margin-top:30px;font-size:34px;color:var(--dim)}
+.odo-sub b{color:var(--ink)}
+/* 1b. 山手線 */
+.yt-row{flex:1;display:flex;gap:56px;align-items:center;margin-top:4px}
+.yt-map{width:400px;height:470px;flex:none;position:relative}
+.yt-map svg{width:100%;height:100%;overflow:visible}
+.yt-right{display:flex;flex-direction:column;gap:14px}
+.yt-count{font-size:150px;font-weight:800;line-height:1;color:#9acd32}
+.yt-count small{font-size:56px;color:var(--ink);margin-left:14px}
+.yt-sub{font-size:30px;color:var(--dim)}
+.yt-sub b{color:var(--ink)}
+.yt-grid{margin-top:22px;width:600px;height:232px}
+.yt-grid svg{width:100%;height:100%;overflow:visible}
+
+/* 汎用 SVG ステージ */
+.stage{flex:1;position:relative;margin-top:18px}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+
+/* 3. 時計 */
+.clock-row{flex:1;display:flex;gap:40px;align-items:center;margin-top:6px}
+.clock-row .dial{width:520px;height:520px;flex:none;position:relative}
+.clock-row .dial svg{width:100%;height:100%;overflow:visible}
+.facts{display:flex;flex-direction:column;gap:24px}
+.facts .big{font-size:96px;font-weight:800;line-height:1;color:var(--acc)}
+.facts .big small{font-size:44px;color:var(--ink);margin-left:12px}
+.facts .line{font-size:32px;color:var(--dim);line-height:1.5}
+.facts .line b{color:var(--ink)}
+.facts .note{font-size:26px;color:var(--faint);line-height:1.5}
+.dot-legend{display:flex;align-items:center;gap:14px}
+.dot-legend i{width:18px;height:18px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px var(--acc)}
+
+/* 6. 場所カード */
+.cards{flex:1;display:grid;gap:22px;margin-top:26px}
+.card{border:3px solid var(--line);border-radius:22px;background:var(--bg2);padding:24px 24px 22px;
+  display:flex;flex-direction:column;gap:10px;min-width:0}
+.card .nm{font-size:27px;font-weight:800;line-height:1.3}
+.card .era{font-size:21px;color:var(--faint)}
+.card .cnt{font-size:72px;font-weight:800;line-height:1;color:var(--acc);margin-top:6px}
+.card .cnt small{font-size:30px;color:var(--ink);margin-left:6px}
+.card .kv{font-size:22px;color:var(--dim);line-height:1.55}
+.card .kv b{color:var(--ink);font-weight:700}
+.card .mini{margin-top:auto;height:118px;position:relative}
+.card .mini svg{width:100%;height:100%;overflow:visible}
+.ph-box{margin-top:auto;border:3px dashed var(--line);border-radius:14px;display:grid;place-items:center;
+  color:var(--faint);font-size:22px;text-align:center;line-height:1.5;padding:10px}
+.card.ph .nm{color:var(--dim)}
+.card .osm{font-size:13px;color:var(--faint);margin-top:-4px}
+/* 越谷 詳細 */
+.koshi-row{flex:1;display:flex;gap:36px;align-items:center;margin-top:10px}
+.koshi-row .bigmap{flex:1;align-self:stretch;position:relative}
+.koshi-row .bigmap svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.kw{width:380px;flex:none;display:flex;flex-direction:column;gap:20px}
+.kw .it{display:flex;gap:16px;align-items:flex-start}
+.kw .it i{flex:none;width:30px;height:8px;border-radius:4px;margin-top:16px}
+.kw .d{font-size:28px;font-weight:800}
+.phead{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.pcnt{font-size:120px;font-weight:800;line-height:1;color:var(--acc)}
+.pcnt small{font-size:44px;color:var(--ink);margin-left:10px}
+.pkv{font-size:28px;color:var(--dim);line-height:1.45}
+.pkv b{color:var(--ink)}
+.map-ph{position:absolute;inset:0;margin:0;font-size:30px}
+.compact .pcnt{font-size:84px}
+.compact .pkv{font-size:24px}
+.compact .kw{gap:12px}
+.compact .kw .d{font-size:24px}
+.compact .kw .m{font-size:19px}
+.compact .kw .it i{margin-top:12px}
+.kw .m{font-size:22px;color:var(--dim);white-space:nowrap}
+.kw .m b{color:var(--ink)}
+.osm-big{position:absolute;right:0;bottom:-6px;font-size:15px;color:var(--faint)}
+
+/* 7. ルート */
+.rh{font-size:44px;font-weight:800;margin-top:10px}
+.rh small{font-size:28px;color:var(--dim);font-weight:600;margin-left:16px}
+.kw .v{font-size:23px;color:var(--ink);white-space:nowrap}
+
+/* 結び */
+.end{justify-content:center}
+.end h2{font-size:76px;font-weight:800;line-height:1.35}
+.end h2 em{font-style:normal;color:var(--acc)}
+.end{align-items:center;text-align:center}
+.end .thanks{font-size:96px;line-height:1.4}
+.end .how{margin-top:40px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:30px;color:var(--dim)}
+.end .how span{padding:10px 20px;border-radius:12px;background:var(--bg2);border:3px solid var(--line);color:var(--ink)}
+.end .ask{margin-top:44px;font-size:34px;line-height:1.6}
+.end .ask b{color:var(--acc)}
+</style>
+</head>
+<body class="on-cover">
+<div id="deck">
+
+<!-- ============ 0. 表紙 ============ -->
+<section class="slide cover" data-sec="0">
+  <svg class="path" viewBox="0 0 380 380" aria-hidden="true">
+    <path d="M30 330 C 90 300, 70 230, 140 220 S 230 260, 250 190 S 210 90, 290 70 S 350 40, 350 30"
+      fill="none" stroke="#ffb547" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 16"/>
+    <circle cx="30" cy="330" r="10" fill="#ffb547"/>
+    <circle cx="350" cy="30" r="14" fill="none" stroke="#ffb547" stroke-width="5"/>
+  </svg>
+  <p class="eyebrow">JAPAN WALKS · 2017 → 2026</p>
+  <h1>日本散歩、<em>9年分。</em></h1>
+  <p class="sub">Apple Watch が黙って記録していた<br>9 年間の散歩を、数字で振り返ります。</p>
+</section>
+
+<!-- ============ 1. 合計距離 ============ -->
+<section class="slide quiz" data-sec="1" data-quiz="total"></section>
+<section class="slide" data-sec="1" data-anim="odo">
+  <div class="ahead" data-ans="total"></div>
+  <div class="odo-wrap">
+    <div class="odo" id="odo"></div>
+    <p class="odo-sub fade" id="odo-sub"><b class="num">691</b> 回の散歩 ・ 2017.10.12 → 2026.11.16</p>
+  </div>
+</section>
+
+<section class="slide" data-sec="1" data-anim="yamanote">
+  <p class="eyebrow">1,469 km ＝</p>
+  <h2 style="font-size:44px;font-weight:800;margin-top:10px">山手線なら、何周？</h2>
+  <div class="yt-row">
+    <div class="yt-map"><svg viewBox="0 0 340 470"></svg></div>
+    <div class="yt-right">
+      <div class="yt-count num"><span id="yt-n">0.0</span><small>周</small></div>
+      <div class="yt-sub">山手線 1 周 ＝ <b class="num">34.5</b> km</div>
+      <div class="yt-grid"><svg viewBox="0 0 600 232"></svg></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. 年ごと ============ -->
+<section class="slide sect" data-sec="2">
+  <div class="no">02</div>
+  <h2>毎年、どれくらい？</h2>
+  <p class="lede">年ごとの歩いた距離</p>
+</section>
+<section class="slide" data-sec="2" data-anim="years">
+  <p class="eyebrow">KM BY YEAR</p>
+  <h2 style="font-size:44px;font-weight:800;margin-top:10px">年ごとの距離（km）</h2>
+  <div class="stage"><svg id="years-svg" viewBox="0 0 1120 470" preserveAspectRatio="xMidYMax meet"></svg></div>
+</section>
+
+<!-- ============ 3. 一番遅い散歩 ============ -->
+<section class="slide quiz" data-sec="3" data-quiz="latest"></section>
+<section class="slide" data-sec="3" data-anim="clock">
+  <div class="ahead" data-ans="latest"></div>
+  <div class="clock-row">
+    <div class="dial"><svg id="clock-svg" viewBox="0 0 640 640"></svg></div>
+    <div class="facts">
+      <div class="big num">0:17<small>出発</small></div>
+      <div class="line">2024.10.14 ・ <b>1:06</b> に帰宅<br><b class="num">48.9</b> 分 ・ <b class="num">2.81</b> km</div>
+      <div class="note dot-legend fade" id="clock-legend"><i></i>遅い順トップ 5（23時台に 4 回）</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. 一番速い散歩 ============ -->
+<section class="slide quiz" data-sec="4" data-quiz="fastest"></section>
+<section class="slide" data-sec="4" data-anim="speed">
+  <div class="ahead" data-ans="fastest"></div>
+  <div class="stage"><svg id="speed-svg" viewBox="0 0 1120 520" preserveAspectRatio="xMidYMax meet"></svg></div>
+</section>
+
+<!-- ============ 5. 連続記録 ============ -->
+<section class="slide quiz" data-sec="5" data-quiz="streak"></section>
+<section class="slide" data-sec="5" data-anim="cal">
+  <div class="ahead" data-ans="streak"></div>
+  <div class="stage"><svg id="cal-svg" viewBox="0 0 1120 500" preserveAspectRatio="xMidYMax meet"></svg></div>
+</section>
+
+<!-- ============ 6. よく行く場所 ============ -->
+<section class="slide sect" data-sec="6">
+  <div class="no">06</div>
+  <h2>よく行く場所</h2>
+  <p class="lede">9 年間で、何度も足が向いたところ</p>
+</section>
+<section class="slide" data-sec="6" data-anim="place" data-p="roka">
+  <p class="eyebrow">PLACES · 1 / 3</p>
+  <h2 class="rh"></h2>
+  <div class="koshi-row">
+    <div class="bigmap"><div class="ph-box map-ph">軌跡図<br>準備中</div><svg></svg></div>
+    <div class="kw"></div>
+  </div>
+</section>
+<section class="slide" data-sec="6" data-anim="place" data-p="tower">
+  <p class="eyebrow">PLACES · 2 / 3</p>
+  <h2 class="rh"></h2>
+  <div class="koshi-row">
+    <div class="bigmap"><div class="ph-box map-ph">軌跡図<br>準備中</div><svg></svg></div>
+    <div class="kw"></div>
+  </div>
+</section>
+<section class="slide compact" data-sec="6" data-anim="koshi" data-p="koshigaya">
+  <p class="eyebrow">PLACES · 3 / 3</p>
+  <h2 class="rh"></h2>
+  <div class="koshi-row">
+    <div class="bigmap"><svg></svg><div class="osm-big">河道・街路：© OpenStreetMap contributors</div></div>
+    <div class="kw"></div>
+  </div>
+</section>
+
+<!-- ============ 7. ルート ============ -->
+<section class="slide sect" data-sec="7">
+  <div class="no">07</div>
+  <h2>長い散歩</h2>
+  <p class="lede">駅をいくつも越えて、歩いた日</p>
+</section>
+<section class="slide" data-sec="7" data-anim="route" data-g="0">
+  <p class="eyebrow">LONG WALK</p>
+  <h2 class="rh"></h2>
+  <div class="koshi-row">
+    <div class="bigmap"><svg></svg></div>
+    <div class="kw"></div>
+  </div>
+</section>
+
+<!-- ============ 結び ============ -->
+<section class="slide end" data-sec="8">
+  <h2 class="thanks">ご清聴<br><em>ありがとうございました。</em></h2>
+</section>
+
+</div>
+<div id="secbar"></div>
+<div id="pageno"></div>
+
+<script>
+/* ================================================================
+   CONFIG — 研究库那边定稿后在这里替换（数字・文案以研究库为准）
+   ================================================================ */
+const CONFIG={
+  quiz:{
+    total:  {n:1,q:'9 年間で、合計何 km 歩いた？', unit:'km',
+             opts:['約 800','約 1,500','約 3,000','約 5,000'], ans:1},
+    latest: {n:2,q:'一番遅い散歩、出発は何時？', unit:'',
+             opts:['22:30','23:30','0:00','2:00'], ans:2}, // 実際は 0:17。一番近い 0:00 を正解にする
+    fastest:{n:3,q:'一番速かった散歩、時速は？', unit:'km/h',
+             opts:['4.0','4.8','5.5','6.2'], ans:3},
+    streak: {n:4,q:'最長で、何日連続で歩いた？', unit:'日',
+             opts:['13','22','37','58'], ans:0},
+  },
+  yamanoteKm:34.5, // 山手線 1 周（営業キロ）
+  places:[
+    {key:'roka', name:'蘆花恒春園', since:'2025.05〜', count:8,
+     kv:['園内 合計 <b>1.9</b> 時間','園内 合計 <b>7.1</b> km']},
+    {key:'tower', name:'東京タワー', since:'旧居 2021–2023', count:63,
+     kv:['前の家のころの定番コース','重ねると 63 本']},
+    {key:'koshigaya', name:'越谷 元荒川沿い', since:'旧居', count:4,
+     kv:['川沿いの散歩 ・ 合計 <b>4.3</b> km']},
+  ],
+};
+
+/* stats.json から必要項目だけ（座標なし） */
+/* 越谷：元荒川の河道＋沿河散歩 4 回。経緯度ではなく、投影済みの SVG パス（相対座標）だけを埋め込み */
+const KOSHI={"w":300.0,"h":131.3,"river":["M324 51 L304 62 L288 64 L280 64 L274 65 L254 75 L202 98 L189 101 L169 104 L147 111 L133 112 L124 110 L104 102 L100 99 L92 91 L90 86 L88 78 L84 41 L77 20 L67 6 L62 1 L43 -12 L37 -15 L30 -16 L26 -16 L21 -14 L4 7 L-16 20 L-23 23"],"streets":[["minor","M26 110 L55 99"],["major","M51 78 L45 82"],["minor","M289 97 L295 97 L302 98 L316 100 L323 101 L350 98 L361 96 L370 93 L373 93 L377 94 L397 105 L419 108"],["major","M-6 20 L-2 25 L20 42 L25 47 L32 58 L55 99"],["minor","M56 5 L50 11 L48 16"],["minor","M289 97 L289 86 L285 72"],["minor","M73 121 L68 125"],["major","M45 82 L25 94"],["minor","M20 113 L20 115 L36 160"],["minor","M205 58 L214 57"],["minor","M205 58 L207 64"],["minor","M196 75 L199 81"],["minor","M159 82 L158 60"],["minor","M182 25 L201 73"],["minor","M168 86 L201 73"],["minor","M257 57 L253 50"],["minor","M165 50 L191 47"],["minor","M204 55 L205 58"],["minor","M236 59 L223 26 L218 4"],["minor","M224 28 L188 42"],["minor","M265 43 L269 51"],["minor","M207 64 L210 69"],["minor","M234 -5 L247 18"],["minor","M159 82 L160 100"],["minor","M185 34 L202 27"],["minor","M237 -0 L245 -5 L255 13"],["minor","M192 63 L190 60 L170 65"],["minor","M218 66 L236 59"],["minor","M169 -5 L175 5 L182 25"],["minor","M228 26 L233 35 L262 18"],["minor","M166 59 L169 91"],["minor","M209 9 L220 29"],["minor","M211 49 L197 51 L194 45"],["minor","M220 29 L226 44 L211 49"],["minor","M213 54 L198 15"],["minor","M269 36 L260 41"],["minor","M240 42 L236 33"],["minor","M207 20 L213 32"],["minor","M218 66 L221 74"],["minor","M236 33 L223 8 L228 5"],["minor","M171 37 L176 49"],["minor","M210 46 L225 40"],["minor","M172 84 L169 59"],["minor","M259 47 L263 54"],["minor","M271 40 L274 48"],["minor","M201 73 L203 80"],["minor","M222 60 L234 55"],["minor","M183 67 L192 88"],["minor","M199 43 L201 50"],["minor","M207 64 L199 68"],["minor","M244 13 L252 8"],["minor","M242 10 L228 18"],["minor","M167 39 L171 50"],["minor","M265 24 L253 30"],["minor","M172 84 L172 89 L186 86"],["minor","M201 73 L218 66"],["minor","M201 23 L213 16"],["minor","M214 57 L218 66"],["minor","M228 5 L237 -0"],["minor","M190 85 L203 80 L220 72"],["minor","M179 32 L186 48"],["minor","M194 45 L199 43"],["minor","M239 67 L236 59"],["minor","M214 57 L213 54"],["minor","M196 75 L192 63"],["minor","M171 78 L181 74"],["minor","M214 68 L216 73"],["minor","M304 33 L296 36 L285 41 L244 64 L223 73 L199 85 L177 92 L172 91 L169 91"],["minor","M218 52 L223 64"],["minor","M203 80 L204 83"],["minor","M247 54 L240 42"],["minor","M240 6 L248 2"],["minor","M187 89 L183 80"],["minor","M199 43 L207 39"],["minor","M236 59 L250 52 L281 34"],["minor","M249 58 L256 54"],["minor","M200 48 L209 44"],["minor","M169 91 L169 97"],["minor","M214 68 L209 57"],["minor","M251 61 L247 54"],["minor","M238 23 L292 -7"],["minor","M266 30 L271 40"],["minor","M242 30 L225 -0"],["minor","M251 25 L262 45"],["minor","M231 24 L224 28"],["minor","M188 65 L192 76"],["minor","M186 48 L189 57"],["minor","M258 39 L243 47"],["minor","M265 24 L258 11"],["minor","M166 59 L163 35"],["minor","M169 91 L160 91"],["minor","M207 39 L222 34"],["minor","M183 80 L175 58"],["minor","M200 21 L184 30"],["minor","M167 72 L171 72 L205 58"],["minor","M238 64 L249 58"],["minor","M175 35 L181 48"],["minor","M233 51 L237 49 L241 56"],["minor","M176 82 L178 87"],["minor","M194 45 L193 40"],["minor","M156 39 L158 60"],["minor","M209 43 L223 37"],["minor","M273 26 L288 22 L294 18 L298 17 L309 15 L327 14 L336 10 L343 5"],["minor","M166 59 L133 61 L132 61 L124 48 L122 43 L119 -4"],["minor","M144 83 L146 105"],["minor","M64 -4 L77 7 L102 35 L104 39 L105 53 L106 57 L115 73 L120 78 L126 82 L133 83 L168 81"],["minor","M143 67 L132 68 L130 67 L128 64"],["minor","M128 83 L122 104"],["minor","M132 91 L131 106"],["minor","M108 76 L111 81 L116 85 L125 89 L132 91 L145 90"],["minor","M141 33 L144 83"],["minor","M114 101 L124 81"],["minor","M114 72 L95 84"],["minor","M169 97 L165 98 L149 105 L141 106 L135 107 L125 105 L113 101 L107 98 L100 92 L98 90 L95 84 L92 77 L89 43 L87 33 L84 24 L88 20"],["minor","M138 91 L139 106"],["minor","M114 72 L132 61"],["minor","M99 91 L111 81"],["minor","M132 68 L128 83"],["minor","M121 68 L125 73 L130 75"],["minor","M116 85 L106 97"],["minor","M211 2 L199 9"],["minor","M176 10 L168 15 L171 24"],["minor","M162 -8 L164 11"],["minor","M156 39 L154 15"],["minor","M120 18 L161 15"],["minor","M211 2 L197 -21"],["minor","M153 -6 L154 15"],["minor","M177 -10 L183 1"],["minor","M173 -8 L179 3"],["minor","M180 19 L185 16 L180 8"],["minor","M166 -3 L172 7"],["minor","M161 13 L175 5"],["minor","M201 14 L182 -20"],["minor","M199 9 L194 12 L189 3"],["minor","M206 -7 L176 10"],["minor","M163 28 L180 19"],["minor","M163 35 L159 -7"],["minor","M64 36 L67 31"],["minor","M92 70 L107 60"],["minor","M73 64 L74 76 L76 87"],["minor","M63 14 L65 18"],["minor","M91 1 L80 11"],["minor","M148 32 L141 33"],["minor","M89 13 L104 12"],["minor","M75 6 L86 -4"],["minor","M52 33 L52 41"],["minor","M118 62 L107 -12 L102 -36"],["minor","M37 34 L42 42 L43 48"],["minor","M51 20 L51 20"],["minor","M109 -2 L103 1"],["minor","M95 7 L91 1"],["minor","M140 24 L121 26"],["minor","M58 32 L60 30"],["minor","M56 49 L64 36"],["minor","M63 14 L59 6 L56 5"],["minor","M82 -10 L70 1"],["minor","M64 36 L58 32"],["minor","M67 31 L70 34 L70 38 L73 64"],["minor","M105 50 L90 51"],["minor","M141 33 L138 -5"],["minor","M53 48 L52 44 L52 41"],["minor","M53 8 L53 10 L51 18"],["minor","M103 1 L99 -15"],["minor","M91 1 L101 -7"],["minor","M112 18 L120 18"],["minor","M62 27 L62 27"],["minor","M103 1 L95 7 L85 17"],["minor","M57 69 L69 91"],["minor","M36 50 L46 48 L52 48"],["minor","M26 10 L30 10 L31 17"],["minor","M107 60 L141 40"],["minor","M105 35 L103 1"],["minor","M62 27 L63 25"],["minor","M53 48 L56 49"],["minor","M51 18 L51 20"],["minor","M112 18 L88 20"],["minor","M65 66 L60 50 L56 49"],["minor","M57 69 L53 59 L53 48"],["minor","M52 33 L50 25 L51 20"],["minor","M51 20 L62 27"],["minor","M138 3 L119 5"],["minor","M86 -4 L91 1"],["minor","M52 41 L55 38 L58 32"],["minor","M60 30 L62 27"],["minor","M141 33 L114 35"],["minor","M62 27 L67 31"],["minor","M63 14 L52 14"],["minor","M94 26 L97 43"],["minor","M114 35 L102 35"],["minor","M55 84 L63 80"],["minor","M49 40 L48 33 L52 32"],["minor","M293 4 L294 18"],["minor","M285 73 L304 71 L313 71 L317 68 L326 67 L330 66"],["minor","M286 31 L293 28"],["minor","M290 39 L286 31"],["minor","M283 38 L294 32"],["minor","M281 34 L285 41"],["minor","M285 8 L277 13"],["minor","M282 4 L292 -2"],["minor","M286 31 L283 23"],["minor","M306 83 L292 83 L281 84"],["minor","M279 17 L272 4"],["minor","M281 34 L286 31"],["minor","M289 21 L292 25 L296 36"],["minor","M274 18 L288 14 L280 -1"],["minor","M292 -2 L293 4"],["minor","M268 6 L258 -12 L275 -22"],["minor","M293 4 L285 8"],["minor","M278 25 L281 34"],["minor","M278 25 L268 6"],["minor","M175 5 L208 -14"],["minor","M24 127 L18 129"],["minor","M-2 118 L0 118 L5 117"],["minor","M47 18 L42 29 L35 37 L19 51 L15 54 L-3 62"],["minor","M0 113 L-15 109"],["minor","M-33 86 L8 96"],["minor","M7 137 L11 131 L18 129"],["minor","M12 140 L15 135 L11 125"],["minor","M23 140 L16 123 L5 127 L1 134"],["minor","M7 98 L10 106 L7 107 L3 106"],["minor","M6 96 L-5 63"],["minor","M228 94 L211 101 L196 107 L190 110 L180 112 L177 117"],["minor","M205 121 L210 140 L213 147"],["minor","M271 139 L274 111 L276 106 L275 100"],["minor","M214 116 L215 120 L217 132"],["minor","M213 110 L211 101"],["minor","M177 117 L178 119"],["minor","M191 117 L194 127"],["minor","M234 119 L228 130 L227 133"],["minor","M276 73 L277 84"],["minor","M134 128 L144 132 L151 138 L152 155"],["minor","M97 149 L98 145 L104 135 L106 129"],["minor","M269 101 L268 105 L265 108"],["minor","M90 127 L104 135"],["minor","M170 121 L168 117"],["minor","M214 116 L213 110"],["minor","M133 136 L135 126"],["minor","M232 110 L232 115 L234 119"],["minor","M106 129 L92 123"],["minor","M116 132 L119 122"],["minor","M229 98 L231 104"],["minor","M281 73 L281 84"],["minor","M232 110 L231 104"],["minor","M177 117 L174 119 L171 120 L170 121"],["minor","M194 127 L198 145"],["minor","M191 117 L207 113 L213 110"],["minor","M245 136 L247 116"],["minor","M85 146 L84 143 L86 138 L95 115"],["minor","M283 98 L281 84"],["minor","M167 135 L170 132 L171 129 L170 121"],["minor","M301 110 L298 142"],["minor","M247 116 L239 114 L237 118 L234 119"],["minor","M266 102 L264 85"],["minor","M288 109 L301 110"],["minor","M178 119 L191 117"],["minor","M265 108 L258 108 L256 113 L253 117 L247 116"],["minor","M213 110 L215 108 L223 107 L231 104"],["minor","M155 137 L142 125"],["minor","M178 119 L178 120 L182 134"],["minor","M265 108 L264 111 L260 118 L258 138"],["minor","M116 132 L106 129"],["minor","M20 21 L22 14 L25 5 L26 -2 L28 -3"],["minor","M-20 16 L-4 7 L3 -0"],["minor","M21 120 L46 110"],["minor","M26 83 L31 90"],["minor","M8 96 L-2 118"],["minor","M21 108 L22 108 L24 109 L26 110"],["minor","M26 83 L19 90"],["minor","M7 44 L13 37"],["minor","M40 105 L57 119"],["minor","M53 116 L29 124"],["minor","M29 124 L24 127"],["minor","M59 126 L69 143"],["minor","M-7 50 L5 44 L7 44"],["minor","M21 61 L20 67 L12 85"],["minor","M10 14 L16 17 L18 18"],["minor","M10 14 L5 12"],["minor","M-11 31 L-1 40 L2 45"],["minor","M7 44 L11 47 L15 54"],["minor","M15 54 L17 58 L21 61"],["minor","M32 131 L52 124 L57 119"],["minor","M218 4 L208 -14"],["minor","M281 57 L276 37 L273 26"],["minor","M73 134 L65 119"],["minor","M10 90 L6 81 L6 80"],["minor","M56 5 L55 4 L54 -0 L52 -0 L46 -2 L42 -3 L37 -4 L30 -3"],["minor","M49 62 L53 60"],["minor","M50 76 L59 73"],["minor","M14 81 L11 71 L5 72"],["minor","M18 73 L22 77 L26 83"],["minor","M7 81 L8 79 L6 72 L1 53 L-2 47"],["minor","M60 8 L57 11 L58 22 L63 25"],["minor","M21 61 L23 58 L29 54"],["minor","M52 29 L61 28"],["minor","M41 16 L43 23"],["minor","M51 18 L65 18 L66 18 L63 25"],["minor","M41 15 L41 16 L27 18"],["minor","M36 17 L36 20 L42 19"],["minor","M38 34 L35 31 L34 25"],["minor","M31 14 L37 13 L47 18"],["minor","M-5 56 L8 50 L12 47"],["minor","M8 50 L10 57"],["major","M9 5 L15 11 L17 15 L71 114"],["minor","M9 114 L10 115 L11 117 L11 118 L7 119 L6 117 L5 117"],["rail","M-53 -85 L-48 -57 L-44 -44 L-21 17 L8 91 L38 173 L41 189 L57 274"],["rail","M56 275 L41 189 L37 173 L7 92 L-24 12 L-47 -48 L-50 -63 L-56 -108"],["rail","M2 75 L14 104 L32 154"],["rail","M4 85 L1 79"],["rail","M5 88 L-1 72"],["rail","M30 155 L5 90"],["minor","M69 125 L65 127 L62 131"],["minor","M84 109 L73 120"],["minor","M1 80 L-0 80 L1 94"],["minor","M59 126 L54 131 L46 134"],["minor","M55 84 L48 88"],["minor","M40 58 L50 54 L53 54"],["rail","M-52 -129 L-53 -114 L-53 -101 L-49 -66 L-45 -49 L-21 17 L2 75"],["minor","M199 115 L202 123"],["minor","M236 108 L238 100 L235 92"],["minor","M230 93 L232 99 L237 98"],["minor","M238 100 L239 98 L240 98 L239 89"],["minor","M240 96 L241 96 L246 88 L245 86"],["minor","M242 88 L243 94"],["minor","M228 94 L276 73 L280 73 L285 73"],["minor","M264 85 L263 79"],["minor","M235 92 L234 91"],["minor","M235 92 L235 91"],["minor","M241 96 L244 97 L249 89 L248 85"],["minor","M155 122 L168 117"],["minor","M42 -3 L40 10 L48 15"],["minor","M41 3 L52 9"],["minor","M58 2 L56 5"],["minor","M44 23 L43 23 L32 26 L19 26"],["minor","M52 33 L58 32"],["major","M153 104 L154 122"],["major","M154 122 L155 128"],["minor","M280 52 L279 52 L279 58"],["minor","M21 113 L20 113 L19 111 L20 109"],["minor","M10 89 L14 98"],["minor","M12 85 L25 94"],["minor","M96 131 L91 142"],["minor","M171 127 L171 128 L172 137"],["minor","M235 119 L240 122 L246 123"],["minor","M221 128 L219 133"],["minor","M223 134 L226 126 L230 127"],["minor","M264 85 L265 85 L267 86 L269 93 L274 92 L275 100"],["minor","M288 108 L274 116"],["minor","M264 111 L274 112"],["minor","M253 117 L260 118"],["minor","M162 129 L166 130"],["minor","M167 128 L164 134"],["minor","M161 132 L165 124 L169 123"],["minor","M137 68 L138 75"],["minor","M144 75 L134 75 L130 75"],["minor","M89 43 L104 42"],["minor","M122 41 L134 40 L136 43"],["minor","M103 7 L110 7"],["minor","M110 6 L119 6"],["minor","M125 -4 L125 4"],["minor","M105 26 L94 26"],["minor","M117 102 L119 98 L116 96"],["minor","M139 100 L145 100"],["minor","M91 65 L101 61 L100 57"],["minor","M91 59 L105 55"],["minor","M157 48 L164 47"],["minor","M260 60 L236 71 L236 73 L217 80 L218 81 L210 83 L209 81"],["minor","M151 72 L158 72"],["minor","M110 2 L114 2"],["minor","M115 2 L119 2"],["minor","M123 101 L127 101 L127 106"],["minor","M145 93 L152 92"],["minor","M160 97 L153 97"],["minor","M160 97 L164 97 L165 98"],["minor","M144 74 L151 73"],["minor","M197 65 L206 61"],["minor","M198 79 L189 82"],["minor","M250 52 L253 56"],["minor","M260 56 L256 48"],["minor","M279 53 L278 53"],["minor","M230 8 L239 3"],["minor","M232 11 L240 6"],["minor","M226 15 L232 11"],["minor","M100 3 L100 7 L103 6"],["minor","M257 21 L260 27"],["minor","M258 24 L264 21"],["minor","M167 69 L158 69"],["minor","M111 58 L115 64"],["minor","M127 64 L123 59"],["minor","M148 30 L163 29"],["minor","M3 74 L-1 75"],["minor","M21 99 L20 102 L19 104 L17 104 L16 103 L17 101 L18 100"],["minor","M21 99 L25 94"],["minor","M35 107 L50 145"],["minor","M12 15 L9 20"],["minor","M1 14 L7 19 L7 18"],["minor","M62 131 L36 160"],["minor","M48 16 L47 18"],["minor","M33 60 L20 67"],["minor","M149 43 L234 -5"],["minor","M80 85 L83 83"],["minor","M54 131 L58 135"],["minor","M6 72 L3 74"],["minor","M22 77 L15 87"],["minor","M51 20 L48 22 L45 22"],["minor","M24 15 L31 14"],["minor","M16 -4 L12 1 L9 5"],["minor","M104 42 L115 42"],["minor","M97 43 L98 50"],["minor","M180 87 L181 91"],["minor","M220 75 L221 78"],["minor","M220 72 L238 64"],["minor","M257 28 L254 23"],["minor","M251 25 L247 18"],["minor","M184 30 L164 41"],["minor","M277 13 L273 15"],["minor","M276 1 L281 10"],["rail","M5 90 L-6 59 L-22 18 L-50 -55 L-51 -63 L-55 -86 L-56 -108"],["rail","M30 155 L19 130 L5 90"],["rail","M2 75 L15 104 L32 154"],["rail","M23 130 L26 140"],["minor","M5 117 L7 115"],["minor","M-3 62 L5 78 L7 81 L12 85"],["minor","M64 -4 L58 2"],["minor","M73 64 L57 69"],["minor","M20 99 L21 99"],["minor","M18 100 L20 99"],["minor","M26 110 L21 113"],["minor","M20 109 L21 108"],["minor","M32 131 L24 111"],["minor","M24 109 L24 111"],["minor","M281 175 L289 97"],["minor","M159 131 L170 136 L173 137 L176 137 L214 116 L224 113 L236 108 L240 108"],["minor","M79 105 L86 111 L91 113 L97 115 L114 120 L125 125 L148 125 L152 126 L155 128"],["minor","M285 72 L281 57"],["minor","M91 125 L88 125 L88 123 L85 123 L84 128 L89 130"],["minor","M103 117 L101 123 L102 124 L101 127"],["minor","M94 117 L100 117 L100 116"],["minor","M127 126 L127 135"],["minor","M71 113 L79 105"],["minor","M69 91 L72 98 L79 105"],["major","M155 133 L155 128"],["minor","M155 128 L159 131"],["minor","M69 91 L80 85"],["minor","M92 78 L149 43"],["major","M149 43 L153 104"],["major","M144 -26 L149 43"],["minor","M131 17 L131 21 L126 21 L126 17"],["minor","M35 3 L34 -4"],["minor","M38 3 L33 4"],["minor","M50 12 L41 7 L35 7 L33 3 L29 -8"],["major","M4 -0 L9 5"],["minor","M25 94 L40 105"],["minor","M273 26 L250 -14"],["minor","M166 59 L213 54 L217 53 L273 26"],["minor","M12 85 L8 96"],["minor","M7 115 L9 114"],["minor","M250 85 L258 85 L258 83 L263 82"],["minor","M251 102 L252 107"],["major","M71 114 L73 121 L75 134"],["major","M10 6 L1 14 L-6 20"],["minor","M29 54 L36 50"],["minor","M55 99 L69 91"],["major","M55 99 L65 119"],["major","M65 119 L71 114"],["minor","M241 108 L251 107 L256 106 L265 102 L289 97"],["minor","M240 108 L241 108"],["minor","M106 129 L108 119"],["minor","M115 126 L117 126"],["minor","M113 125 L112 131"],["minor","M57 119 L61 122 L61 123 L59 126"],["minor","M65 29 L54 48"],["minor","M60 30 L64 32"],["minor","M54 39 L60 43"],["minor","M67 27 L68 25 L67 17"],["minor","M69 17 L66 18"],["minor","M70 29 L63 25"],["minor","M84 82 L92 78"],["minor","M83 83 L84 82"]],"walks":[{"date":"2017-10-12","km":1.76,"rkm":0.72,"d":["M163 35 L165 38 L166 54 L168 67 L170 98 L195 94 L209 88 L193 93 L169 98 L165 60 L157 58 L156 42 L157 40 L160 39"]},{"date":"2021-03-16","km":2.02,"rkm":1.37,"d":["M250 24 L257 33 L268 28 L270 28 L273 29 L273 34 L276 40 L278 54 L282 63 L284 73 L282 73 L280 72 L275 73 L202 104 L169 115 L166 115 L164 111 L164 107 L162 101 L176 96 L177 94 L175 92 L170 90 L169 88 L170 85"]},{"date":"2023-07-29","km":0.96,"rkm":0.28,"d":["M102 93 L98 89 L95 84 L93 78 L92 77 L77 87 L63 96 L46 104 L38 104 L27 108 L22 105 L19 107 L18 110 L21 115 L16 114"]},{"date":"2026-08-27","km":4.04,"rkm":1.93,"d":["M22 106 L26 109 L39 104 L48 101 L66 92 L77 84 L83 81 L80 46 L75 30 L69 16 L74 26 L80 45 L83 82 L73 87 L73 87 L74 85 L72 75 L67 74 L70 73 L73 58 L72 46 L71 43 L72 43 L74 65 L75 69 L74 70 L76 84 L78 87 L84 83 L90 95 L95 101 L95 103 L103 108 L104 110 L107 109 L111 110 L102 106 L93 98 L83 84 L73 91 L67 94 L56 100 L51 101 L45 103 L41 106 L29 109 L24 113 L20 115 L17 112"]}]};
+
+/* 蘆花恒春園（公園の境界＋30 m 以内だけ）・東京タワー一帯（2021–2023、塔の周辺だけ）：投影済み SVG パス */
+const PLACEGEO={"roka":{"w":291.8,"h":300.0,"outline":"M20.7 148.9 L56.1 177.3 L63.4 181.4 L68.5 182.9 L73.8 183.5 L91.8 181.6 L119.9 177.2 L147.6 173.6 L161.3 171.6 L176.4 171.7 L186.0 180.8 L202.1 199.1 L211.9 222.1 L228.2 247.9 L268.2 279.3 L271.1 269.5 L252.4 107.9 L245.5 71.6 L239.1 20.7 L217.6 29.4 L207.5 33.8 L179.0 40.3 L119.1 37.3 L101.7 37.8 L83.7 44.4 L76.4 47.1 L61.7 52.8 L45.8 58.8 L39.8 110.0 L39.6 112.3 L37.4 121.4 L33.4 129.8 L32.7 131.0 L29.0 137.1 L24.6 143.3 L20.7 148.9 Z","walks":[{"date":"2025-05-22","d":["M30.6 61.6 L42.9 58.1 L51.3 58.1 L54.1 55.4 L68.7 47.1 L72.0 44.3 L79.9 41.6 L84.3 40.9 L91.6 38.1 L100.0 38.8 L104.0 37.4 L107.9 37.4 L111.8 38.1 L114.0 41.6 L114.0 49.8 L112.4 58.1 L112.4 62.3 L108.4 69.1 L120.8 69.1 L132.5 71.2 L136.5 70.5 L139.8 72.6 L145.4 66.4 L149.3 65.0 L157.2 64.3 L161.7 65.0 L165.0 67.1 L172.9 67.8 L180.2 69.8 L184.1 77.4 L186.9 80.2 L190.8 81.6 L193.1 89.1 L189.1 96.0 L188.6 103.6 L186.9 107.8 L181.3 112.6 L170.6 117.4 L162.8 120.2 L158.9 120.2 L155.5 127.1 L144.9 133.3 L137.6 134.0 L130.9 138.8 L119.1 138.1 L117.4 141.6 L119.1 145.0 L119.6 149.2 L122.5 151.9 L133.1 156.7 L132.0 160.9 L128.1 161.6 L135.9 153.3 L137.0 157.4 L138.1 149.8 L140.4 146.4 L144.3 145.0 L146.5 147.8 L147.1 151.9 L150.5 158.8 L149.9 162.9 L153.8 164.3 L165.0 162.9 L171.2 157.4 L177.9 153.3 L181.8 152.6 L185.8 150.5 L193.1 149.8 L197.5 150.5 L200.3 153.3 L201.5 157.4 L200.3 160.9 L197.5 164.3 L197.0 171.9 L197.5 175.4 L200.9 178.1 L204.3 176.7 L209.3 165.7 L209.3 162.3 L202.0 158.8 L197.0 153.3 L193.6 145.7 L193.6 142.3 L190.8 134.7 L190.8 130.5 L193.1 127.1 L197.0 126.4 L200.3 123.6 L202.6 116.7 L197.5 109.8 L194.7 97.4 L194.7 93.3 L197.5 81.6 L205.9 67.8 L208.7 64.3 L220.0 60.9 L222.8 54.0 L216.6 49.1 L214.9 45.0 L214.9 41.6 L213.8 37.4 L209.9 36.0 L200.9 28.5 L198.1 25.0 L196.4 20.9"]},{"date":"2025-07-11","d":["M27.2 63.6 L39.0 60.9 L46.2 58.1 L56.9 51.9 L59.7 49.1 L67.0 44.3 L78.7 40.9 L87.1 37.4 L104.0 36.0 L111.8 36.7 L124.1 34.7 L127.5 35.4 L160.6 34.7 L176.8 37.4 L181.3 37.4 L194.2 35.4 L198.1 34.0 L202.6 34.0 L218.8 27.8 L225.0 22.2 L228.9 20.9 L232.3 24.3 L233.4 28.5 L233.4 31.9 L232.3 40.9 L230.6 44.3 L227.8 55.4 L226.1 59.5 L223.3 62.9 L212.7 68.5 L207.1 74.0 L203.7 76.0 L201.5 84.3 L198.1 91.9 L197.5 99.5 L192.5 115.4 L191.9 124.3 L190.8 128.5 L188.0 131.9 L181.8 136.7 L167.3 143.6 L155.5 147.1 L147.7 151.2 L139.8 154.0 L133.1 158.1 L125.3 160.2 L118.5 164.3 L109.0 173.3 L101.7 177.4 L93.9 178.8 L81.5 178.1 L78.2 179.5 L73.7 179.5 L57.4 176.7 L50.2 172.6 L44.0 167.8 L33.4 154.7 L30.0 152.6 L21.6 151.2 L17.7 148.5 L17.7 145.0 L19.9 140.9 L33.4 120.9 L34.5 117.4 L34.5 113.3 L35.6 109.1 L35.0 105.0 L35.6 89.1 L41.8 74.7 L50.2 37.4"]},{"date":"2025-08-20","d":["M7.6 141.6 L15.4 144.3 L21.0 138.8 L28.9 128.5 L35.6 117.4 L39.0 94.0 L38.4 89.8 L42.3 65.0 L49.6 50.5 L64.2 45.7 L67.5 42.9 L74.3 39.5 L78.2 38.1 L90.5 36.0 L97.8 37.4 L106.2 36.0 L110.7 36.7 L118.5 35.4 L127.5 35.4 L139.8 36.7 L155.5 32.6 L176.2 36.0 L180.2 36.0 L183.0 33.3 L187.5 31.9 L195.9 31.2 L203.1 27.8 L199.2 19.5"]},{"date":"2025-09-11","d":["M7.0 140.9 L13.7 144.3 L17.7 143.6 L23.3 136.7 L29.4 126.4 L32.8 123.6 L37.8 107.8 L40.1 84.3 L45.1 63.6 L49.0 56.7 L62.5 47.1 L74.8 42.9 L81.5 38.1 L89.4 34.7 L108.4 31.9 L111.2 35.4 L119.6 34.7 L147.7 35.4 L152.1 34.0 L177.9 36.0 L181.8 37.4 L185.8 36.0 L193.6 35.4 L197.5 33.3 L206.5 32.6 L213.8 29.8 L220.5 25.7 L221.1 29.1 L218.3 31.9 L213.8 32.6 L210.4 31.9 L202.6 28.5 L200.3 25.0 L197.5 18.1"]},{"date":"2026-03-17","d":["M7.6 140.9 L14.3 144.3 L18.2 145.0 L30.0 144.3 L37.3 148.5 L40.1 151.2 L53.0 167.1 L67.5 172.6 L75.4 172.6 L88.3 170.5 L101.2 169.8 L111.2 165.0 L120.2 156.0 L124.1 154.0 L128.1 154.0 L132.0 152.6 L141.5 145.7 L166.7 141.6 L174.6 138.1 L182.4 136.7 L190.3 133.3 L194.2 134.0 L196.4 138.1 L198.7 149.8 L200.3 153.3 L200.3 157.4 L198.1 160.9 L197.0 165.0 L199.2 177.4 L202.6 178.8 L205.4 187.1 L209.3 194.7 L212.1 198.1 L220.0 211.9 L226.7 231.2 L229.5 234.7 L232.8 236.7 L236.8 237.4 L239.0 234.7 L239.0 230.5 L234.5 223.6 L228.4 218.1 L223.3 211.2 L220.5 209.2 L216.0 198.1 L214.9 185.7 L212.1 174.0 L212.1 169.8 L209.3 162.3 L207.1 159.5 L207.1 155.4 L203.7 157.4 L199.8 156.0 L197.5 152.6 L193.6 140.9 L191.4 132.6 L191.4 128.5 L188.6 120.2 L188.6 111.9 L189.7 107.8 L193.6 100.2 L197.0 82.9 L198.7 79.5 L205.4 69.1 L211.5 63.6 L214.9 62.9 L218.8 60.9 L222.2 58.1 L223.9 54.7 L228.9 35.4 L232.3 27.8 L235.1 25.0 L236.2 20.9 L234.5 4.3"]},{"date":"2026-05-06","d":["M28.9 59.5 L32.8 58.8 L40.6 60.2 L44.0 63.6 L44.0 71.9 L41.2 100.9 L42.3 120.9 L40.1 128.5 L37.8 132.6 L35.0 134.0 L32.2 136.7 L30.0 140.9 L29.4 145.0 L32.8 147.1 L40.1 157.4 L44.0 156.0 L56.3 154.0 L63.6 149.8 L73.1 142.3 L77.1 140.9 L89.4 141.6 L109.0 138.1 L112.9 138.1 L120.2 143.6 L128.6 151.9 L132.5 151.9 L139.3 147.1 L142.1 143.6 L165.6 136.0 L171.8 130.5 L181.8 116.0 L185.2 113.3 L197.5 79.5 L204.8 66.4 L208.2 63.6 L216.0 60.9 L219.4 58.8 L222.8 51.2 L225.6 48.5 L230.0 48.5 L234.0 50.5 L240.1 61.6 L242.9 69.8 L244.6 86.4 L244.6 99.5 L249.1 119.5 L250.2 131.2 L249.7 135.4 L250.8 167.1 L252.5 171.2 L253.6 184.3 L255.3 188.5 L256.4 201.6 L258.6 213.3 L258.1 218.1 L253.0 218.8 L249.7 216.1 L242.9 205.7 L237.3 199.5 L234.0 191.2 L231.2 167.1 L224.4 156.7 L220.5 144.3 L218.3 140.9 L214.9 138.1 L211.5 129.8 L199.2 114.0 L194.7 105.7 L193.6 101.6 L193.1 92.6 L195.9 84.3 L200.9 73.3 L208.2 62.9 L208.2 58.8 L213.2 47.1 L213.8 42.9 L211.0 35.4 L203.1 31.2 L197.0 20.9 L194.2 18.1"]},{"date":"2026-07-10","d":["M27.2 59.5 L35.0 58.1 L50.7 51.2 L65.3 42.9 L69.8 41.6 L78.2 42.2 L85.5 38.8 L101.7 36.0 L106.2 36.7 L122.5 36.7 L126.4 35.4 L142.6 35.4 L159.4 34.0 L176.2 37.4 L184.7 36.7 L208.2 31.2 L227.8 22.9 L232.3 22.9 L234.0 25.7 L235.1 29.8 L235.1 34.0 L232.8 42.2 L231.7 50.5 L225.6 61.6 L222.2 63.6 L214.3 65.7 L211.0 67.8 L205.9 79.5 L205.4 83.6 L201.5 91.2 L195.9 111.2 L192.5 118.8 L187.5 125.0 L178.5 134.0 L175.1 136.7 L171.2 136.7 L163.4 132.6 L161.1 128.5 L157.2 127.8 L153.3 129.2 L150.5 131.2 L146.0 132.6 L142.1 132.6 L129.7 135.4 L116.8 136.0 L116.3 140.2 L117.4 143.6 L120.2 147.1 L121.9 154.7 L119.6 162.3 L117.4 165.7 L114.6 169.2 L107.3 173.3 L95.0 176.0 L82.7 177.4 L70.9 177.4 L63.1 176.0 L55.2 173.3 L48.5 169.2 L39.5 161.6 L33.9 155.4 L30.6 153.3 L18.8 150.5 L10.9 147.8 L4.2 144.3"]},{"date":"2026-08-07","d":["M8.1 140.2 L15.4 143.6 L27.2 144.3 L34.5 147.1 L50.2 162.3 L57.4 166.4 L73.1 168.5 L97.2 169.2 L105.1 167.8 L118.5 157.4 L130.9 151.9 L139.8 143.6 L156.1 140.9 L167.3 137.4 L170.6 134.7 L183.5 118.8 L190.8 99.5 L193.1 91.2 L197.5 83.6 L198.7 79.5 L204.8 69.8 L208.2 66.4 L216.6 62.9 L220.0 60.2 L222.2 56.0 L225.0 47.8 L225.6 43.6 L231.2 31.9 L238.4 20.2 L237.3 11.9 L235.1 3.6"]}]},"tower":{"w":300.0,"h":237.3,"mark":{"x":170.9,"y":156.3},"streets":[["major","M270 214 L283 216 L286 218 L288 221 L289 225 L289 229 L283 244"],["rail","M274 66 L275 62"],["rail","M278 62 L278 67"],["major","M270 214 L283 215 L288 214"],["major","M296 73 L297 73"],["rail","M278 68 L278 62"],["major","M100 84 L107 81 L111 80 L113 81 L115 82 L116 85 L116 91"],["major","M277 271 L278 270 L294 222"],["rail","M275 66 L275 62"],["rail","M276 57 L277 52 L280 45"],["rail","M281 48 L278 57"],["minor","M302 64 L290 59"],["major","M270 110 L284 90 L286 86"],["major","M252 140 L249 174"],["major","M207 208 L208 209"],["major","M208 211 L203 213 L197 213"],["major","M175 198 L181 204"],["major","M288 215 L282 216 L268 215"],["major","M162 194 L162 194"],["major","M104 206 L106 193 L106 189 L104 185"],["major","M104 206 L107 194 L110 189 L112 188 L116 187 L127 188"],["major","M127 188 L117 187 L114 188 L111 189 L109 191 L107 194 L105 202"],["major","M106 242 L101 219 L102 215 L104 206"],["major","M150 149 L147 147"],["minor","M61 165 L62 159 L64 158"],["minor","M260 33 L279 43"],["major","M96 160 L97 154"],["minor","M98 145 L98 143 L101 127"],["major","M130 55 L127 59"],["major","M113 107 L108 129 L106 135 L101 143 L99 148 L97 159 L97 164 L104 179 L106 182 L108 185 L112 186 L129 188 L133 190"],["major","M105 184 L106 188 L107 192 L105 202"],["major","M151 145 L150 146"],["minor","M7 6 L11 17"],["major","M220 132 L228 112"],["major","M287 84 L289 85"],["minor","M98 217 L99 218"],["major","M294 192 L293 209 L291 213 L288 215"],["major","M120 71 L119 75 L118 90 L115 103"],["major","M123 66 L117 72"],["major","M-1 84 L0 88 L2 91"],["major","M112 108 L117 72"],["major","M118 70 L118 69"],["major","M11 17 L15 33 L20 62"],["major","M233 20 L222 43"],["major","M190 -2 L185 -4 L183 -4 L161 1"],["major","M160 0 L181 -5"],["minor","M244 216 L242 216"],["major","M212 9 L199 3"],["minor","M277 92 L278 99"],["minor","M275 52 L267 49"],["major","M133 190 L127 188 L111 186 L108 185 L106 182 L103 178 L97 164 L96 159 L98 149"],["major","M133 190 L143 193 L167 195 L172 196 L176 199 L183 208 L185 209 L189 211 L199 212 L203 212 L207 211 L215 207 L219 207 L247 212"],["major","M155 24 L159 21 L165 20"],["major","M116 91 L116 85 L114 82 L112 81 L110 81 L107 81 L99 86"],["minor","M208 203 L230 206 L243 208"],["minor","M243 208 L245 208"],["major","M115 103 L113 107"],["major","M110 123 L108 129 L107 133"],["major","M113 107 L112 111"],["major","M292 140 L302 125"],["major","M203 -26 L201 -18 L190 4 L179 15 L176 17 L169 19"],["major","M165 20 L159 22 L155 24"],["major","M155 24 L136 46 L130 55"],["minor","M139 77 L146 82"],["minor","M242 2 L222 -8 L220 -8"],["major","M295 73 L286 70"],["minor","M144 46 L138 45"],["minor","M115 103 L128 107 L146 82 L154 64 L161 53"],["minor","M124 106 L126 99 L130 93 L132 87 L130 82 L123 75 L119 73"],["minor","M133 52 L135 54 L140 56"],["minor","M159 49 L160 47 L173 37"],["minor","M187 236 L190 217"],["minor","M196 218 L195 223"],["minor","M204 224 L189 223"],["minor","M173 222 L172 234"],["minor","M168 229 L188 231"],["minor","M187 236 L185 257"],["minor","M184 126 L185 121"],["minor","M185 121 L173 112"],["minor","M161 145 L165 137 L171 140 L178 127 L184 127 L184 126"],["minor","M167 176 L169 179 L175 179"],["minor","M167 176 L154 183 L152 183 L145 182 L118 173"],["major","M208 204 L186 201 L176 196 L170 195"],["minor","M183 223 L182 235"],["minor","M166 35 L164 45"],["major","M168 18 L177 16"],["major","M281 146 L285 121 L288 116 L295 106"],["minor","M251 140 L232 136"],["minor","M290 59 L352 -14"],["minor","M289 49 L294 54"],["minor","M184 11 L188 15"],["minor","M184 161 L191 161 L211 164"],["minor","M197 167 L197 167"],["minor","M176 158 L173 164 L174 170"],["minor","M54 52 L54 53 L56 53 L57 54 L59 56"],["minor","M258 210 L259 198"],["minor","M252 234 L251 216"],["rail","M278 62 L278 60"],["rail","M275 62 L275 59"],["rail","M282 106 L283 115 L282 123"],["minor","M58 160 L60 165 L60 165 L61 165"],["minor","M68 179 L72 182 L75 183 L84 186"],["minor","M88 191 L88 191"],["minor","M74 171 L73 172"],["major","M165 20 L172 17 L178 14 L189 0 L202 -24 L202 -30 L199 -34"],["minor","M285 46 L297 19"],["minor","M314 12 L299 29"],["minor","M297 62 L307 52"],["minor","M299 29 L291 38"],["minor","M333 60 L294 25"],["minor","M300 68 L305 71 L304 75"],["minor","M51 -8 L51 6 L52 10 L56 14"],["minor","M68 32 L72 37 L73 39"],["minor","M73 39 L76 48 L76 49 L74 52 L68 59"],["minor","M49 41 L46 37"],["minor","M31 31 L34 36"],["minor","M-1 67 L11 37 L16 36"],["minor","M4 54 L11 57 L12 61"],["minor","M17 61 L18 66"],["minor","M3 30 L13 28"],["minor","M50 5 L39 6"],["minor","M70 25 L82 14 L82 11 L82 10 L85 8 L89 6"],["minor","M113 21 L109 9"],["minor","M95 -40 L112 7"],["minor","M62 98 L56 91"],["minor","M63 87 L72 97 L74 100"],["minor","M69 93 L62 98"],["minor","M28 114 L23 114 L22 118"],["minor","M48 104 L50 106 L54 112"],["minor","M28 114 L26 121"],["minor","M113 21 L107 23 L104 26 L106 33 L108 37 L109 45"],["minor","M116 31 L106 33"],["minor","M108 37 L117 34 L117 37 L117 38 L109 40"],["minor","M96 17 L104 26"],["minor","M101 22 L80 43 L78 43 L75 46"],["minor","M76 49 L81 48 L88 44"],["minor","M81 48 L82 50 L80 56 L74 52"],["minor","M93 46 L94 45"],["minor","M85 71 L91 84 L102 77"],["minor","M94 82 L96 86"],["minor","M93 124 L96 105"],["minor","M56 150 L61 149"],["minor","M65 118 L62 117 L46 124"],["minor","M67 120 L72 115"],["minor","M69 119 L77 121 L78 118"],["minor","M74 171 L74 170"],["minor","M82 137 L92 139"],["minor","M97 147 L80 144"],["minor","M92 139 L88 158 L87 162"],["minor","M76 162 L83 165"],["minor","M86 176 L87 175 L91 169"],["minor","M167 176 L161 162 L160 162 L157 163"],["minor","M157 164 L153 166"],["minor","M99 171 L95 173 L94 177"],["minor","M95 173 L90 171"],["minor","M109 177 L110 172"],["minor","M120 162 L118 173"],["minor","M138 189 L145 170"],["minor","M149 172 L154 174 L160 172"],["major","M162 194 L162 193"],["minor","M154 178 L147 178"],["minor","M122 171 L123 163"],["minor","M111 167 L119 168"],["minor","M140 185 L118 178 L109 177"],["minor","M126 176 L124 180"],["minor","M134 179 L131 187"],["minor","M139 168 L136 179"],["minor","M131 173 L133 166"],["minor","M132 170 L143 173"],["minor","M167 187 L162 187 L159 187 L143 186"],["minor","M189 223 L168 222"],["minor","M150 71 L141 66"],["minor","M136 64 L140 66"],["minor","M105 30 L97 41 L102 48"],["minor","M89 34 L85 30"],["minor","M75 46 L69 51"],["minor","M39 29 L40 21 L42 12 L36 1 L34 -4"],["minor","M24 1 L32 18 L38 30"],["minor","M24 32 L21 23"],["minor","M33 19 L20 23"],["minor","M32 18 L42 14"],["minor","M47 38 L49 34 L49 24 L51 18 L53 19"],["minor","M56 14 L57 8 L63 5"],["minor","M93 -14 L91 -13 L73 1 L63 5"],["minor","M289 37 L295 42"],["minor","M297 27 L303 20"],["major","M293 192 L292 166 L292 162 L288 155 L287 151 L288 147 L292 140"],["major","M294 192 L294 212 L293 217 L291 223"],["major","M288 214 L290 212 L292 209 L293 192"],["major","M247 212 L270 214"],["major","M303 126 L299 133"],["major","M161 1 L164 12"],["major","M294 169 L305 177 L310 181 L313 186 L313 192"],["minor","M267 117 L275 123 L278 124"],["major","M277 165 L278 164 L291 167 L292 167"],["major","M292 169 L291 169 L288 167 L278 165"],["major","M289 85 L304 96 L289 116 L286 121 L284 139 L278 165"],["minor","M278 165 L276 177 L275 178"],["major","M97 162 L98 169 L105 184"],["major","M105 202 L102 214 L102 218 L107 241"],["major","M104 185 L97 165"],["major","M127 59 L118 70 L113 75"],["major","M112 74 L119 68 L125 60"],["major","M113 75 L99 86"],["major","M82 95 L100 84"],["major","M177 16 L181 12 L190 0"],["major","M177 16 L169 19"],["minor","M272 240 L265 239 L260 236"],["minor","M269 216 L270 204"],["minor","M270 207 L275 207"],["minor","M273 157 L269 157"],["minor","M265 128 L262 125"],["minor","M279 98 L271 94 L260 90"],["minor","M293 3 L293 4 L298 7"],["minor","M253 175 L250 197"],["minor","M253 175 L257 140 L265 128"],["minor","M58 16 L93 -3 L95 -6"],["minor","M21 12 L24 22"],["minor","M10 15 L20 12"],["minor","M28 9 L21 12"],["minor","M28 20 L25 10"],["minor","M49 41 L43 46 L43 48 L47 53"],["minor","M46 37 L41 37 L35 41 L33 37 L39 34 L41 37"],["minor","M62 27 L68 32"],["minor","M59 2 L51 1"],["minor","M138 28 L145 35"],["minor","M100 -2 L103 11"],["minor","M125 58 L111 47"],["minor","M155 158 L158 158 L160 162"],["major","M172 191 L172 193 L175 194"],["minor","M168 161 L164 162 L160 162"],["minor","M139 161 L142 146"],["minor","M137 223 L161 224"],["minor","M166 234 L136 232"],["minor","M144 232 L144 223"],["major","M312 193 L312 187 L309 182 L306 179 L296 171 L294 172"],["minor","M266 177 L255 175"],["major","M292 215 L292 182"],["minor","M260 33 L259 33"],["major","M288 -10 L273 8"],["major","M170 193 L170 195"],["major","M6 81 L10 76 L19 65"],["minor","M248 215 L247 224 L244 241 L240 254"],["minor","M245 208 L261 210 L262 210"],["minor","M251 220 L258 219"],["minor","M243 219 L251 220"],["minor","M252 227 L243 225"],["minor","M251 216 L242 215"],["minor","M259 236 L255 234"],["minor","M255 234 L253 233 L251 234 L240 233"],["minor","M263 205 L250 203"],["minor","M250 201 L264 202"],["minor","M264 199 L250 197"],["minor","M236 207 L240 174"],["minor","M244 174 L240 207"],["minor","M188 227 L172 226"],["minor","M275 96 L270 103"],["minor","M253 106 L241 138"],["minor","M245 139 L250 130"],["minor","M233 101 L261 113 L266 116"],["minor","M244 87 L226 134"],["minor","M185 94 L183 98 L178 105"],["minor","M222 126 L216 124"],["minor","M177 115 L189 100 L190 96"],["minor","M214 129 L222 109"],["minor","M282 93 L281 92 L281 87"],["minor","M199 101 L193 98"],["minor","M193 98 L181 92"],["minor","M265 107 L267 104"],["minor","M205 229 L210 229 L211 225"],["minor","M121 248 L123 234 L125 230 L126 222"],["minor","M46 230 L55 246 L56 249"],["minor","M11 200 L12 201 L35 220"],["minor","M85 217 L97 235 L98 236"],["minor","M76 218 L81 225"],["minor","M60 244 L68 243 L66 233 L55 235"],["minor","M13 233 L7 234 L-7 230"],["minor","M25 230 L15 212 L10 207"],["minor","M24 230 L13 233"],["minor","M48 224 L71 218"],["minor","M198 183 L198 183"],["minor","M38 96 L38 94"],["minor","M46 94 L38 94"],["minor","M28 109 L25 110 L11 121"],["major","M285 81 L284 83 L287 84"],["minor","M10 18 L6 6"],["major","M20 63 L19 58 L15 33 L10 18"],["major","M141 190 L149 191"],["major","M-3 86 L2 84 L6 81"],["major","M20 62 L21 69"],["minor","M85 121 L85 115"],["major","M20 68 L20 63"],["minor","M126 222 L128 210 L131 206"],["minor","M179 155 L161 145 L157 144"],["minor","M176 241 L178 222"],["minor","M113 136 L109 134"],["minor","M102 147 L103 142 L105 139 L104 138"],["minor","M111 140 L107 138"],["minor","M115 133 L111 141 L108 143 L106 142 L107 138 L109 134 L107 134"],["minor","M107 148 L110 162"],["minor","M99 136 L94 135 L96 125"],["minor","M94 167 L94 163 L95 162"],["minor","M40 123 L42 126 L46 124 L47 129 L47 130 L44 132"],["minor","M27 133 L27 132 L26 131"],["minor","M38 119 L48 104"],["minor","M31 149 L25 147"],["minor","M31 149 L30 152 L30 155 L32 156 L38 158 L50 156 L56 157 L57 154 L56 150"],["minor","M159 233 L158 241 L152 241 L152 233"],["minor","M152 233 L152 224"],["minor","M32 225 L24 230"],["minor","M46 230 L43 226 L46 224"],["minor","M96 191 L93 213"],["minor","M93 208 L85 207"],["minor","M90 205 L92 192"],["minor","M91 213 L90 217"],["minor","M86 204 L99 206"],["minor","M79 213 L93 213 L98 213"],["minor","M78 218 L79 213"],["minor","M89 185 L88 189 L86 204"],["minor","M62 192 L58 190"],["minor","M38 162 L38 164 L38 171 L43 172 L47 177 L42 182"],["minor","M83 191 L78 190"],["minor","M58 196 L52 191 L54 189"],["minor","M46 186 L45 184 L43 184 L33 171 L29 172 L19 169"],["minor","M46 186 L52 181 L58 178 L64 177 L68 179"],["minor","M74 189 L76 179"],["minor","M100 197 L87 196"],["minor","M85 180 L101 185"],["minor","M87 198 L83 197"],["minor","M92 186 L94 177"],["minor","M61 167 L56 171 L48 163 L38 162 L23 157"],["minor","M84 186 L86 176"],["minor","M64 177 L65 175 L63 171 L64 170"],["minor","M127 172 L126 176"],["minor","M121 193 L122 190"],["minor","M122 187 L123 184"],["minor","M122 190 L122 187"],["minor","M129 165 L127 172"],["minor","M22 63 L23 70 L26 72 L25 74"],["minor","M68 32 L55 45"],["minor","M123 22 L126 18"],["minor","M147 35 L157 38"],["minor","M123 72 L120 73 L119 77"],["minor","M122 56 L113 68 L106 74"],["minor","M119 77 L115 77 L112 73"],["minor","M115 71 L113 69"],["minor","M267 49 L255 45"],["minor","M188 15 L179 28 L177 36"],["minor","M132 69 L132 69"],["minor","M138 28 L116 9 L115 6"],["minor","M137 33 L132 35 L133 43 L135 45"],["minor","M148 23 L150 21 L146 16 L142 15"],["minor","M150 21 L156 22"],["minor","M59 104 L65 101"],["minor","M11 121 L15 133"],["minor","M67 65 L70 61 L64 53 L62 51 L60 50"],["minor","M28 109 L28 115"],["minor","M46 107 L44 106 L36 105"],["minor","M65 101 L72 97"],["minor","M85 58 L85 56 L82 55"],["minor","M1 24 L3 30"],["minor","M240 233 L229 231"],["minor","M236 215 L235 232"],["minor","M246 187 L232 185"],["minor","M245 196 L231 194 L209 193"],["minor","M123 160 L130 161 L132 162 L131 165"],["rail","M265 213 L264 216"],["rail","M264 215 L265 213"],["rail","M264 216 L259 232 L253 244"],["major","M28 124 L23 121 L20 117"],["minor","M-7 134 L13 129"],["minor","M112 0 L115 -1"],["minor","M74 61 L75 57 L72 54"],["minor","M122 -0 L118 4"],["minor","M34 81 L36 80 L40 69 L37 68"],["minor","M244 44 L241 51"],["minor","M240 43 L252 48"],["minor","M35 62 L33 58"],["minor","M206 31 L223 38"],["minor","M38 56 L37 53 L34 52 L31 53 L31 52 L30 48"],["minor","M211 245 L212 238 L212 238 L214 238 L215 234 L220 234 L221 232 L229 233"],["minor","M164 210 L163 213"],["minor","M117 202 L115 202 L114 204 L107 203"],["minor","M127 195 L124 204"],["minor","M131 206 L128 204 L117 202"],["minor","M118 192 L117 202"],["minor","M84 229 L70 234"],["minor","M57 222 L58 235"],["minor","M60 244 L55 235"],["minor","M84 244 L79 230"],["minor","M101 236 L102 239 L100 240"],["minor","M99 229 L101 236 L100 236"],["minor","M72 213 L71 218"],["minor","M145 170 L148 165"],["minor","M-15 201 L-9 204 L-3 208 L3 214"],["minor","M-8 162 L-5 162 L5 157 L22 158"],["minor","M7 211 L0 208 L-0 207 L1 205"],["minor","M13 141 L5 143"],["minor","M11 158 L10 164 L11 166"],["minor","M-2 148 L0 147 L3 152"],["minor","M2 202 L-1 201 L0 199 L-2 198"],["minor","M20 168 L6 166 L4 170"],["minor","M-11 203 L-9 200 L-4 202 L1 191"],["minor","M-2 168 L2 169 L6 171 L12 172 L13 167"],["minor","M13 136 L13 137 L16 153 L16 158"],["minor","M4 140 L9 154 L15 152"],["minor","M11 198 L5 193 L-5 188"],["major","M168 193 L170 192"],["minor","M241 39 L231 35 L226 33"],["minor","M248 139 L243 174"],["minor","M263 155 L242 153 L217 148 L215 147"],["minor","M224 193 L224 182"],["minor","M235 180 L239 180"],["minor","M231 161 L236 161"],["minor","M218 141 L228 143"],["minor","M227 150 L228 135"],["minor","M220 182 L223 171"],["minor","M215 171 L218 149"],["minor","M214 145 L213 147 L216 149"],["minor","M217 182 L217 204"],["minor","M238 152 L236 159 L237 166"],["minor","M214 182 L215 171"],["minor","M216 164 L225 165"],["minor","M230 158 L245 159"],["minor","M237 166 L248 166"],["minor","M240 174 L242 153 L244 138"],["minor","M210 181 L224 182"],["minor","M260 176 L264 148"],["minor","M276 144 L271 171 L254 169"],["minor","M247 187 L251 188"],["minor","M266 142 L266 148"],["minor","M269 149 L267 171"],["minor","M256 134 L260 136"],["minor","M227 150 L225 165"],["minor","M255 158 L273 160"],["minor","M272 164 L255 161"],["minor","M250 164 L271 167"],["minor","M236 125 L252 131"],["minor","M275 151 L256 146"],["minor","M26 88 L33 81"],["minor","M29 91 L25 87 L23 84"],["minor","M169 213 L171 214"],["minor","M172 204 L172 205 L171 222"],["minor","M46 203 L49 199"],["minor","M24 230 L30 244"],["minor","M24 210 L31 202"],["minor","M51 207 L62 210"],["minor","M29 204 L33 206 L30 211"],["minor","M32 225 L34 223 L36 221"],["minor","M33 210 L39 215 L42 216"],["minor","M54 202 L47 197 L49 194 L56 199"],["minor","M33 210 L38 204 L39 204"],["minor","M35 220 L37 218 L41 219 L45 203 L52 205"],["minor","M107 190 L105 189"],["minor","M105 189 L102 189"],["minor","M70 176 L64 170 L62 166"],["minor","M51 153 L51 153"],["minor","M65 163 L61 165"],["minor","M56 150 L37 150 L31 149"],["minor","M250 130 L265 107"],["minor","M253 125 L255 127"],["minor","M243 134 L247 135"],["minor","M252 120 L249 128"],["minor","M236 125 L226 121"],["minor","M232 104 L243 109"],["minor","M245 103 L234 99"],["minor","M251 128 L237 123"],["minor","M241 127 L247 111"],["minor","M259 116 L242 109"],["minor","M238 120 L253 125"],["minor","M252 120 L259 105"],["minor","M300 76 L292 87"],["minor","M258 118 L242 112"],["minor","M243 98 L233 124"],["minor","M249 92 L257 96"],["minor","M278 110 L274 107"],["minor","M257 145 L252 145"],["minor","M271 111 L275 113"],["minor","M271 82 L265 97"],["minor","M269 99 L258 95"],["minor","M258 39 L269 44"],["minor","M224 101 L227 92"],["minor","M252 78 L255 79"],["minor","M251 79 L248 77"],["minor","M274 57 L280 60"],["minor","M277 92 L273 89"],["minor","M226 106 L230 107"],["minor","M273 89 L269 88"],["minor","M260 90 L252 86"],["minor","M210 96 L214 86"],["minor","M208 105 L211 96"],["major","M285 73 L289 75 L292 72"],["minor","M277 94 L275 96"],["minor","M253 48 L265 53"],["minor","M247 88 L253 75"],["minor","M253 83 L242 78"],["minor","M233 99 L206 89"],["minor","M239 84 L211 73"],["minor","M206 94 L231 103"],["minor","M21 123 L19 119 L20 118"],["minor","M138 32 L138 21"],["minor","M239 183 L235 182"],["minor","M286 -7 L294 0"],["minor","M293 3 L291 3 L286 14"],["minor","M254 19 L253 18 L260 3 L263 5"],["minor","M263 -5 L268 -5 L270 -4 L271 -3 L271 1 L269 7"],["minor","M257 11 L255 10 L249 11"],["minor","M271 -20 L265 -15 L264 -13 L264 -6 L261 -3 L258 -1 L255 -1 L249 -2 L245 0 L244 3"],["minor","M249 16 L250 22 L251 23"],["minor","M158 1 L138 2"],["minor","M101 -28 L115 6"],["minor","M89 6 L94 1 L98 1 L101 2"],["minor","M5 68 L2 67 L-1 67"],["minor","M23 84 L22 82"],["minor","M264 130 L268 134"],["minor","M271 125 L268 130"],["minor","M218 151 L214 150"],["minor","M268 124 L273 127"],["minor","M265 128 L270 131"],["minor","M275 123 L266 137 L265 140"],["minor","M85 71 L83 71 L69 93"],["minor","M260 125 L255 121 L240 116"],["minor","M230 208 L230 211"],["minor","M218 221 L229 221"],["minor","M270 67 L261 63"],["minor","M211 214 L211 221"],["minor","M213 226 L212 238"],["minor","M235 232 L234 237 L228 236"],["minor","M265 53 L252 86"],["minor","M105 28 L115 25"],["minor","M104 39 L108 37"],["minor","M111 47 L118 45 L125 49 L129 53"],["minor","M80 76 L73 71"],["minor","M114 92 L113 92 L113 90 L112 89 L103 88 L99 90"],["minor","M76 108 L72 114"],["minor","M86 106 L87 94"],["minor","M102 96 L99 97"],["minor","M103 120 L102 127"],["minor","M72 103 L74 107 L77 109"],["minor","M83 108 L78 99"],["minor","M85 108 L86 106"],["minor","M109 122 L103 120"],["minor","M105 105 L102 95 L99 90"],["minor","M88 93 L92 95 L93 98 L95 98"],["minor","M106 53 L116 59 L117 62"],["minor","M84 39 L101 58"],["minor","M175 96 L177 94 L177 88"],["minor","M177 93 L180 94"],["minor","M189 89 L184 87"],["minor","M178 84 L183 86"],["minor","M174 59 L178 63"],["minor","M187 53 L186 54 L183 60"],["minor","M191 49 L190 53 L189 54"],["minor","M176 71 L182 74 L187 75"],["minor","M181 59 L175 66"],["minor","M173 78 L179 80"],["minor","M171 62 L186 47"],["minor","M183 60 L191 63"],["minor","M153 88 L163 97 L169 100"],["minor","M156 75 L160 77 L164 77"],["minor","M175 66 L161 53"],["minor","M138 70 L137 71"],["minor","M141 66 L140 66 L138 70"],["minor","M132 86 L133 85 L136 82 L139 77 L141 74 L141 72 L137 70 L134 67 L140 56"],["minor","M137 71 L141 74"],["minor","M167 105 L167 104 L169 100"],["minor","M175 73 L172 72"],["minor","M202 41 L209 44"],["minor","M204 45 L201 53"],["minor","M214 49 L211 57"],["minor","M219 51 L208 47"],["minor","M208 56 L196 51"],["minor","M195 75 L206 80 L208 80"],["minor","M156 115 L158 111 L157 110 L148 106"],["minor","M165 109 L161 117"],["minor","M138 139 L142 141"],["minor","M142 134 L141 134 L137 143"],["minor","M150 143 L149 142 L147 136"],["minor","M187 95 L192 82"],["minor","M173 112 L167 119"],["major","M213 151 L215 146"],["major","M177 175 L175 180 L175 185 L174 188"],["major","M222 43 L212 70"],["minor","M197 125 L194 129 L189 128"],["minor","M215 146 L199 143"],["minor","M165 172 L174 170"],["minor","M157 144 L156 143"],["minor","M219 117 L225 120"],["minor","M204 103 L199 101"],["minor","M228 112 L204 103"],["minor","M201 95 L201 95"],["major","M249 55 L204 36"],["major","M250 54 L253 44 L259 33"],["minor","M248 62 L219 51"],["minor","M235 95 L267 108"],["minor","M207 84 L235 95"],["minor","M215 59 L244 71"],["minor","M222 95 L221 99"],["minor","M229 72 L236 75"],["minor","M218 98 L214 107"],["minor","M222 77 L227 64"],["minor","M246 54 L240 69"],["minor","M236 68 L242 52"],["minor","M233 82 L237 73"],["minor","M222 95 L224 91"],["minor","M221 89 L218 98"],["minor","M214 97 L218 88"],["minor","M226 79 L221 89"],["minor","M224 63 L230 47"],["minor","M229 65 L233 56"],["minor","M227 46 L226 49"],["minor","M238 50 L226 79"],["minor","M224 110 L233 86"],["minor","M216 79 L223 63"],["minor","M238 74 L242 75"],["minor","M273 89 L275 84"],["minor","M265 80 L256 99"],["minor","M268 71 L271 71 L273 72 L275 84"],["minor","M247 72 L245 80"],["minor","M258 72 L266 75"],["minor","M259 69 L265 72 L263 78"],["minor","M257 73 L264 76"],["minor","M275 84 L281 87"],["minor","M253 74 L259 59"],["minor","M260 78 L275 84"],["minor","M272 63 L265 80"],["minor","M268 71 L259 67"],["minor","M244 71 L260 78"],["minor","M279 43 L276 52"],["minor","M256 58 L244 87"],["minor","M271 67 L271 67"],["minor","M262 133 L258 130"],["minor","M282 95 L286 98"],["minor","M237 202 L240 202"],["major","M20 116 L24 120 L28 123"],["major","M20 117 L15 111"],["minor","M18 112 L9 119 L4 120 L0 119"],["major","M16 110 L20 116"],["major","M15 111 L9 103"],["minor","M29 123 L30 125"],["major","M28 123 L34 128"],["minor","M20 118 L20 117"],["minor","M26 129 L25 122"],["major","M34 128 L45 132"],["minor","M21 117 L29 123"],["minor","M36 83 L37 85 L28 92"],["minor","M250 197 L245 196"],["minor","M279 125 L277 136"],["minor","M273 127 L274 128 L273 134 L270 131"],["major","M251 54 L221 132"],["minor","M17 61 L6 62 L5 68"],["minor","M38 94 L32 94"],["minor","M32 94 L28 92"],["minor","M28 103 L27 102 L26 101"],["minor","M11 121 L10 122 L-9 128"],["minor","M249 168 L254 169"],["major","M198 268 L206 213"],["minor","M279 43 L284 34"],["minor","M83 131 L87 133 L88 128 L83 127"],["minor","M57 118 L59 123"],["minor","M56 119 L57 124 L53 125"],["minor","M51 121 L53 126 L52 127 L50 127 L49 130"],["minor","M292 89 L283 102 L283 103"],["minor","M36 213 L32 217"],["minor","M115 235 L106 233"],["minor","M68 168 L65 170"],["minor","M153 87 L149 89 L143 86"],["minor","M165 181 L160 184"],["minor","M113 234 L112 236 L117 238 L122 239"],["minor","M136 184 L134 188"],["minor","M260 237 L252 258"],["minor","M214 8 L233 18"],["minor","M46 37 L41 29 L31 31 L29 32 L24 32"],["minor","M140 16 L138 16"],["minor","M142 15 L140 16"],["minor","M24 32 L20 32 L15 33"],["major","M29 59 L38 56"],["minor","M13 75 L15 75 L23 73"],["major","M45 132 L53 136 L56 138 L60 142 L61 147"],["minor","M29 126 L28 125"],["major","M44 133 L34 128 L31 126"],["major","M36 130 L33 128"],["major","M61 147 L59 142 L57 139 L55 137 L50 135"],["major","M61 147 L61 149"],["major","M43 133 L36 130"],["major","M50 135 L47 135 L43 133"],["minor","M24 122 L20 118"],["minor","M269 99 L272 101"],["minor","M250 89 L259 93"],["minor","M195 228 L193 243"],["minor","M194 237 L187 236"],["minor","M176 208 L175 209 L175 222"],["minor","M195 223 L195 228"],["minor","M188 227 L195 228"],["minor","M179 212 L178 222"],["minor","M174 237 L172 236"],["minor","M171 215 L175 215"],["minor","M194 233 L188 232"],["minor","M227 250 L228 240 L229 213"],["minor","M211 225 L229 227"],["minor","M211 225 L205 224"],["minor","M249 209 L250 197"],["minor","M136 248 L136 233"],["minor","M225 226 L225 233"],["minor","M218 226 L218 221"],["minor","M211 221 L211 225"],["minor","M204 229 L195 228"],["minor","M278 175 L277 175"],["minor","M278 174 L278 173 L278 169"],["minor","M284 175 L278 174"],["major","M237 88 L249 55"],["major","M1 92 L-0 92 L-1 93"],["major","M9 102 L16 110"],["major","M9 103 L1 93"],["minor","M226 159 L230 160"],["minor","M224 172 L226 166"],["minor","M18 67 L11 76 L8 80 L6 81 L6 80 L11 75 L18 66"],["minor","M16 113 L18 116"],["minor","M10 102 L16 110"],["minor","M18 112 L19 114"],["minor","M16 110 L18 112"],["minor","M4 94 L10 102"],["major","M169 188 L171 189 L172 189"],["major","M316 103 L304 107 L297 107"],["minor","M308 192 L296 209"],["minor","M306 205 L295 197"],["minor","M300 213 L297 210"],["minor","M298 224 L303 218"],["minor","M294 36 L291 33"],["minor","M104 196 L106 194 L105 189"],["minor","M100 208 L102 209 L103 209 L101 214 L99 214"],["minor","M102 209 L104 196 L102 196"],["minor","M26 234 L30 232"],["major","M116 91 L113 107"],["major","M100 84 L112 74"],["major","M279 66 L285 68"],["rail","M281 107 L281 105"],["rail","M277 62 L277 60"],["rail","M275 62 L275 66"],["rail","M263 212 L270 179"],["rail","M280 125 L277 144"],["rail","M276 62 L276 67"],["rail","M280 125 L278 144"],["rail","M262 212 L266 191 L269 179"],["rail","M281 89 L281 94"],["rail","M278 60 L278 62"],["rail","M265 213 L266 209"],["rail","M279 87 L279 84"],["rail","M279 84 L277 67"],["rail","M277 86 L277 84"],["rail","M277 84 L277 86"],["rail","M280 108 L279 106"],["rail","M277 86 L279 96"],["rail","M278 85 L278 86"],["rail","M278 86 L279 96"],["rail","M276 85 L276 84"],["rail","M279 109 L279 107"],["rail","M281 85 L281 87"],["rail","M279 68 L281 85"],["rail","M280 87 L280 84"],["rail","M282 106 L281 98"],["rail","M280 87 L280 93"],["rail","M280 84 L280 87"],["rail","M280 45 L281 43"],["rail","M292 18 L293 17"],["rail","M275 59 L275 57"],["rail","M281 43 L292 18"],["rail","M293 17 L298 8 L302 3"],["rail","M275 57 L280 45"],["rail","M277 60 L277 57"],["rail","M293 19 L294 17"],["rail","M281 45 L282 44"],["rail","M294 17 L299 10 L303 4"],["rail","M277 67 L277 62"],["rail","M282 44 L293 19"],["rail","M277 57 L281 45"],["rail","M276 59 L275 62"],["rail","M294 17 L293 19"],["rail","M276 57 L276 59"],["rail","M281 43 L281 45"],["rail","M275 62 L276 59"],["rail","M276 59 L276 57"],["rail","M293 19 L281 43"],["rail","M277 84 L275 66"],["rail","M275 66 L277 84"],["rail","M281 45 L278 51 L276 57"],["rail","M282 44 L281 45"],["rail","M277 57 L276 59"],["rail","M294 17 L293 19"],["rail","M276 59 L276 62"],["rail","M276 67 L278 85"],["rail","M281 45 L277 57"],["rail","M293 19 L282 44"],["rail","M276 84 L274 71"],["rail","M283 44 L282 46"],["rail","M279 58 L278 60"],["rail","M304 4 L300 10 L295 18"],["rail","M295 18 L295 19"],["rail","M278 62 L279 68"],["rail","M295 19 L283 44"],["rail","M282 46 L280 52 L279 58"],["rail","M280 84 L278 68"],["rail","M282 46 L281 48"],["rail","M278 57 L278 60"],["rail","M282 44 L282 46"],["rail","M278 60 L278 62"],["rail","M295 17 L294 19"],["rail","M278 67 L280 84"],["rail","M294 19 L282 44"],["rail","M292 18 L293 17"],["rail","M280 45 L281 43"],["rail","M293 17 L298 9 L302 3"],["rail","M281 43 L292 18"],["rail","M295 17 L300 9 L304 4"],["rail","M294 19 L295 17"],["rail","M278 60 L278 58"],["rail","M282 46 L283 44"],["rail","M283 44 L294 19"],["rail","M278 58 L280 52 L282 46"],["rail","M303 3 L298 9 L294 17"],["rail","M303 3 L298 9 L294 17"],["rail","M304 4 L299 10 L295 17"],["minor","M310 9 L309 10 L299 14 L295 19"],["major","M285 73 L281 72"],["major","M97 149 L99 143"],["major","M64 158 L68 167 L74 171 L78 173 L101 179"],["major","M112 111 L110 123"],["major","M-12 144 L-1 141 L28 128"],["major","M45 132 L50 134 L51 135"],["major","M31 127 L33 127"],["major","M35 125 L35 126 L35 127"],["major","M37 128 L45 132"],["major","M191 206 L191 202"],["major","M184 213 L184 213"],["minor","M140 192 L140 194"],["minor","M140 194 L139 197 L131 206"],["major","M162 194 L156 194 L154 195 L143 194"],["minor","M107 203 L106 203"],["minor","M97 217 L98 217"],["minor","M106 203 L101 202"],["minor","M99 218 L100 218"],["minor","M103 218 L120 222 L137 223"],["major","M152 134 L158 124 L169 109"],["minor","M185 135 L191 137 L192 140 L196 143"],["minor","M184 134 L185 135"],["minor","M153 134 L152 134"],["major","M195 143 L199 143"],["major","M199 143 L200 140"],["major","M201 139 L201 143 L202 144"],["minor","M176 37 L175 37"],["major","M216 0 L218 1"],["minor","M175 103 L178 105"],["minor","M113 104 L115 103"],["major","M279 66 L279 64 L280 60"],["major","M209 209 L215 206 L220 206 L223 207"],["rail","M264 213 L269 192"],["rail","M263 215 L264 213"],["rail","M262 215 L258 229"],["rail","M242 254 L247 249 L253 239 L258 228 L262 215"],["rail","M262 215 L263 212"],["rail","M263 212 L262 215"],["rail","M263 215 L259 228 L253 240 L247 249 L243 254"],["rail","M263 212 L263 215"],["rail","M241 253 L246 248 L252 239 L258 228 L262 215"],["rail","M262 215 L262 212"],["rail","M258 233 L252 243"],["rail","M264 213 L264 215"],["minor","M293 88 L292 89 L304 98"],["minor","M230 211 L229 213"],["minor","M292 108 L292 108 L292 107 L294 104 L300 104"],["minor","M302 102 L296 110"],["minor","M287 213 L277 213 L271 212"],["minor","M292 211 L289 213 L287 213"],["minor","M124 180 L123 184"],["minor","M128 168 L122 167"],["minor","M137 175 L119 170"],["rail","M282 177 L285 163 L286 126 L282 93 L280 67 L280 58 L282 51 L288 40 L298 17 L305 6 L308 1 L312 -12 L325 -61 L328 -68"],["rail","M273 214 L275 204 L282 177"],["minor","M21 164 L29 168 L31 171"],["minor","M17 174 L15 174 L14 179"],["rail","M269 179 L270 175"],["rail","M279 100 L280 106"],["rail","M271 176 L270 179"],["rail","M278 97 L276 85"],["rail","M279 96 L279 100"],["rail","M277 145 L277 144"],["rail","M279 106 L279 101"],["rail","M270 179 L271 176"],["rail","M279 101 L278 97"],["minor","M278 124 L283 124"],["rail","M277 145 L272 171"],["rail","M277 144 L277 145"],["rail","M277 144 L280 125"],["minor","M283 124 L290 126 L298 131"],["rail","M271 179 L263 212"],["rail","M271 176 L277 145"],["rail","M277 145 L277 144"],["rail","M279 101 L278 97"],["rail","M272 176 L271 179"],["rail","M277 144 L279 125"],["rail","M278 145 L272 176"],["rail","M278 97 L277 86"],["rail","M280 106 L280 107"],["rail","M280 106 L280 108"],["rail","M279 100 L280 106"],["rail","M279 107 L279 101"],["rail","M279 96 L279 100"],["rail","M278 144 L278 145"],["rail","M270 179 L270 183"],["rail","M270 175 L277 145"],["rail","M281 94 L281 98"],["rail","M278 144 L281 125"],["rail","M282 123 L282 106"],["rail","M281 104 L281 106"],["rail","M279 144 L278 145"],["rail","M272 180 L273 176"],["rail","M281 98 L280 94"],["rail","M281 98 L282 106"],["rail","M280 100 L279 93"],["rail","M281 105 L280 100"],["rail","M278 145 L276 157"],["rail","M280 93 L280 101"],["rail","M280 101 L281 104"],["rail","M279 144 L279 146"],["rail","M273 176 L278 145"],["rail","M273 180 L274 176"],["rail","M273 180 L273 182"],["rail","M279 146 L279 144"],["rail","M281 125 L279 144"],["rail","M279 93 L279 87"],["rail","M279 146 L274 176"],["rail","M274 176 L273 180"],["rail","M272 180 L264 213"],["rail","M273 176 L272 180"],["rail","M280 94 L280 87"],["rail","M274 176 L279 146"],["rail","M278 145 L278 144"],["minor","M297 92 L292 99 L293 101"],["minor","M287 126 L288 124"],["minor","M290 141 L287 140 L286 139 L287 126"],["minor","M288 124 L288 122 L296 110"],["major","M297 73 L296 74"],["minor","M81 225 L88 236"],["minor","M86 200 L91 200"],["minor","M51 210 L55 210"],["minor","M55 213 L56 208"],["minor","M39 73 L36 72"],["minor","M294 0 L300 5"],["minor","M225 230 L229 230"],["minor","M261 123 L263 124"],["minor","M124 156 L122 156"],["minor","M54 207 L54 207"],["minor","M25 184 L25 180"],["minor","M25 182 L26 182 L27 183 L25 183"],["minor","M195 97 L193 95 L194 92 L198 85 L200 85 L206 87"],["minor","M110 116 L96 111"],["minor","M164 77 L169 81 L171 85 L177 88"],["minor","M175 96 L178 98"],["major","M304 126 L293 141"],["major","M21 69 L22 71 L25 74"],["minor","M54 99 L59 95"],["minor","M70 113 L74 107 L79 103"],["minor","M76 117 L83 108"],["major","M52 97 L54 99"],["minor","M142 146 L142 132"],["minor","M36 221 L42 223 L48 224"],["minor","M141 190 L140 192"],["minor","M154 174 L154 182 L153 192"],["minor","M9 250 L8 249 L12 236 L13 233"],["minor","M188 15 L209 24"],["major","M193 -2 L214 8"],["minor","M17 61 L20 59"],["minor","M247 174 L240 174"],["minor","M279 43 L285 46 L289 49"],["minor","M295 42 L310 55"],["minor","M313 26 L286 58"],["minor","M29 123 L28 125"],["minor","M28 125 L29 123"],["major","M116 91 L119 72 L121 67 L125 60"],["minor","M259 31 L260 33"],["minor","M233 20 L212 9"],["major","M259 31 L261 28"],["rail","M135 415 L140 399 L145 378 L147 368 L147 357 L148 353 L155 339 L170 319 L228 287 L238 280 L241 277 L248 267 L263 240 L269 227 L273 214"],["minor","M172 72 L175 66"],["minor","M51 116 L53 121"],["minor","M77 121 L77 123 L78 124 L77 130 L83 131"],["minor","M60 142 L64 143"],["major","M3 141 L-3 143"],["major","M168 201 L169 199"],["major","M170 109 L160 123 L153 134"],["major","M188 72 L196 51"],["major","M251 140 L253 135 L270 110"],["major","M289 85 L288 86"],["major","M295 73 L296 73"],["major","M290 80 L295 73"],["minor","M158 200 L136 197 L107 190"],["minor","M13 188 L14 179 L18 174 L22 158"],["major","M108 133 L100 146 L98 157 L97 160 L98 165 L103 179 L102 189"],["major","M101 188 L102 180"],["major","M97 217 L99 204 L101 188"],["minor","M226 33 L225 34 L208 27"],["major","M119 4 L135 17 L142 23 L150 29"],["minor","M154 26 L151 25"],["major","M166 35 L156 32"],["major","M35 128 L37 128"],["minor","M30 127 L30 128"],["major","M35 127 L35 128"],["major","M30 126 L32 125"],["major","M32 127 L30 128"],["minor","M30 126 L30 127"],["major","M50 135 L44 133"],["major","M61 149 L64 158"],["minor","M35 128 L37 129"],["minor","M67 120 L67 128 L63 147 L61 149"],["minor","M95 161 L87 162"],["minor","M87 162 L83 161 L83 165"],["major","M233 18 L241 2"],["minor","M234 18 L259 31"],["major","M167 187 L152 154"],["major","M151 30 L167 34"],["major","M143 37 L149 30"],["major","M3 141 L-4 144 L-11 145"],["major","M123 66 L120 71"],["major","M287 69 L296 73"],["major","M156 32 L151 31"],["minor","M287 69 L288 65"],["major","M287 84 L290 80"],["major","M5 138 L29 127"],["major","M138 45 L137 46"],["minor","M185 121 L187 118"],["minor","M102 147 L107 148 L113 146 L117 143"],["minor","M119 140 L121 136"],["minor","M131 141 L127 148 L124 156"],["minor","M124 156 L123 163"],["minor","M101 188 L89 185 L70 176"],["minor","M74 170 L80 144 L85 121"],["minor","M79 213 L79 213"],["minor","M97 166 L108 168 L111 167 L116 162"],["minor","M91 169 L96 166"],["minor","M78 190 L70 189"],["minor","M73 172 L70 176"],["minor","M70 189 L64 192 L62 192"],["minor","M79 213 L82 203"],["minor","M71 218 L85 217 L97 217"],["minor","M100 218 L100 218"],["minor","M70 176 L63 185 L62 188 L62 192"],["minor","M82 203 L83 191"],["major","M97 166 L95 161 L97 147 L98 145 L107 130"],["minor","M96 166 L97 166"],["minor","M116 162 L120 162"],["minor","M117 143 L118 141 L119 140"],["minor","M122 156 L122 160 L119 161 L119 162"],["minor","M123 163 L145 170 L153 171 L159 168"],["minor","M274 57 L272 63"],["minor","M292 17 L298 7"],["major","M285 73 L286 70"],["major","M286 70 L279 67"],["major","M286 70 L287 69"],["major","M107 130 L108 129"],["major","M62 109 L62 110"],["major","M35 125 L33 127"],["major","M107 130 L78 119 L62 109"],["major","M114 72 L118 69"],["major","M32 125 L54 112"],["major","M101 179 L97 166"],["major","M62 109 L62 109"],["major","M102 180 L78 174"],["major","M109 129 L144 146"],["major","M62 108 L62 108"],["minor","M36 130 L33 128"],["minor","M198 35 L193 39"],["minor","M88 191 L92 192 L99 190 L100 190 L101 188"],["minor","M151 143 L151 143"],["minor","M268 102 L271 94"],["major","M197 67 L201 72 L207 76 L241 91"],["major","M195 67 L185 50 L174 38"],["major","M167 34 L168 34 L173 36 L174 37"],["minor","M204 67 L212 70"],["major","M209 80 L214 80 L236 89 L247 94"],["major","M272 105 L267 104 L256 99 L250 97 L248 95"],["minor","M195 67 L193 74"],["minor","M270 105 L252 131 L247 139"],["minor","M201 65 L211 39"],["minor","M191 49 L196 51"],["minor","M189 44 L186 47"],["minor","M193 39 L189 44"],["minor","M151 25 L140 16"],["minor","M233 18 L234 18"],["minor","M58 160 L62 160"],["minor","M58 190 L46 186"],["minor","M-2 164 L3 164 L4 163 L7 162 L10 162"],["minor","M62 192 L58 196 L52 205 L48 224"],["major","M92 278 L95 270 L98 255 L98 236 L97 223 L97 217"],["major","M297 73 L303 75 L313 74"],["major","M242 216 L243 213"],["major","M244 216 L242 233 L235 254 L233 255 L212 262"],["minor","M242 216 L232 214 L227 212 L218 212 L215 212 L206 217"],["major","M143 194 L136 191"],["major","M181 204 L183 207 L186 209 L189 208 L191 206"],["major","M197 213 L186 212 L184 213"],["major","M223 207 L233 209"],["major","M99 86 L64 108 L27 129 L-3 142 L-20 146 L-49 149 L-112 156"],["major","M127 59 L121 67 L119 72 L116 91"],["major","M125 60 L136 46 L155 24"],["major","M293 141 L289 147 L288 152 L289 155 L293 162 L294 165 L294 192"],["major","M292 140 L298 132"],["major","M319 15 L283 56"],["major","M282 55 L318 14"],["minor","M281 61 L280 60"],["minor","M289 64 L290 59"],["minor","M289 64 L281 61"],["minor","M271 204 L292 207"],["major","M-2 22 L10 18"],["minor","M132 35 L125 27 L121 24 L118 19"],["major","M268 215 L244 212 L219 207 L214 208 L208 211 L203 213 L191 212 L186 211 L183 209 L180 206 L175 200 L171 197 L143 193 L133 190"],["major","M169 19 L165 20"],["minor","M105 105 L113 104"],["minor","M96 105 L102 106 L105 105"],["minor","M86 106 L96 107"],["major","M125 63 L123 66"],["minor","M103 120 L100 119 L98 125"],["minor","M0 119 L-4 120 L-6 121"],["minor","M96 111 L86 110"],["minor","M18 66 L21 70"],["minor","M145 102 L139 98"],["minor","M150 114 L153 114 L163 118"],["major","M117 72 L108 81 L97 88"],["major","M-43 27 L-30 21 L-6 11 L23 -0 L37 -6 L51 -10"],["minor","M195 228 L195 228"],["major","M62 108 L74 100"],["major","M63 -17 L52 -9 L38 -5 L24 1 L-7 12"],["minor","M263 5 L263 5"],["minor","M236 16 L236 16"],["minor","M264 2 L262 1 L261 -2"],["minor","M233 173 L215 171"],["minor","M215 171 L212 170"],["major","M162 193 L164 193"],["major","M170 193 L175 194"],["major","M175 194 L186 200 L200 202"],["major","M200 202 L208 203"],["major","M173 188 L174 188"],["major","M207 213 L200 260"],["major","M209 193 L208 203"],["major","M191 202 L191 201"],["minor","M147 178 L142 190 L141 190"],["major","M127 185 L127 186"],["major","M99 178 L101 177"],["major","M149 191 L149 192"],["minor","M257 140 L252 140"],["minor","M257 140 L276 144"],["minor","M241 39 L240 43"],["major","M97 154 L97 149"],["minor","M276 144 L281 146"],["minor","M275 178 L277 165"],["major","M278 165 L277 165 L281 146"],["minor","M298 96 L298 96"],["minor","M98 236 L100 236"],["minor","M88 236 L94 232"],["major","M234 95 L237 88"],["major","M228 112 L234 95"],["major","M256 56 L263 59"],["major","M263 59 L272 63"],["minor","M20 118 L18 115"],["major","M217 41 L222 43"],["major","M223 38 L233 18"],["major","M222 43 L251 54"],["minor","M197 32 L198 30 L198 29 L196 29 L196 28"],["minor","M195 28 L198 29 L200 23"],["minor","M198 29 L197 29"],["minor","M195 28 L196 29"],["minor","M198 30 L197 29"],["minor","M195 28 L195 29 L196 29"],["minor","M200 23 L200 23"],["minor","M201 25 L202 26"],["minor","M238 37 L244 25"],["minor","M173 78 L175 73"],["minor","M184 106 L186 108"],["minor","M144 137 L152 134"],["minor","M151 144 L156 143"],["minor","M150 170 L147 178"],["minor","M153 166 L152 166"],["minor","M161 171 L164 170"],["minor","M178 105 L179 106 L180 105"],["minor","M197 97 L197 97"],["minor","M186 47 L191 49"],["minor","M189 57 L187 61"],["minor","M233 86 L234 83"],["minor","M229 88 L227 92"],["minor","M231 81 L229 88"],["minor","M214 86 L216 79"],["minor","M60 50 L59 50 L51 41 L49 41"],["minor","M179 -3 L178 -0 L182 9"],["minor","M283 188 L283 188"],["minor","M276 187 L276 187"],["minor","M159 49 L156 48 L153 47"],["minor","M153 47 L144 46"],["minor","M195 56 L203 59"],["minor","M198 142 L201 143 L201 145"],["minor","M197 94 L197 94"],["minor","M85 71 L89 69 L106 53"],["major","M241 2 L257 -28"],["major","M242 2 L233 20"],["major","M199 143 L190 144 L189 145 L187 148"],["major","M200 140 L203 125"],["major","M208 80 L211 70 L215 59"],["major","M204 125 L201 139"],["minor","M132 87 L139 92"],["minor","M80 245 L70 218"],["major","M47 53 L58 51 L60 50 L73 39 L85 30 L96 17 L103 11"],["major","M287 84 L288 84"],["major","M294 76 L297 74 L303 75 L314 75 L316 74 L319 73"],["minor","M109 9 L101 -11"],["minor","M82 55 L81 54"],["minor","M93 66 L86 60"],["minor","M86 60 L85 58"],["minor","M88 55 L86 57 L88 59"],["major","M287 229 L292 216 L293 192"],["minor","M73 71 L67 65"],["minor","M102 147 L102 152 L105 153 L106 148"],["minor","M113 144 L114 146"],["minor","M182 9 L180 10 L178 12 L178 13"],["minor","M106 53 L111 47"],["minor","M111 47 L109 45 L102 48 L106 53"],["minor","M28 103 L28 109"],["minor","M260 136 L266 137"],["minor","M240 116 L229 112"],["minor","M242 112 L231 107"],["minor","M267 108 L270 110"],["minor","M252 131 L255 133"],["minor","M40 120 L28 114"],["minor","M106 74 L102 77"],["minor","M142 177 L137 175"],["minor","M147 178 L142 177"],["minor","M122 63 L118 60"],["minor","M104 81 L102 77"],["minor","M300 68 L289 64"],["major","M247 174 L251 140"],["major","M245 208 L244 211"],["minor","M275 84 L276 84 L276 87 L277 92"],["minor","M32 94 L31 99 L28 103"],["minor","M245 5 L244 5"],["minor","M244 5 L244 3"],["minor","M244 3 L245 3"],["minor","M245 6 L249 11 L250 14"],["minor","M245 3 L245 5"],["minor","M250 14 L249 16"],["minor","M249 16 L246 18 L241 19"],["minor","M239 20 L239 21"],["minor","M241 19 L240 19 L239 20"],["minor","M276 52 L275 52"],["minor","M278 45 L278 45"],["minor","M208 47 L200 43"],["minor","M209 128 L210 126"],["minor","M209 237 L203 237"],["major","M-3 141 L1 140"],["major","M298 218 L295 223"],["major","M297 218 L310 198 L312 193"],["major","M295 223 L279 270 L279 272"],["major","M294 222 L297 218"],["minor","M38 83 L38 83"],["minor","M36 83 L24 94 L26 101 L25 104 L23 107 L18 112"],["minor","M59 56 L62 59"],["minor","M62 59 L67 65"],["minor","M52 98 L52 97"],["major","M171 36 L166 35"],["major","M167 34 L184 37 L189 36 L199 34 L203 35"],["major","M167 34 L166 35"],["major","M125 58 L127 57"],["major","M234 252 L240 233"],["minor","M205 124 L204 127 L202 126"],["minor","M46 139 L45 143"],["minor","M34 130 L34 130"],["major","M273 8 L271 11 L260 33"],["major","M272 7 L288 -13"],["minor","M272 7 L297 19"],["minor","M297 19 L306 20"],["minor","M138 32 L139 33 L143 36"],["minor","M158 1 L161 0"],["minor","M138 2 L133 3 L122 -0"],["minor","M292 90 L284 84"],["minor","M293 88 L286 83"],["major","M281 87 L284 82"],["minor","M281 87 L281 87"],["minor","M291 244 L296 228 L297 227 L297 225 L295 224 L298 224"],["minor","M98 161 L95 161"],["minor","M104 138 L103 137"],["minor","M220 132 L205 125"],["minor","M221 132 L220 132"],["minor","M202 125 L197 124"],["major","M204 103 L206 89 L207 84"],["major","M209 80 L206 89 L205 104"],["major","M296 73 L302 64"],["major","M302 64 L297 73"],["major","M167 225 L168 201"],["major","M169 201 L168 225"],["major","M187 148 L185 154 L185 158"],["major","M211 164 L213 151"],["major","M211 170 L209 193"],["major","M215 146 L220 132"],["rail","M274 71 L274 66"],["minor","M243 173 L242 175"],["minor","M246 170 L246 174"],["minor","M249 175 L249 171 L250 171"],["minor","M242 174 L247 174"],["minor","M251 176 L251 176"],["minor","M269 176 L268 175 L268 179"],["minor","M259 177 L263 175 L268 176"],["minor","M259 177 L258 178"],["minor","M268 179 L267 180"],["minor","M262 178 L262 177"],["major","M147 192 L141 191 L117 183"],["major","M149 191 L153 192"],["major","M243 211 L243 208"],["major","M243 213 L243 211"],["major","M244 211 L244 213"],["major","M244 213 L244 216"],["major","M102 189 L101 204 L98 217"],["major","M98 217 L98 223 L100 233 L100 255 L98 267 L96 273"],["minor","M170 109 L169 109"],["minor","M102 189 L101 188"],["minor","M169 201 L168 201"],["major","M208 80 L209 80"],["minor","M7 220 L7 220"],["minor","M3 226 L3 226"],["minor","M6 229 L6 229"],["minor","M88 59 L91 62"],["major","M108 -22 L111 -16 L116 -1 L119 4"],["minor","M226 166 L225 165"],["major","M162 194 L161 194"],["minor","M161 193 L162 187 L156 174"],["major","M164 193 L167 193"],["major","M169 194 L168 194"],["major","M169 194 L169 194"],["major","M168 193 L169 193"],["major","M176 175 L183 161 L185 153 L188 145 L190 143 L195 143"],["major","M170 192 L170 193"],["major","M170 195 L169 194"],["major","M170 195 L170 195"],["major","M273 105 L272 105"],["minor","M266 197 L267 196 L266 195"],["minor","M74 100 L75 101"],["minor","M75 101 L75 101"],["major","M30 127 L31 127"],["minor","M283 56 L282 55"],["major","M283 56 L279 66"],["minor","M284 -3 L291 3"],["minor","M294 0 L297 -3"],["minor","M296 2 L296 2"],["minor","M296 2 L294 5"],["minor","M290 -1 L290 -1"],["minor","M291 1 L291 1"],["minor","M293 4 L293 4"],["minor","M274 57 L275 52"],["minor","M294 0 L293 3"],["major","M98 149 L100 144 L102 140"],["major","M102 140 L106 134 L108 129 L114 98"],["minor","M150 143 L146 143"],["minor","M174 170 L175 174 L176 175"],["rail","M264 215 L259 229"],["minor","M202 172 L202 172"],["minor","M205 178 L205 178"],["minor","M119 153 L120 153 L119 158 L120 158 L119 161"],["minor","M46 186 L34 187 L28 187 L13 188"],["minor","M76 179 L78 174"],["minor","M83 108 L85 108"],["minor","M140 56 L143 52 L144 46"],["minor","M115 25 L116 31"],["major","M318 105 L289 149 L289 153 L294 164 L294 175"],["minor","M278 110 L265 128"],["rail","M329 -67 L325 -61 L311 -8 L308 1 L306 7 L298 17 L289 40 L285 47 L281 58 L281 64 L282 81 L283 95 L286 127 L285 164 L285 169 L283 177"],["major","M299 133 L293 141"],["major","M298 132 L302 126"],["major","M240 92 L204 77 L200 74 L196 68"],["major","M248 95 L251 95 L270 103"],["major","M247 94 L248 95"],["minor","M248 95 L240 116"],["minor","M307 108 L297 110"],["major","M174 37 L171 36"],["major","M174 37 L175 37"],["minor","M174 37 L176 35"],["minor","M173 37 L174 37"],["major","M173 37 L171 36"],["major","M174 38 L173 37"],["minor","M174 38 L159 49"],["minor","M175 37 L174 38"],["major","M175 37 L186 49 L196 65"],["major","M241 91 L273 103 L286 103 L299 105 L311 102 L317 101 L320 102 L326 106"],["major","M324 106 L321 105 L316 104 L313 104 L306 107 L301 107 L296 107 L285 105 L273 106 L267 104 L257 100 L240 92"],["minor","M187 121 L187 121"],["major","M159 -12 L161 -0 L161 1"],["major","M161 1 L158 -12"],["major","M103 11 L118 4"],["major","M19 65 L22 63"],["minor","M25 74 L25 74"],["major","M25 74 L22 71 L20 68"],["major","M25 74 L36 83"],["major","M36 83 L52 97"],["minor","M30 128 L30 127"],["major","M138 21 L138 -6 L139 -12"],["minor","M23 157 L27 136"],["major","M270 103 L274 104"],["minor","M28 153 L28 153"],["major","M287 229 L288 223 L287 220 L285 219 L282 217 L268 215"],["major","M237 -35 L214 8 L208 27 L204 35"],["major","M169 199 L169 201"],["major","M170 195 L169 199"],["major","M169 195 L169 194"],["major","M169 199 L169 195"],["major","M296 74 L289 85"],["minor","M304 49 L294 61"],["minor","M265 177 L259 177"],["minor","M251 175 L251 176"],["minor","M246 177 L246 174"],["minor","M246 175 L259 177"],["minor","M221 134 L221 134"],["minor","M162 192 L162 192"],["minor","M161 192 L161 192"],["rail","M283 177 L275 203 L273 215"],["rail","M273 215 L269 227 L263 240 L248 267 L241 277 L238 280 L228 287 L215 295 L171 319 L155 339 L148 353 L147 358 L147 368 L146 378 L141 399 L135 415"],["major","M-11 143 L1 140"],["major","M-0 90 L2 91"],["major","M1 93 L-0 90"],["major","M2 91 L9 102"],["minor","M96 125 L97 125"],["major","M286 86 L287 84"],["major","M288 86 L287 84"],["major","M275 105 L253 138 L252 140"],["major","M288 84 L294 76"],["minor","M173 112 L170 109"],["minor","M173 111 L173 112"],["minor","M173 111 L173 112"],["minor","M173 112 L173 112"],["major","M151 144 L151 145"],["major","M150 145 L151 144"],["major","M150 145 L150 143"],["major","M151 145 L152 150 L159 167 L168 184"],["major","M150 143 L152 134"],["major","M150 146 L150 145"],["major","M150 146 L147 147 L143 147 L109 130"],["major","M151 141 L151 144"],["major","M144 146 L147 146 L150 145"],["major","M206 209 L209 209"],["major","M258 -28 L242 2"],["major","M310 76 L302 76 L296 74"],["minor","M296 110 L292 108"],["minor","M30 127 L30 127"],["major","M30 127 L30 126"],["minor","M30 127 L29 126"],["major","M30 128 L23 132 L3 141"],["major","M33 127 L35 127"],["major","M33 127 L32 127"],["major","M29 127 L30 127"],["major","M151 31 L149 33"],["major","M151 31 L150 30"],["major","M150 30 L149 30"],["major","M151 30 L151 31"],["major","M150 29 L151 30"],["major","M149 30 L150 29"],["major","M149 30 L141 24 L134 17 L118 4 L115 -1 L110 -16 L107 -21"],["major","M150 29 L150 29"],["major","M150 29 L154 23 L157 21 L172 17 L178 14 L186 4 L190 -2"],["major","M301 213 L298 218"],["major","M296 74 L296 74"],["major","M296 74 L296 74"],["major","M296 74 L295 73"],["major","M296 74 L296 74"],["major","M114 98 L116 91"],["major","M33 128 L32 127"],["minor","M33 128 L32 127"],["minor","M31 125 L32 125"],["minor","M30 125 L30 126"],["minor","M30 124 L31 125"],["minor","M30 130 L30 128"],["minor","M56 157 L58 160"],["major","M192 -1 L189 3 L182 12 L177 16"],["major","M192 -0 L189 5 L183 13 L179 16 L174 19 L158 23 L155 26 L151 30"],["major","M199 3 L192 -0"],["minor","M97 88 L96 86"],["major","M149 33 L138 45"],["major","M118 69 L125 58"],["minor","M125 58 L125 58"],["major","M128 58 L125 63"],["major","M127 57 L135 45"],["minor","M137 43 L137 45"],["major","M137 43 L139 41"],["minor","M137 43 L137 40"],["minor","M137 40 L138 32"],["major","M139 41 L143 37"],["major","M137 46 L136 47"],["minor","M137 45 L137 46"],["major","M136 47 L128 58"],["major","M135 45 L137 43"],["minor","M28 125 L24 122"],["minor","M29 123 L30 124"],["major","M63 109 L78 118 L108 129"],["major","M63 109 L62 109"],["major","M62 109 L61 108"],["major","M62 110 L35 125"],["major","M63 109 L63 109"],["major","M62 108 L63 109"],["major","M61 108 L62 108"],["major","M61 108 L52 98"],["major","M61 108 L61 108"],["major","M87 94 L75 101"],["minor","M62 110 L62 111 L66 119 L67 120"],["major","M54 112 L61 108"],["major","M203 125 L204 103"],["minor","M215 59 L208 56"],["minor","M196 65 L198 64 L201 65"],["major","M215 59 L222 43"],["major","M212 70 L209 80"],["major","M276 104 L286 104 L296 105"],["major","M296 105 L303 96 L298 93"],["major","M295 106 L285 105 L275 105"],["major","M295 106 L296 105"],["major","M288 86 L276 104"],["major","M276 104 L275 105"],["major","M203 35 L212 8 L234 -34"],["major","M203 35 L204 35"],["major","M204 35 L204 36"],["major","M204 35 L217 41"],["major","M204 36 L203 36"],["major","M204 36 L196 52 L180 96 L170 109"],["major","M203 36 L203 35"],["major","M203 36 L199 35 L189 37 L184 38 L174 37"],["major","M74 100 L96 86"],["major","M75 101 L63 109"],["minor","M99 90 L97 88"],["major","M96 86 L105 80 L114 72"],["minor","M103 84 L100 85 L97 86 L96 86"],["major","M97 88 L87 94"],["minor","M52 97 L56 91 L61 89 L63 87 L73 71"],["major","M52 98 L25 74"],["major","M54 99 L62 108"],["minor","M52 98 L48 104"],["minor","M58 105 L59 104"],["minor","M68 104 L62 98"],["minor","M62 98 L57 102"],["minor","M57 102 L56 103"],["minor","M48 94 L46 94"],["minor","M28 92 L24 95"],["minor","M34 81 L33 81"],["minor","M161 53 L159 49"],["minor","M253 175 L249 175"],["major","M184 213 L183 214"],["minor","M206 217 L205 217 L202 218 L190 217"],["minor","M190 217 L189 216"],["minor","M184 214 L183 214"],["major","M184 213 L184 214"],["minor","M183 214 L179 212 L172 203"],["minor","M189 216 L186 215"],["major","M10 18 L11 17"],["minor","M259 33 L233 20"],["major","M261 28 L272 7"],["major","M259 33 L259 32"],["major","M294 175 L293 177 L293 182 L292 182"],["major","M292 190 L293 187 L293 184 L294 183"],["minor","M294 183 L292 182"],["major","M294 183 L295 209"],["major","M292 182 L292 166 L291 162 L287 154 L286 151 L287 149 L289 145 L316 103"],["minor","M275 178 L266 177"],["minor","M296 209 L295 209"],["minor","M295 209 L292 211"],["minor","M295 209 L295 209"],["major","M292 221 L258 305"],["minor","M-2 218 L8 209 L10 205 L11 200"],["minor","M240 174 L233 173"],["minor","M278 110 L279 112 L279 123"],["minor","M279 123 L279 125"],["major","M285 73 L285 76"],["minor","M112 7 L115 13 L118 19"],["major","M280 60 L282 55"],["minor","M290 59 L283 56"],["major","M285 68 L287 69"],["minor","M288 65 L289 64"],["major","M280 70 L279 67"],["major","M290 220 L292 215"],["major","M270 269 L290 220"],["major","M294 216 L292 221"],["major","M295 209 L294 216"],["minor","M292 182 L275 178"],["major","M184 161 L177 174"],["major","M173 188 L174 185 L175 179 L176 175"],["minor","M185 158 L179 155"],["minor","M177 157 L176 158"],["minor","M179 155 L177 157"],["minor","M156 143 L157 144"],["minor","M308 192 L294 183"],["major","M249 175 L245 208"],["minor","M204 125 L203 125"],["major","M243 208 L247 174"],["minor","M249 175 L247 174"],["minor","M122 136 L127 124 L127 123 L124 118 L123 117 L124 113"],["minor","M113 109 L122 112 L133 118 L143 119 L153 118 L157 119 L161 121"],["minor","M161 200 L158 200"],["minor","M167 201 L161 200"],["major","M101 179 L118 182 L141 190"],["major","M102 180 L101 179"],["major","M195 143 L198 142 L200 140"],["major","M285 79 L285 81"],["major","M201 139 L200 142 L199 143"],["major","M221 132 L216 146"],["major","M185 158 L184 161"],["major","M153 134 L151 141"],["major","M177 174 L177 175"],["major","M117 72 L118 70"],["minor","M72 27 L68 32"],["minor","M238 74 L214 64"],["minor","M197 124 L195 123"],["minor","M191 123 L185 121"],["minor","M189 128 L184 126"],["minor","M73 172 L73 172"],["major","M73 172 L68 168 L65 164 L64 162 L64 158"],["major","M78 174 L73 172"],["minor","M186 215 L184 214"],["minor","M109 181 L109 177"],["minor","M109 177 L102 176"],["minor","M118 173 L117 183"],["minor","M110 172 L101 171"],["minor","M110 172 L110 167"],["minor","M118 173 L110 172"],["rail","M282 126 L279 144"],["rail","M279 144 L282 125"],["rail","M282 125 L282 123"],["rail","M282 123 L282 126"],["minor","M177 175 L176 175"],["minor","M266 116 L267 117"],["major","M291 223 L270 273"],["major","M167 193 L168 193"],["major","M168 193 L170 195"],["major","M172 191 L170 193"],["major","M168 193 L168 191"],["minor","M172 203 L169 201"],["major","M168 193 L168 194"],["major","M168 194 L162 194"],["major","M174 188 L172 191"],["major","M170 192 L173 188"],["major","M169 188 L170 192"],["minor","M168 184 L167 187"],["major","M168 191 L167 187"],["major","M168 184 L169 188"],["minor","M168 201 L169 201"],["minor","M233 173 L230 208"],["minor","M255 175 L253 175"],["minor","M247 174 L249 174"],["major","M249 174 L249 175"],["minor","M249 174 L255 175"],["minor","M296 224 L298 224"],["major","M196 68 L195 67"],["major","M196 65 L197 67"],["major","M274 104 L276 104"],["major","M275 105 L273 105"],["major","M281 87 L283 88 L285 88"],["minor","M203 125 L202 125"],["minor","M197 124 L197 125"],["minor","M205 125 L204 125"],["minor","M10 29 L7 19"],["minor","M-0 23 L-0 23"],["minor","M69 13 L69 13"],["minor","M87 17 L87 17"],["minor","M267 171 L266 176"],["minor","M261 171 L261 171"],["minor","M256 170 L255 173 L257 173 L257 175"],["minor","M257 198 L258 193"],["major","M297 107 L295 106"],["major","M296 105 L300 105"],["major","M295 91 L288 86"],["major","M298 93 L295 91"],["minor","M298 8 L297 8"],["minor","M300 9 L298 8"],["minor","M143 118 L143 112 L146 104 L145 102"],["minor","M128 107 L124 113"],["major","M115 103 L109 129"],["minor","M271 94 L273 89"],["major","M285 76 L285 79"],["major","M1 140 L5 138"],["major","M259 32 L259 31"],["major","M279 248 L287 229"],["major","M190 0 L190 -2"],["minor","M295 88 L295 88"],["minor","M253 44 L241 39"],["minor","M265 53 L274 57"],["minor","M271 39 L265 53"],["major","M169 193 L170 193"],["major","M169 194 L168 193"],["major","M149 192 L149 192"],["major","M149 192 L147 192"],["minor","M169 201 L169 201"],["minor","M161 194 L161 193"],["major","M161 193 L162 193"],["major","M161 194 L153 193"],["minor","M134 188 L134 189"],["minor","M168 201 L167 201"],["minor","M161 224 L167 225"],["minor","M156 143 L151 145"],["major","M154 157 L155 156"],["minor","M191 84 L194 85"],["minor","M182 74 L184 70"],["minor","M179 80 L182 74"],["minor","M139 98 L136 95"],["minor","M176 57 L181 59"],["minor","M181 59 L183 60"],["major","M205 104 L204 120 L204 125"],["minor","M175 73 L178 67"],["minor","M203 123 L205 124"],["minor","M157 90 L157 90"],["minor","M277 136 L277 137 L275 136 L273 134"],["minor","M265 140 L265 141"],["minor","M275 123 L275 123"],["minor","M154 26 L168 29"],["minor","M298 7 L302 2"],["minor","M58 16 L68 23 L72 27"],["minor","M229 112 L228 112"],["minor","M252 86 L250 89"],["minor","M250 89 L248 95"],["minor","M250 89 L239 84"],["minor","M279 108 L278 110"],["minor","M280 105 L279 108"],["minor","M252 140 L251 140"],["minor","M262 210 L264 199"],["minor","M252 238 L252 234"],["major","M166 240 L167 225"],["major","M207 84 L208 80"],["major","M222 43 L223 38"],["minor","M232 136 L221 132"],["minor","M232 136 L229 151 L233 173"],["minor","M212 170 L211 170"],["minor","M169 100 L174 102"],["minor","M169 109 L167 105"],["minor","M167 105 L165 109"],["minor","M156 75 L153 83 L152 87 L153 88"],["minor","M150 72 L156 75"],["minor","M164 77 L172 72"],["minor","M177 88 L182 89"],["minor","M177 88 L179 80"],["major","M174 102 L178 98"],["major","M169 109 L174 102"],["minor","M178 105 L173 111"],["minor","M167 119 L164 117"],["minor","M195 123 L191 123"],["minor","M192 82 L195 75"],["minor","M188 72 L195 75"],["minor","M188 72 L175 66"],["minor","M186 47 L186 47"],["minor","M196 51 L196 51"],["major","M196 51 L203 36"],["major","M178 98 L179 95 L181 90 L188 72"],["minor","M167 225 L168 225"],["minor","M100 218 L103 218"],["major","M117 183 L102 180"],["minor","M120 162 L123 163"],["minor","M11 200 L11 198"],["minor","M35 220 L36 221"],["minor","M55 235 L48 224"],["minor","M22 158 L23 157"],["minor","M62 166 L61 165"],["minor","M60 165 L61 167"],["minor","M11 198 L13 188"],["minor","M48 224 L46 230"],["major","M31 126 L28 124"],["major","M28 128 L63 108 L82 95"],["minor","M27 136 L27 133"],["minor","M27 136 L30 134 L31 133 L30 130"],["minor","M189 66 L189 66"],["minor","M152 166 L150 170"],["minor","M84 186 L83 191"],["minor","M56 14 L58 16"],["minor","M266 65 L265 67"],["minor","M12 125 L24 122"],["minor","M1 140 L-2 129"],["minor","M18 3 L21 12"],["minor","M240 116 L232 136"],["major","M110 127 L109 127 L108 129"],["major","M107 132 L108 130"],["major","M108 129 L107 130"],["major","M108 129 L109 129"],["major","M108 130 L107 130"],["major","M108 130 L109 129"],["major","M108 129 L112 108"],["major","M108 129 L108 129"],["major","M109 129 L109 130"],["major","M109 130 L108 130"],["major","M109 130 L108 133"],["major","M106 133 L107 132"],["minor","M201 65 L204 67"],["minor","M38 96 L36 105"],["minor","M2 202 L7 200 L11 201"],["minor","M115 221 L117 216 L115 215 L116 213"],["minor","M8 150 L3 152"],["minor","M3 152 L-0 153"],["major","M208 203 L207 211"],["major","M207 211 L207 213"],["major","M206 211 L211 170"],["major","M206 213 L206 211"],["minor","M4 44 L2 40 L5 38 L3 30"],["minor","M84 217 L85 217"],["minor","M82 203 L86 204"],["minor","M86 204 L84 217"],["minor","M224 38 L233 42 L238 42 L240 43"],["major","M152 154 L150 146"],["minor","M153 192 L153 193"],["major","M153 192 L161 193"],["major","M153 193 L149 192"],["minor","M137 33 L123 22 L119 20 L113 21"],["minor","M205 65 L205 65"],["minor","M259 67 L248 62"],["minor","M115 25 L114 23"],["minor","M63 5 L60 1 L59 2"],["rail","M280 123 L279 109"],["rail","M279 125 L280 123"],["rail","M280 123 L280 108"],["rail","M280 125 L280 123"],["rail","M280 108 L280 123"],["rail","M280 123 L280 125"],["rail","M280 107 L281 123"],["rail","M281 123 L280 125"],["rail","M281 123 L281 107"],["rail","M281 125 L281 123"],["rail","M281 106 L281 123"],["rail","M281 123 L281 125"],["minor","M95 98 L96 105"],["minor","M125 204 L124 208"],["major","M279 67 L279 66"],["major","M280 71 L280 70"],["major","M249 55 L250 54"],["major","M274 65 L249 55"],["major","M251 54 L256 56"],["major","M260 33 L253 48 L251 54"],["minor","M92 48 L93 46"],["minor","M94 45 L97 41"],["major","M38 56 L45 53 L47 53"],["minor","M284 34 L286 31"],["minor","M287 27 L291 20"],["minor","M291 20 L292 17"],["minor","M286 31 L287 27"],["major","M274 64 L279 66"],["minor","M266 75 L266 75"],["minor","M256 99 L253 106"],["minor","M169 100 L175 96"],["minor","M142 146 L142 146"],["rail","M257 233 L261 224 L263 215"],["minor","M133 126 L133 126"],["minor","M137 231 L137 223"],["minor","M136 233 L136 232"],["minor","M136 232 L137 231"],["minor","M201 78 L201 84 L206 86"],["minor","M200 78 L200 80 L201 80"],["minor","M145 69 L148 63 L146 61 L145 60 L146 60"],["major","M281 72 L280 71"],["rail","M281 88 L281 89"],["rail","M281 87 L281 88"],["minor","M204 137 L204 137"],["minor","M204 142 L204 142"],["minor","M280 158 L281 156"],["minor","M278 174 L278 178 L275 180"],["minor","M278 169 L279 164"],["minor","M279 164 L280 158"],["minor","M269 205 L270 200"],["minor","M265 229 L265 229"],["minor","M266 216 L266 217"],["minor","M270 200 L267 197"],["minor","M268 203 L267 213"],["minor","M267 213 L266 216"],["minor","M266 217 L261 236"],["major","M294 175 L294 183"],["major","M240 233 L242 216"],["minor","M240 229 L236 229"],["minor","M236 227 L229 227"],["minor","M260 236 L259 236"],["major","M164 13 L167 24 L168 28 L167 34"],["minor","M282 55 L282 53 L285 46"],["major","M164 12 L164 13"],["minor","M148 165 L152 166"],["minor","M115 77 L115 77"],["major","M272 63 L274 64"],["major","M279 67 L274 65"],["major","M22 63 L25 61 L29 59"],["major","M216 146 L214 151 L212 164"],["major","M212 164 L211 170"],["major","M211 170 L211 164"],["rail","M259 229 L258 233"],["rail","M266 209 L265 213"],["rail","M273 182 L266 209"],["rail","M274 172 L273 176"],["rail","M275 167 L274 172"],["rail","M276 157 L275 167"],["rail","M269 185 L263 212"],["rail","M270 183 L269 185"],["rail","M258 229 L252 242"],["rail","M269 192 L272 180"],["rail","M257 234 L257 233"],["rail","M256 235 L257 234"],["rail","M249 247 L256 235"],["rail","M272 182 L273 180"],["rail","M266 209 L272 182"],["rail","M253 244 L260 229 L264 215"],["rail","M272 171 L271 176"],["major","M168 225 L167 239"]],"walks":[{"date":"2021-12-09","d":["M150 147 L159 171 L157 175 L158 179 L158 181 L155 183 L151 183 L149 186"]},{"date":"2022-04-26","d":["M163 120 L163 122 L162 121 L155 134 L152 138 L152 143 L152 146 L159 161 L159 167 L154 171 L151 170 L149 171 L150 172 L147 174 L147 179 L144 182 L144 185 L143 185 L141 189 L128 186 L125 184 L127 185 L123 183 L122 185 L121 184 L121 185 L124 184 L130 185 L142 189 L150 172 L159 169 L153 156 L149 155 L144 156"]},{"date":"2022-05-12","d":["M152 152 L151 154 L146 155 L146 152 L146 154"]},{"date":"2022-05-17","d":["M155 161 L152 154 L146 155 L145 154 L146 154"]},{"date":"2022-05-20","d":["M150 140 L149 142 L152 142 L151 141"]},{"date":"2022-05-23","d":["M152 153 L146 154 L142 154"]},{"date":"2022-05-24","d":["M159 121 L152 133 L150 140 L149 145 L152 154 L145 155 L147 152 L145 153 L146 154"]},{"date":"2022-05-26","d":["M150 139 L148 144 L151 148 L151 153 L146 154"]},{"date":"2022-06-06","d":["M149 145 L149 146 L153 152 L153 154 L146 154 L145 154 L145 153"]},{"date":"2022-06-12","d":["M140 153 L141 155 L146 156 L146 153"]},{"date":"2022-06-19","d":["M150 136 L152 132 L153 132 L156 129 L161 123 L160 121 L158 121 L159 121 L159 121 L159 124 L158 128 L155 133 L151 133 L150 136 L148 145 L151 154 L145 154"]},{"date":"2022-06-21","d":["M138 189 L141 189 L143 189 L145 182 L150 172 L143 186 L151 172 L156 170 L158 169 L157 165 L152 155 L145 154 L145 154 L145 155 L144 151 L144 156"]},{"date":"2022-07-15","d":["M147 148 L148 148 L149 143"]},{"date":"2022-08-02","d":["M117 134 L120 138 L128 138 L131 142 L142 147 L141 154 L141 155 L145 155 L147 154 L146 153"]},{"date":"2022-08-19","d":["M140 145 L142 147 L141 154 L144 155 L145 154 L145 153"]},{"date":"2022-08-27","d":["M158 163 L170 162 L176 159 L178 156 L185 159 L177 175 L175 187 L173 191 L170 197 L169 218 L170 221 L172 222 L174 221 L176 210 L191 216 L199 218 L203 217 L205 215 L207 207 L206 202 L189 200 L180 196 L177 191 L174 193 L172 193 L170 190 L168 190 L164 181 L161 176 L152 156 L149 154 L144 154 L145 154"]},{"date":"2022-09-04","d":["M149 154 L144 155 L146 153"]},{"date":"2022-09-09","d":["M145 114 L154 114 L161 117 L156 127 L151 133 L149 142 L150 143 L151 141 L150 141 L148 145 L151 154 L145 155 L145 154"]},{"date":"2022-09-11","d":["M152 154 L144 154 L146 154"]},{"date":"2022-09-14","d":["M142 155 L145 155 L145 154"]},{"date":"2022-09-17","d":["M154 150 L150 144 L150 136 L152 132 L165 113"]},{"date":"2022-09-17","d":["M164 117 L162 119 L151 135 L149 145 L152 155 L145 155 L146 152 L145 153 L146 154"]},{"date":"2022-09-26","d":["M151 140 L148 145 L151 154 L146 155 L144 153 L145 152 L146 154"]},{"date":"2022-09-27","d":["M150 149 L152 151 L152 154 L145 155 L145 154"]},{"date":"2022-09-28","d":["M113 133 L128 139 L134 143 L141 146 L142 148 L141 154 L144 155 L145 154"]},{"date":"2022-10-23","d":["M151 147 L153 145 L159 145 L170 150 L171 153 L173 155 L174 157 L177 156 L183 158 L175 174 L173 187 L167 192 L168 199 L157 199 L138 196 L104 188 L103 184 L100 181 L100 174 L97 168 L95 161 L98 143 L101 128 L96 124 L84 121 L83 119 L81 119 L82 116 L81 119 L84 119 L88 121 L91 123 L95 123 L99 125 L106 128 L106 130 L107 131 L115 133 L141 146 L142 148 L141 154 L144 155 L145 154 L145 153"]},{"date":"2022-10-23","d":["M153 134 L157 127 L160 120 L167 114 L178 97 L183 85 L186 87 L189 87 L195 79 L206 79 L209 78 L215 79 L227 83 L229 81 L233 79 L236 75 L239 75 L241 73 L247 63 L258 66 L263 63 L267 62 L275 66 L281 67 L286 70"]},{"date":"2022-10-23","d":["M160 120 L150 135 L148 144 L151 153 L150 154 L144 155 L146 153"]},{"date":"2022-10-25","d":["M152 153 L148 145 L149 139 L160 119 L158 116 L149 111 L144 111 L141 109"]},{"date":"2022-10-25","d":["M152 153 L150 154 L145 154 L146 154 L145 154"]},{"date":"2022-10-27","d":["M115 109 L112 119 L112 130 L125 139 L141 146 L142 148 L141 154 L145 156"]},{"date":"2022-10-30","d":["M151 149 L149 144 L152 131 L159 121 L163 116 L163 113 L165 115"]},{"date":"2022-10-30","d":["M170 108 L169 108 L167 110 L152 133 L150 137 L148 147 L152 153 L146 154 L144 154 L144 153 L146 154"]},{"date":"2022-11-10","d":["M143 147 L141 154 L144 155 L145 154"]},{"date":"2022-11-27","d":["M223 45 L213 40 L211 41 L205 54 L206 55 L207 55 L209 52 L208 54 L205 55 L201 64 L201 67 L199 65 L193 71 L192 74 L190 74 L189 72 L181 94 L176 101 L176 99 L172 105 L171 107 L172 110 L163 119 L154 134 L152 142 L148 145 L149 148 L155 163 L157 167 L159 166 L159 167 L158 166 L161 171 L163 179 L166 188 L167 191 L165 192 L163 192 L156 191 L154 193 L149 192 L142 192 L136 191 L120 185 L139 191 L142 189 L144 182 L153 183 L162 178 L162 177 L152 155 L146 155 L145 154"]},{"date":"2022-11-28","d":["M138 145 L141 146 L142 147 L141 154 L143 155 L144 154 L144 154 L145 154"]},{"date":"2022-12-04","d":["M253 74 L245 71 L237 91 L214 81 L207 81 L203 79 L199 73 L192 72 L187 78 L179 97 L163 117 L155 131 L151 141 L149 143 L149 147 L151 153 L146 154 L145 153 L144 154"]},{"date":"2022-12-11","d":["M151 139 L153 132 L158 123 L181 93 L200 102 L207 104 L212 107 L228 110 L238 94 L243 75 L245 71 L248 67 L258 69 L269 64 L282 68 L286 71 L288 71 L289 70"]},{"date":"2022-12-19","d":["M155 114 L159 116 L161 118 L152 133 L149 139 L149 145 L152 154 L144 154"]},{"date":"2022-12-19","d":["M203 126 L202 126 L199 141 L197 142 L190 143 L187 145 L183 156 L176 153 L169 148 L156 144 L153 144 L149 148 L151 154 L145 154"]},{"date":"2022-12-28","d":["M147 155 L144 156 L144 155 L144 153 L145 154"]},{"date":"2023-01-03","d":["M161 200 L164 200 L168 199 L167 187 L153 156 L151 154 L144 154 L145 154 L146 152 L146 152 L147 151 L148 149 L147 151"]},{"date":"2023-01-04","d":["M135 142 L142 145 L143 147 L142 154 L143 155 L145 154"]},{"date":"2023-01-07","d":["M159 122 L151 134 L148 144 L151 154 L145 155 L144 155 L145 154"]},{"date":"2023-01-12","d":["M151 149 L153 153 L152 155 L150 156 L145 156"]},{"date":"2023-02-04","d":["M157 123 L150 136 L149 142 L151 141 L148 146 L149 149 L151 154 L150 155 L144 155 L145 154 L144 154"]},{"date":"2023-02-04","d":["M246 19 L250 16 L249 11","M166 116 L164 114 L162 115 L156 129 L151 133 L148 145 L151 154 L145 154"]},{"date":"2023-02-13","d":["M151 150 L151 155 L145 155 L145 153 L147 154 L145 154"]},{"date":"2023-02-20","d":["M148 145 L148 142 L151 133 L152 131 L158 127 L159 121 L162 118 L157 115 L153 114 L143 114 L142 110"]},{"date":"2023-02-24","d":["M147 154 L144 154 L146 153 L145 154"]},{"date":"2023-02-27","d":["M149 145 L151 154 L145 155 L146 151 L144 153 L145 153"]},{"date":"2023-03-05","d":["M167 116 L158 122 L152 131 L148 145 L151 153 L145 154 L146 153"]},{"date":"2023-04-26","d":["M151 135 L148 144 L150 149 L151 153 L145 155 L145 154 L143 154 L142 151 L143 153"]},{"date":"2023-05-28","d":["M163 178 L152 155 L150 154 L145 155 L146 151 L145 153"]},{"date":"2023-06-29","d":["M125 138 L130 140 L135 143 L141 146 L142 148 L142 154 L143 155 L145 153"]},{"date":"2023-07-03","d":["M158 191 L154 191 L153 192 L151 189 L154 192 L166 192 L167 191 L167 186 L158 169 L158 165 L153 155 L149 154 L144 154 L145 154"]},{"date":"2023-07-13","d":["M119 88 L120 90 L121 88 L126 89 L127 90 L127 92 L134 93 L136 95 L133 102 L142 111 L147 111 L151 114 L161 118 L155 128 L149 135 L148 143 L152 142 L148 145 L151 154 L145 154"]},{"date":"2023-07-23","d":["M175 175 L173 177 L169 178 L168 180 L169 187 L171 188 L174 184 L174 177 L177 176 L175 188 L174 193 L172 192 L170 197 L168 226 L167 224 L167 221 L168 198 L167 187 L160 173 L158 172 L154 174 L150 172 L152 167 L155 164 L155 162 L152 155 L149 154 L144 154 L145 153"]},{"date":"2023-07-24","d":["M205 112 L204 105 L206 92 L208 87 L208 81 L214 60 L213 59 L206 56 L199 51 L197 52 L195 56 L189 72 L187 76 L185 84 L180 96 L171 108 L162 121 L161 122 L157 119 L154 118 L142 118 L141 117 L140 115 L141 115 L144 117 L154 118 L159 120 L153 131 L149 140 L148 147 L151 154 L145 154 L143 153"]},{"date":"2023-07-25","d":["M120 136 L129 135 L133 137 L138 142 L141 144 L141 154 L144 156 L145 154 L144 154"]},{"date":"2023-07-30","d":["M11 197 L13 192 L14 179 L17 173 L22 162 L24 154 L24 147 L27 140 L28 132 L41 123 L61 112 L60 109 L55 103 L60 109 L64 111 L76 119 L86 122 L90 123 L94 125 L123 137 L140 146 L142 148 L141 154 L144 156 L145 153"]},{"date":"2023-08-04","d":["M90 162 L94 162 L96 166 L107 168 L112 166 L116 162 L120 162 L129 165 L136 166 L144 170 L153 171 L158 169 L155 159 L152 155 L145 155 L145 153"]},{"date":"2023-10-13","d":["M152 133 L158 123 L163 116 L164 113"]}]}};
+
+/* 長い散歩（池袋 → 新宿 3 回）：同じく投影済みの SVG パスだけ（駅ラベルは公開の駅位置から） */
+const ROUTES={"groups":[{"id":"ikebukuro_to_shinjuku","label":"池袋 → 新宿","w":131.3,"h":300.0,"stations":[{"n":"池袋","x":111.0,"y":19.7},{"n":"目白","x":86.9,"y":77.1},{"n":"高田馬場","x":71.2,"y":136.5},{"n":"新大久保","x":49.9,"y":214.5},{"n":"新宿","x":53.2,"y":295.3}],"streets":null,"walks":[{"date":"2023-10-11","start":"20:40","km":2.02,"min":36,"via":"池袋 → 目白 → 高田馬場","d":["M98.9 42.2 L98.6 45.4 L96.0 46.9 L95.9 52.5 L86.3 73.3 L86.7 75.6 L88.5 76.5 L88.7 78.4 L81.6 101.2 L81.6 103.2 L85.8 104.5 L87.5 105.8 L88.3 114.4 L87.8 114.9 L85.9 114.4 L84.3 115.3 L80.8 114.6 L79.8 123.8 L78.3 129.6 L77.1 130.0 L75.2 129.5 L71.1 131.8 L71.5 132.8 L66.9 148.5"]},{"date":"2025-07-23","start":"20:17","km":5.82,"min":90,"via":"池袋 → 高田馬場 → 新宿","d":["M107.3 13.6 L108.0 14.7 L108.1 17.9 L106.1 21.9 L100.5 25.2 L94.6 34.0 L92.2 35.3 L92.6 38.1 L94.0 39.9 L94.6 44.2 L96.2 46.0 L96.3 50.5 L88.3 69.7 L86.3 72.8 L86.6 74.1 L88.5 76.4 L88.9 79.1 L81.9 101.0 L81.7 103.6 L80.5 103.6 L79.0 102.5 L75.1 103.4 L74.2 104.7 L73.9 110.3 L69.7 110.6 L68.5 111.7 L69.2 120.6 L68.3 123.1 L66.4 125.1 L65.9 127.8 L62.9 130.0 L57.3 132.4 L51.4 136.7 L45.0 140.1 L33.8 142.8 L29.6 145.6 L19.8 155.2 L17.1 156.4 L13.6 156.4 L15.5 158.8 L17.2 164.6 L18.0 171.5 L17.7 180.1 L21.0 198.6 L21.5 204.7 L23.0 209.3 L23.5 213.2 L31.5 229.0 L36.6 236.7 L45.6 265.6 L45.9 268.1 L45.7 273.4 L47.2 277.1 L45.5 280.2 L46.6 283.3 L46.5 284.5 L45.8 285.9 L44.7 286.4"]},{"date":"2025-12-19","start":"21:24","km":4.97,"min":68,"via":"池袋 → 高田馬場 → 新宿","d":["M117.2 21.0 L117.6 33.3 L115.4 38.6 L114.5 39.4 L111.1 38.3 L109.0 38.6 L107.9 37.5 L104.1 47.3 L104.6 52.6 L101.4 55.7 L99.4 55.5 L97.8 56.1 L94.5 60.6 L92.7 67.5 L93.3 70.2 L92.9 71.4 L93.7 72.2 L93.7 73.0 L92.3 76.8 L90.4 76.6 L89.5 77.9 L82.6 100.4 L82.2 102.9 L84.1 104.1 L84.3 113.1 L83.9 113.7 L82.2 113.5 L80.6 115.3 L80.0 122.8 L78.5 130.2 L75.7 136.3 L74.1 141.3 L71.2 144.3 L70.8 147.7 L71.5 152.6 L69.5 159.5 L65.4 163.8 L64.1 166.0 L61.1 179.7 L59.7 181.8 L58.4 188.8 L56.8 191.6 L56.5 198.6 L55.2 209.8 L55.6 212.9 L54.4 216.1 L53.5 221.7 L53.6 227.4 L52.9 231.0 L52.8 234.7 L53.2 236.2 L52.6 238.6 L53.0 241.5 L52.3 246.4 L52.5 252.7 L51.8 259.7 L52.2 263.8 L50.2 266.4 L46.8 266.3 L46.7 266.7 L45.8 273.4 L47.1 276.8 L45.5 280.1 L46.6 283.9 L46.0 285.5 L44.4 285.5"]}]}]};
+
+const DATA={"total_km":1469,"walks":691,"km_by_year":{"2017":1.8,"2018":2.2,"2019":7.8,"2020":3.3,"2021":13.1,"2022":140.5,"2023":158.5,"2024":182.6,"2025":460.1,"2026":499.4},"walks_by_year":{"2017":1,"2018":2,"2019":4,"2020":2,"2021":9,"2022":97,"2023":94,"2024":89,"2025":184,"2026":209},"latest_walks":[{"start":"2024-10-14 00:17","end":"2024-10-14 01:06","min":48.9,"km":2.81},{"start":"2026-06-16 23:54","end":"2026-06-17 00:12","min":17.9,"km":1.1},{"start":"2017-10-12 23:52","end":"2017-10-13 00:07","min":13.2,"km":1.76},{"start":"2023-10-02 23:42","end":"2023-10-03 00:03","min":20.5,"km":1.27},{"start":"2025-02-03 23:41","end":"2025-02-04 00:20","min":39.0,"km":2.33}],"median_kmh":3.66,"speed_hist_kmh_bin0_5":{"0.5":1,"1.0":3,"1.5":5,"2.0":25,"2.5":79,"3.0":175,"3.5":173,"4.0":112,"4.5":70,"5.0":32,"5.5":2,"6.0":1},"days_walked":535,"longest_streak":{"days":13,"start":"2026-09-26","end":"2026-10-08"},"calendar":{"2017-10-12":[1,1.76],"2018-10-06":[1,1.03],"2018-12-02":[1,1.19],"2019-06-12":[1,1.61],"2019-06-14":[2,3.83],"2019-06-17":[1,2.32],"2020-11-07":[1,1.11],"2020-12-12":[1,2.15],"2021-03-16":[1,2.05],"2021-03-24":[1,0.61],"2021-05-20":[1,1.87],"2021-07-26":[2,3.03],"2021-11-05":[1,0.97],"2021-12-09":[1,1.47],"2021-12-14":[1,1.96],"2021-12-16":[1,1.18],"2022-01-08":[1,2.47],"2022-01-16":[1,1.03],"2022-01-18":[1,1.1],"2022-01-22":[1,1.39],"2022-02-08":[1,1.44],"2022-03-01":[1,0.71],"2022-03-09":[1,0.94],"2022-03-20":[2,4.34],"2022-04-16":[1,1.78],"2022-04-25":[1,1.09],"2022-04-26":[1,3.58],"2022-04-28":[1,1.0],"2022-05-07":[1,1.28],"2022-05-12":[1,0.91],"2022-05-17":[1,1.32],"2022-05-18":[1,0.87],"2022-05-20":[1,0.84],"2022-05-23":[1,0.93],"2022-05-24":[1,1.62],"2022-05-26":[2,2.15],"2022-05-28":[1,3.08],"2022-05-30":[1,1.0],"2022-05-31":[1,0.85],"2022-06-04":[2,2.09],"2022-06-06":[1,0.96],"2022-06-12":[1,1.18],"2022-06-15":[1,0.94],"2022-06-16":[1,0.86],"2022-06-17":[1,1.02],"2022-06-19":[1,1.56],"2022-06-21":[2,3.62],"2022-06-23":[2,2.03],"2022-06-26":[1,3.75],"2022-06-28":[1,1.59],"2022-06-30":[1,1.01],"2022-07-15":[1,1.25],"2022-07-18":[1,2.23],"2022-07-26":[1,1.23],"2022-08-02":[2,2.25],"2022-08-16":[1,1.41],"2022-08-17":[1,3.41],"2022-08-19":[1,1.27],"2022-08-23":[1,1.11],"2022-08-27":[1,2.8],"2022-09-01":[1,0.9],"2022-09-04":[1,0.87],"2022-09-08":[1,1.02],"2022-09-09":[1,0.8],"2022-09-11":[2,2.42],"2022-09-14":[1,1.18],"2022-09-17":[2,1.28],"2022-09-26":[1,0.92],"2022-09-27":[1,1.08],"2022-09-28":[1,1.48],"2022-10-01":[1,0.61],"2022-10-08":[1,1.48],"2022-10-21":[1,1.69],"2022-10-23":[4,8.37],"2022-10-25":[2,1.94],"2022-10-27":[2,2.02],"2022-10-30":[3,2.68],"2022-11-04":[1,1.22],"2022-11-06":[1,2.13],"2022-11-07":[1,1.08],"2022-11-10":[1,1.09],"2022-11-18":[1,0.95],"2022-11-27":[3,9.39],"2022-11-28":[2,2.1],"2022-11-30":[1,0.93],"2022-12-04":[2,4.79],"2022-12-11":[1,2.2],"2022-12-13":[1,1.01],"2022-12-14":[1,0.95],"2022-12-16":[1,1.17],"2022-12-19":[2,4.34],"2022-12-24":[1,2.24],"2022-12-28":[1,0.8],"2023-01-03":[2,3.06],"2023-01-04":[2,3.24],"2023-01-07":[1,1.58],"2023-01-12":[1,1.0],"2023-01-13":[1,0.79],"2023-01-20":[1,0.92],"2023-01-22":[1,1.35],"2023-02-04":[2,4.13],"2023-02-13":[1,0.98],"2023-02-20":[1,1.61],"2023-02-22":[1,1.05],"2023-02-24":[1,1.07],"2023-02-25":[1,1.43],"2023-02-27":[1,1.35],"2023-03-03":[1,0.8],"2023-03-05":[2,3.43],"2023-03-07":[1,0.82],"2023-03-20":[1,2.41],"2023-04-02":[1,1.48],"2023-04-03":[1,1.0],"2023-04-20":[1,3.13],"2023-04-26":[2,2.75],"2023-05-03":[1,1.12],"2023-05-04":[1,0.85],"2023-05-06":[1,1.33],"2023-05-26":[1,1.0],"2023-05-28":[2,2.87],"2023-05-31":[2,3.2],"2023-06-03":[2,3.16],"2023-06-08":[1,1.09],"2023-06-09":[1,1.2],"2023-06-16":[1,1.48],"2023-06-29":[2,2.5],"2023-07-03":[1,1.74],"2023-07-07":[1,0.83],"2023-07-12":[1,0.86],"2023-07-13":[2,3.96],"2023-07-22":[2,3.11],"2023-07-23":[1,2.93],"2023-07-24":[1,3.97],"2023-07-25":[2,3.19],"2023-07-27":[2,3.06],"2023-07-28":[2,2.76],"2023-07-29":[2,3.16],"2023-07-30":[2,6.37],"2023-08-04":[1,2.14],"2023-08-06":[2,2.78],"2023-09-09":[1,1.54],"2023-09-14":[2,4.92],"2023-09-17":[1,1.25],"2023-09-21":[1,0.95],"2023-09-23":[1,2.98],"2023-09-27":[1,3.22],"2023-09-28":[1,1.07],"2023-09-30":[1,3.53],"2023-10-02":[1,1.27],"2023-10-05":[2,1.75],"2023-10-07":[1,5.66],"2023-10-08":[1,1.14],"2023-10-09":[2,0.79],"2023-10-11":[1,2.02],"2023-10-12":[2,3.75],"2023-10-13":[4,5.27],"2023-10-14":[1,5.38],"2023-12-17":[1,1.7],"2023-12-18":[1,1.76],"2023-12-23":[1,3.04],"2023-12-29":[1,2.56],"2023-12-31":[2,2.92],"2024-01-02":[1,3.2],"2024-01-03":[1,1.22],"2024-01-04":[1,1.43],"2024-01-18":[1,3.24],"2024-02-22":[2,3.45],"2024-03-06":[1,2.68],"2024-03-27":[1,2.42],"2024-03-31":[1,1.79],"2024-04-02":[1,2.24],"2024-04-04":[1,1.07],"2024-04-11":[2,4.13],"2024-06-05":[1,1.22],"2024-06-06":[1,2.69],"2024-06-08":[1,1.29],"2024-06-16":[1,2.59],"2024-06-19":[2,1.75],"2024-06-21":[1,1.33],"2024-06-25":[1,2.46],"2024-06-28":[1,1.09],"2024-07-01":[2,2.3],"2024-07-03":[1,2.79],"2024-07-05":[1,1.2],"2024-07-08":[1,2.52],"2024-07-16":[1,1.33],"2024-07-20":[1,1.68],"2024-07-23":[1,0.8],"2024-07-27":[1,2.84],"2024-07-30":[1,1.23],"2024-08-01":[1,1.2],"2024-08-14":[1,1.19],"2024-08-31":[1,1.29],"2024-09-02":[1,1.22],"2024-09-05":[1,1.25],"2024-09-06":[1,2.53],"2024-09-10":[1,1.16],"2024-09-12":[1,1.26],"2024-09-15":[1,2.24],"2024-09-17":[1,1.19],"2024-09-20":[1,2.38],"2024-09-24":[2,2.33],"2024-09-30":[1,1.23],"2024-10-02":[1,3.65],"2024-10-03":[1,1.29],"2024-10-04":[1,1.19],"2024-10-07":[1,2.47],"2024-10-14":[2,6.44],"2024-10-15":[1,2.23],"2024-10-16":[1,3.38],"2024-10-17":[1,6.68],"2024-10-20":[1,2.26],"2024-10-24":[1,5.43],"2024-10-26":[2,1.93],"2024-10-27":[1,4.62],"2024-10-30":[1,6.79],"2024-10-31":[1,2.59],"2024-11-01":[1,4.67],"2024-11-02":[1,1.48],"2024-11-04":[1,3.6],"2024-11-07":[1,1.39],"2024-11-08":[2,2.38],"2024-11-09":[1,0.84],"2024-11-12":[1,2.43],"2024-11-21":[2,2.43],"2024-11-23":[1,5.74],"2024-11-24":[1,1.74],"2024-11-27":[2,2.19],"2024-12-01":[1,2.21],"2024-12-03":[1,2.53],"2024-12-06":[2,2.62],"2024-12-09":[1,1.24],"2024-12-11":[1,3.65],"2024-12-13":[1,1.4],"2024-12-20":[2,2.7],"2024-12-21":[1,3.08],"2024-12-27":[2,2.56],"2024-12-31":[1,2.34],"2025-01-10":[1,1.92],"2025-01-12":[1,2.48],"2025-01-14":[1,1.29],"2025-01-17":[1,1.62],"2025-01-20":[1,1.12],"2025-01-28":[1,1.26],"2025-01-31":[1,1.41],"2025-02-02":[1,3.65],"2025-02-03":[1,2.33],"2025-02-04":[1,1.34],"2025-02-06":[1,2.31],"2025-02-09":[2,2.53],"2025-02-13":[1,2.42],"2025-02-16":[1,1.1],"2025-02-20":[1,1.19],"2025-02-27":[1,1.6],"2025-03-02":[2,3.43],"2025-05-15":[2,4.21],"2025-05-17":[1,2.42],"2025-05-18":[1,1.24],"2025-05-19":[1,1.47],"2025-05-22":[2,4.78],"2025-05-24":[2,2.56],"2025-05-25":[1,3.43],"2025-05-26":[1,1.33],"2025-05-27":[1,0.4],"2025-05-31":[1,2.38],"2025-06-04":[1,2.72],"2025-06-08":[1,1.17],"2025-06-14":[1,2.66],"2025-06-16":[1,1.95],"2025-06-17":[1,4.71],"2025-06-18":[2,4.92],"2025-06-19":[2,5.32],"2025-06-21":[2,3.08],"2025-06-24":[2,2.43],"2025-06-26":[1,3.66],"2025-06-30":[1,3.17],"2025-07-01":[1,3.31],"2025-07-03":[2,2.19],"2025-07-04":[1,1.13],"2025-07-08":[1,4.29],"2025-07-09":[2,2.52],"2025-07-10":[1,0.56],"2025-07-11":[1,5.14],"2025-07-13":[1,5.34],"2025-07-14":[1,5.79],"2025-07-17":[2,2.09],"2025-07-19":[1,3.48],"2025-07-21":[1,3.88],"2025-07-22":[1,2.47],"2025-07-23":[1,5.82],"2025-07-25":[1,5.04],"2025-07-27":[1,4.82],"2025-07-29":[1,2.7],"2025-08-03":[1,3.5],"2025-08-05":[2,2.41],"2025-08-07":[1,3.11],"2025-08-08":[1,2.6],"2025-08-11":[1,1.29],"2025-08-13":[1,5.29],"2025-08-18":[1,2.74],"2025-08-19":[1,0.73],"2025-08-20":[2,6.74],"2025-08-21":[1,3.89],"2025-08-22":[1,4.55],"2025-08-24":[2,2.5],"2025-08-26":[1,5.42],"2025-09-09":[2,2.53],"2025-09-10":[2,6.88],"2025-09-11":[1,5.64],"2025-09-12":[2,2.59],"2025-09-14":[1,3.89],"2025-09-15":[1,3.25],"2025-09-17":[2,3.95],"2025-09-18":[4,5.12],"2025-09-19":[2,1.97],"2025-09-20":[1,4.07],"2025-09-22":[1,4.43],"2025-09-23":[1,1.51],"2025-09-25":[1,5.56],"2025-09-26":[1,3.96],"2025-09-28":[2,2.45],"2025-09-29":[1,4.35],"2025-10-01":[2,3.94],"2025-10-03":[2,3.49],"2025-10-06":[1,5.06],"2025-10-08":[1,3.42],"2025-10-10":[3,5.82],"2025-10-11":[1,2.46],"2025-10-13":[1,2.72],"2025-10-14":[1,0.13],"2025-10-23":[1,4.68],"2025-10-24":[2,2.55],"2025-10-25":[2,7.28],"2025-10-26":[1,1.58],"2025-10-27":[2,5.37],"2025-10-30":[3,5.62],"2025-10-31":[2,1.04],"2025-11-01":[1,1.04],"2025-11-02":[1,5.83],"2025-11-05":[2,5.34],"2025-11-11":[2,2.68],"2025-11-12":[2,5.16],"2025-11-13":[1,4.0],"2025-11-14":[1,0.78],"2025-11-15":[1,2.79],"2025-11-16":[1,2.36],"2025-11-17":[2,2.27],"2025-11-18":[1,1.21],"2025-11-19":[2,3.04],"2025-11-20":[1,4.84],"2025-11-24":[3,5.04],"2025-11-25":[1,4.11],"2025-11-26":[1,6.43],"2025-11-27":[1,6.39],"2025-11-28":[1,3.33],"2025-11-30":[1,7.12],"2025-12-01":[1,5.17],"2025-12-02":[1,4.01],"2025-12-04":[2,2.33],"2025-12-05":[1,4.23],"2025-12-06":[1,2.01],"2025-12-10":[2,2.46],"2025-12-11":[1,4.87],"2025-12-12":[1,2.11],"2025-12-13":[2,4.14],"2025-12-14":[2,5.01],"2025-12-16":[1,4.63],"2025-12-18":[1,4.07],"2025-12-19":[1,4.97],"2025-12-20":[1,0.99],"2025-12-22":[1,4.63],"2025-12-24":[2,4.28],"2025-12-27":[1,4.53],"2025-12-29":[1,1.83],"2025-12-31":[2,4.41],"2026-01-02":[1,5.39],"2026-01-03":[1,5.47],"2026-01-06":[1,1.25],"2026-03-12":[2,2.67],"2026-03-17":[1,4.7],"2026-03-20":[1,2.24],"2026-03-21":[1,0.81],"2026-03-23":[1,5.31],"2026-03-24":[2,4.74],"2026-03-27":[1,3.16],"2026-03-28":[2,4.53],"2026-03-30":[1,4.86],"2026-04-01":[1,3.77],"2026-04-02":[1,1.29],"2026-04-03":[1,3.99],"2026-04-04":[1,1.69],"2026-04-05":[2,4.26],"2026-04-06":[2,4.39],"2026-04-08":[1,3.58],"2026-04-09":[1,3.98],"2026-04-11":[2,2.05],"2026-04-12":[2,5.06],"2026-04-14":[2,2.0],"2026-04-16":[1,3.25],"2026-04-17":[2,1.75],"2026-04-21":[1,2.12],"2026-04-22":[2,4.45],"2026-04-25":[2,4.29],"2026-04-26":[1,4.94],"2026-04-27":[1,4.74],"2026-04-29":[1,2.2],"2026-05-01":[2,4.48],"2026-05-02":[1,4.02],"2026-05-05":[2,4.8],"2026-05-06":[1,4.5],"2026-05-07":[2,2.81],"2026-05-08":[1,0.66],"2026-05-11":[1,1.15],"2026-05-12":[1,3.71],"2026-05-13":[1,3.02],"2026-05-16":[1,4.79],"2026-05-18":[1,3.87],"2026-05-19":[1,5.33],"2026-05-21":[1,3.28],"2026-05-23":[1,2.45],"2026-05-25":[1,4.05],"2026-05-26":[1,3.25],"2026-05-28":[1,1.04],"2026-05-30":[1,1.01],"2026-06-01":[1,3.18],"2026-06-03":[1,1.16],"2026-06-06":[2,5.79],"2026-06-07":[1,4.29],"2026-06-08":[2,2.98],"2026-06-09":[1,3.49],"2026-06-11":[2,4.82],"2026-06-16":[2,3.13],"2026-06-22":[1,4.42],"2026-06-23":[2,4.42],"2026-06-25":[1,0.9],"2026-06-26":[1,3.6],"2026-06-28":[1,0.49],"2026-06-29":[2,2.37],"2026-07-03":[1,2.05],"2026-07-04":[1,7.01],"2026-07-10":[2,4.17],"2026-07-12":[1,3.3],"2026-07-13":[1,4.35],"2026-07-14":[1,3.29],"2026-07-16":[1,3.01],"2026-07-17":[1,3.16],"2026-07-18":[1,3.42],"2026-07-21":[1,3.97],"2026-07-26":[1,3.14],"2026-07-27":[1,3.23],"2026-07-28":[1,2.19],"2026-07-30":[2,2.5],"2026-08-02":[1,3.25],"2026-08-03":[1,3.06],"2026-08-04":[1,3.28],"2026-08-05":[2,3.32],"2026-08-06":[1,3.03],"2026-08-07":[1,4.41],"2026-08-08":[1,0.91],"2026-08-10":[1,3.13],"2026-08-11":[2,4.45],"2026-08-13":[2,3.98],"2026-08-14":[3,3.57],"2026-08-16":[1,3.78],"2026-08-17":[1,3.14],"2026-08-18":[1,1.8],"2026-08-19":[1,2.55],"2026-08-21":[2,1.93],"2026-08-22":[1,3.01],"2026-08-23":[2,3.08],"2026-08-24":[1,1.74],"2026-08-25":[1,3.26],"2026-08-27":[2,5.15],"2026-08-28":[1,2.17],"2026-08-29":[2,3.62],"2026-08-30":[1,3.11],"2026-08-31":[1,2.13],"2026-09-01":[2,4.31],"2026-09-02":[1,2.39],"2026-09-03":[1,2.8],"2026-09-04":[1,2.17],"2026-09-07":[1,2.08],"2026-09-09":[1,3.16],"2026-09-10":[2,3.79],"2026-09-11":[2,2.16],"2026-09-12":[3,4.66],"2026-09-13":[1,1.45],"2026-09-14":[1,1.18],"2026-09-15":[1,1.67],"2026-09-16":[1,0.69],"2026-09-17":[1,1.76],"2026-09-18":[1,3.17],"2026-09-22":[2,3.01],"2026-09-23":[1,3.1],"2026-09-24":[1,1.3],"2026-09-26":[1,3.33],"2026-09-27":[1,2.78],"2026-09-28":[1,3.96],"2026-09-29":[1,3.4],"2026-09-30":[1,2.8],"2026-10-01":[2,1.05],"2026-10-02":[1,0.61],"2026-10-03":[1,2.68],"2026-10-04":[1,2.68],"2026-10-05":[2,2.28],"2026-10-06":[1,3.32],"2026-10-07":[2,4.26],"2026-10-08":[1,3.99],"2026-10-12":[1,2.83],"2026-10-13":[2,3.88],"2026-10-14":[3,4.59],"2026-10-15":[1,1.97],"2026-10-16":[2,2.88],"2026-10-17":[1,3.09],"2026-10-18":[1,2.72],"2026-10-19":[1,4.95],"2026-10-20":[1,3.37],"2026-10-22":[2,4.37],"2026-10-23":[1,0.71],"2026-10-24":[1,3.38],"2026-10-25":[3,2.27],"2026-10-27":[2,3.25],"2026-10-28":[1,4.0],"2026-10-29":[2,2.28],"2026-10-30":[1,2.87],"2026-10-31":[1,3.13],"2026-11-01":[1,3.19],"2026-11-02":[1,3.14],"2026-11-07":[1,3.17],"2026-11-11":[1,3.23],"2026-11-12":[1,3.88],"2026-11-13":[1,1.26],"2026-11-14":[1,3.68],"2026-11-15":[1,0.97],"2026-11-16":[1,0.49]},"fastest":{"start":"2026-10-07 19:05","kmh":6.18,"min":19.0,"km":1.96}};
+
+/* ================================================================
+   runtime
+   ================================================================ */
+const deck=document.getElementById('deck'),slides=[...document.querySelectorAll('.slide')];
+let cur=0;
+const NSEC=7;
+const secbar=document.getElementById('secbar');
+for(let k=1;k<=NSEC;k++)secbar.appendChild(document.createElement('i'));
+const fit=()=>{const s=Math.min(innerWidth/1280,innerHeight/720);
+  deck.style.transform=`translate(-50%,-50%) scale(${s})`};
+const go=(n,force)=>{n=Math.max(0,Math.min(slides.length-1,n));
+  if(n===cur&&!force&&slides[n].classList.contains('on'))return;
+  stopAll();cur=n;
+  slides.forEach((el,k)=>el.classList.toggle('on',k===cur));
+  history.replaceState(null,'','#'+(cur+1));
+  document.getElementById('pageno').textContent=(cur+1)+' / '+slides.length;
+  document.body.classList.toggle('on-cover',cur===0);
+  const sec=+slides[cur].dataset.sec;
+  [...secbar.children].forEach((el,k)=>{el.className=k+1===sec?'cur':(k+1<sec?'done':'')});
+  enter(slides[cur])};
+addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(['ArrowRight',' ','PageDown','Enter','ArrowDown'].includes(e.key)){e.preventDefault();go(cur+1)}
+  else if(['ArrowLeft','PageUp','ArrowUp','Backspace'].includes(e.key)){e.preventDefault();go(cur-1)}
+  else if(e.key==='Home')go(0);else if(e.key==='End')go(slides.length-1);
+  else if(e.key==='r'||e.key==='R')go(cur,true);
+  else if(e.key==='f'||e.key==='F')document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()});
+addEventListener('click',e=>{
+  if(e.clientX>innerWidth/3)go(cur+1);else go(cur-1)});
+addEventListener('resize',fit);
+
+/* ---- アニメ管理：スライドに入るたびに作り直して再生 ---- */
+let running=[],timers=[],raf=0;
+const A=(el,kf,opt)=>{const a=el.animate(kf,Object.assign({fill:'both'},opt));running.push(a);return a};
+const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
+const stopAll=()=>{running.forEach(a=>a.cancel());running=[];timers.forEach(clearTimeout);timers=[];cancelAnimationFrame(raf)};
+const fadeIn=(el,delay=0,dur=700)=>A(el,[{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],
+  {duration:dur,delay,easing:'ease-out'});
+
+const NS='http://www.w3.org/2000/svg';
+const S=(tag,attrs,parent)=>{const el=document.createElementNS(NS,tag);
+  for(const k in attrs)el.setAttribute(k,attrs[k]);if(parent)parent.appendChild(el);return el};
+const T=(parent,x,y,txt,attrs={})=>{const t=S('text',Object.assign({x,y},attrs),parent);t.textContent=txt;return t};
+
+/* ---- クイズ問題・答え見出しを CONFIG から生成 ---- */
+const LET='ABCD';
+document.querySelectorAll('[data-quiz]').forEach(sl=>{
+  const q=CONFIG.quiz[sl.dataset.quiz];
+  sl.innerHTML=`<p class="eyebrow">QUIZ ${q.n} / 4</p><h2 class="qh">${q.q}</h2>
+    <div class="opts">${q.opts.map((o,k)=>`<div class="opt"><span class="k">${LET[k]}</span>
+      <span class="v num">${o}${q.unit?`<small>${q.unit}</small>`:''}</span></div>`).join('')}</div>
+    <div class="foot"><div class="timer"><i></i></div></div>`;
+});
+document.querySelectorAll('[data-ans]').forEach(el=>{
+  const q=CONFIG.quiz[el.dataset.ans];
+  el.innerHTML=`<span class="badge">正解 ${LET[q.ans]}</span><span class="q">Q${q.n}　${q.q}</span>`;
+});
+
+/* ---- 日付ヘルパー（UTC で計算、TZ に左右されない） ---- */
+const ymd=s=>s.split('-').map(Number);
+const utc=s=>{const [y,m,d]=ymd(s);return Date.UTC(y,m-1,d)};
+const doy=s=>{const [y]=ymd(s);return Math.round((utc(s)-Date.UTC(y,0,1))/864e5)};
+const iso=t=>new Date(t).toISOString().slice(0,10);
+const heat=km=>km<1.5?'#6a4f22':km<3?'#a8742a':km<5?'#e9a23c':'#ffd88a';
+
+/* ================================================================
+   各スライドの演出
+   ================================================================ */
+const ANIM={};
+
+ANIM.quiz=sl=>{
+  A(sl.querySelector('.timer i'),[{transform:'scaleX(1)'},{transform:'scaleX(0)'}],{duration:10000,easing:'linear'});
+  sl.querySelectorAll('.opt').forEach((o,k)=>fadeIn(o,250+k*180,600));
+};
+
+/* 1. オドメーター */
+ANIM.odo=sl=>{
+  const box=sl.querySelector('#odo');box.innerHTML='';
+  const digits=String(DATA.total_km).split('');
+  const H=200;
+  digits.forEach((d,p)=>{
+    if(p===digits.length-3){const c=document.createElement('span');c.className='comma';c.textContent=',';box.appendChild(c)}
+    const w=document.createElement('div');w.className='wheel';
+    const st=document.createElement('div');st.className='strip num';
+    const loops=p+1, n=loops*10+(+d);
+    for(let k=0;k<=n;k++){const s=document.createElement('span');s.textContent=k%10;st.appendChild(s)}
+    w.appendChild(st);box.appendChild(w);
+    A(st,[{transform:'translateY(0)'},{transform:`translateY(${-n*H}px)`}],
+      {duration:3000+p*500,delay:300,easing:'cubic-bezier(.25,.6,.12,1)'});
+  });
+  const u=document.createElement('span');u.className='unit';u.textContent='km';box.appendChild(u);
+  fadeIn(sl.querySelector('#odo-sub'),4600);
+};
+
+/* 1b. 山手線を何周：電車が回る＋43 個の小さな環が埋まっていく */
+ANIM.yamanote=sl=>{
+  const G='#9acd32', total=DATA.total_km/CONFIG.yamanoteKm;
+  const svg=sl.querySelector('.yt-map svg');svg.innerHTML='';
+  // 角丸の環（模式図）：左右の直線 x=40/300、角の半径 90
+  const d='M130 30 L210 30 A90 90 0 0 1 300 120 L300 340 A90 90 0 0 1 210 430 L130 430 A90 90 0 0 1 40 340 L40 120 A90 90 0 0 1 130 30 Z';
+  S('path',{d,fill:'none',stroke:'#2f4a1c','stroke-width':16},svg);
+  const loop=S('path',{d,fill:'none',stroke:'none'},svg), L=loop.getTotalLength();
+  const trail=S('path',{d,fill:'none',stroke:G,'stroke-width':10,'stroke-linecap':'round',pathLength:1,
+    'stroke-dasharray':'0.14 0.86','stroke-dashoffset':0.14,style:'filter:drop-shadow(0 0 6px #9acd32)'},svg);
+  [['池袋',66,56,88,92,'start'],['上野',274,56,252,92,'end'],['新宿',40,200,62,208,'start'],
+   ['東京',300,250,278,258,'end'],['渋谷',40,330,62,338,'start'],['品川',274,404,252,392,'end']].forEach(([n,x,y,tx,ty,a])=>{
+    S('circle',{cx:x,cy:y,r:7,fill:'#0d1015',stroke:'#d4dae2','stroke-width':3},svg);
+    T(svg,tx,ty,n,{'text-anchor':a,'font-size':24,'font-weight':700,fill:'#a6b0bd'});
+  });
+  T(svg,170,466,'※ 路線の形は模式図',{'text-anchor':'middle','font-size':17,fill:'#727d8b'});
+  const train=S('circle',{r:13,fill:'#f2f4f7',stroke:G,'stroke-width':4},svg);
+  const p0=loop.getPointAtLength(0);train.setAttribute('cx',p0.x);train.setAttribute('cy',p0.y);
+  // 小さな環 43 個（11 列 × 4 行）
+  const gs=sl.querySelector('.yt-grid svg');gs.innerHTML='';
+  const N=Math.ceil(total), icons=[];
+  for(let i=0;i<N;i++){
+    const x=(i%11)*54+4, y=Math.floor(i/11)*58+4;
+    S('rect',{x,y,width:40,height:50,rx:16,fill:'none',stroke:'#2e3742','stroke-width':3},gs);
+    const r=S('rect',{x,y,width:40,height:50,rx:16,fill:'none',stroke:G,'stroke-width':5,pathLength:1,
+      'stroke-dasharray':'0 1'},gs);
+    icons.push(r);
+  }
+  const num=sl.querySelector('#yt-n'); num.textContent='0.0';
+  const t0=performance.now()+900, D=7500;
+  const step=now=>{
+    const p=Math.min(1,Math.max(0,(now-t0)/D)), e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2, laps=total*e, f=laps%1;
+    const pt=loop.getPointAtLength(f*L);train.setAttribute('cx',pt.x);train.setAttribute('cy',pt.y);
+    trail.setAttribute('stroke-dashoffset',0.14-f);
+    icons.forEach((r,i)=>{const v=Math.max(0,Math.min(1,laps-i));
+      r.setAttribute('stroke-dasharray',`${v} ${1-v+0.0001}`);r.setAttribute('fill',v>=1?'#22331a':'none')});
+    num.textContent=laps.toFixed(1);
+    if(p<1)raf=requestAnimationFrame(step);
+  };
+  raf=requestAnimationFrame(step);
+};
+
+/* 2. 年ごとの柱 */
+ANIM.years=sl=>{
+  const svg=sl.querySelector('#years-svg');svg.innerHTML='';
+  const yrs=Object.keys(DATA.km_by_year), vals=yrs.map(y=>DATA.km_by_year[y]);
+  const W=1120,base=390,top=60,maxV=500,band=W/yrs.length,bw=band*0.62;
+  const hi={2022:true,2025:true};
+  S('line',{x1:0,x2:W,y1:base,y2:base,stroke:'#2e3742','stroke-width':3},svg);
+  const tops=[];
+  yrs.forEach((y,k)=>{
+    const v=vals[k],h=Math.max(4,(base-top)*v/maxV),x=k*band+(band-bw)/2;
+    tops.push([x+bw/2,base-h]);
+    const r=S('rect',{x,y:base-h,width:bw,height:h,rx:6,fill:hi[y]?'#ffb547':'#4a5a6d'},svg);
+    r.style.transformBox='fill-box';r.style.transformOrigin='50% 100%';
+    const d=500+k*420;
+    A(r,[{transform:'scaleY(0)'},{transform:'scaleY(1)'}],{duration:1000,delay:d,easing:'cubic-bezier(.3,.7,.2,1)'});
+    const vt=T(svg,x+bw/2,base-h-14,v>=100?Math.round(v):v,{'text-anchor':'middle','font-size':hi[y]?34:28,
+      'font-weight':800,fill:hi[y]?'#ffe0a3':'#d4dae2',class:'num'});
+    A(vt,[{opacity:0},{opacity:1}],{duration:500,delay:d+800});
+    T(svg,x+bw/2,base+40,y==='2026'?'2026*':y,{'text-anchor':'middle','font-size':28,'font-weight':700,fill:hi[y]?'#ffb547':'#a6b0bd',class:'num'});
+    T(svg,x+bw/2,base+72,DATA.walks_by_year[y]+'回',{'text-anchor':'middle','font-size':21,fill:'#727d8b',class:'num'});
+  });
+  T(svg,W,8,'* 2026 年は 11/16 まで ・ 下段は回数',{'text-anchor':'end','font-size':22,fill:'#727d8b'});
+  // 跳ね上がり注記
+  [['2022','2021'],['2025','2024']].forEach(([y,py])=>{
+    const k=yrs.indexOf(y),pk=yrs.indexOf(py);
+    const ratio=(DATA.km_by_year[y]/DATA.km_by_year[py]).toFixed(1);
+    const [x0,y0]=tops[pk],[x1,y1]=tops[k];
+    const g=S('g',{},svg);
+    const cy=Math.min(y0,y1)-70;
+    S('path',{d:`M${x0} ${y0-50} Q ${x0} ${cy} ${x1-24} ${y1-58}`,fill:'none',stroke:'#ffe0a3','stroke-width':3,
+      'stroke-dasharray':'8 8','stroke-linecap':'round'},g);
+    S('path',{d:`M${x1-36} ${y1-70} L${x1-22} ${y1-56} L${x1-40} ${y1-52}`,fill:'none',stroke:'#ffe0a3','stroke-width':3,'stroke-linecap':'round','stroke-linejoin':'round'},g);
+    const lx=(x0+x1)/2-30, ly=cy-8;
+    S('rect',{x:lx-62,y:ly-38,width:124,height:52,rx:12,fill:'#3a2a12',stroke:'#ffb547','stroke-width':2},g);
+    T(g,lx,ly-2,'×'+ratio,{'text-anchor':'middle','font-size':32,'font-weight':800,fill:'#ffe0a3',class:'num'});
+    A(g,[{opacity:0},{opacity:1}],{duration:700,delay:500+k*420+1200});
+  });
+};
+
+/* 3. 24 時間の時計 */
+ANIM.clock=sl=>{
+  const svg=sl.querySelector('#clock-svg');svg.innerHTML='';
+  const C=320,R0=240;
+  const ang=h=>h/24*Math.PI*2-Math.PI/2; // 0 時が真上
+  const P=(r,a)=>[C+r*Math.cos(a),C+r*Math.sin(a)];
+  S('circle',{cx:C,cy:C,r:R0-8,fill:'#151a21',stroke:'#2e3742','stroke-width':3},svg);
+  // 目盛りと数字
+  for(let h=0;h<24;h++){
+    const a=ang(h),major=h%6===0;
+    const [x0,y0]=P(R0-8,a),[x1,y1]=P(R0-(major?30:20),a);
+    S('line',{x1:x0,y1:y0,x2:x1,y2:y1,stroke:major?'#a6b0bd':'#4a5562','stroke-width':major?4:3,'stroke-linecap':'round'},svg);
+    if(major){const [tx,ty]=h===0?P(R0+34,a):P(R0-60,a);
+      T(svg,tx,ty+11,h+'時',{'text-anchor':'middle','font-size':30,'font-weight':700,fill:'#a6b0bd'})}
+  }
+  // 針：21 時 → 0:17（最遅）
+  const hand=S('g',{},svg);
+  S('line',{x1:C,y1:C,x2:C,y2:C-(R0-34),stroke:'#ffb547','stroke-width':8,'stroke-linecap':'round'},hand);
+  S('circle',{cx:C,cy:C,r:13,fill:'#ffb547'},hand);
+  hand.style.transformBox='view-box';hand.style.transformOrigin=`${C}px ${C}px`;
+  const endDeg=360+(17/60)/24*360;
+  A(hand,[{transform:'rotate(315deg)'},{transform:`rotate(${endDeg}deg)`}],
+    {duration:2600,delay:600,easing:'cubic-bezier(.45,0,.2,1)'});
+  // 遅い順トップ 5
+  DATA.latest_walks.forEach((w,k)=>{
+    const [hh,mm]=w.start.slice(11).split(':').map(Number);
+    const a=ang(hh+mm/60), first=k===0, r=first?R0-24:R0-24-(k%2)*24;
+    const [x,y]=P(r,a);
+    const d=S('circle',{cx:x,cy:y,r:first?13:9,fill:first?'#ffe0a3':'#ffb547',
+      style:`filter:drop-shadow(0 0 ${first?12:7}px #ffb547)`},svg);
+    A(d,[{opacity:0,transform:'scale(0)'},{opacity:1,transform:'scale(1)'}],
+      {duration:500,delay:3400+(4-k)*220,easing:'cubic-bezier(.3,1.6,.5,1)'});
+    d.style.transformBox='fill-box';d.style.transformOrigin='center';
+  });
+  fadeIn(sl.querySelector('#clock-legend'),4400);
+};
+
+/* 4. 速度分布＋かけっこ */
+ANIM.speed=sl=>{
+  const svg=sl.querySelector('#speed-svg');svg.innerHTML='';
+  const H=DATA.speed_hist_kmh_bin0_5, keys=Object.keys(H).map(Number).sort((a,b)=>a-b);
+  const W=1120,L=40,base=250,top=40,vmin=0.5,vmax=6.5;
+  const X=v=>L+(v-vmin)/(vmax-vmin)*(W-L-20);
+  const maxC=Math.max(...Object.values(H)), bw=X(1)-X(0.5)-10;
+  S('line',{x1:L-10,x2:W,y1:base,y2:base,stroke:'#2e3742','stroke-width':3},svg);
+  keys.forEach((v,k)=>{
+    const c=H[v.toFixed(1)], h=Math.max(8,(base-top)*c/maxC), fast=v===6.0;
+    const r=S('rect',{x:X(v)+5,y:base-h,width:bw,height:h,rx:5,fill:fast?'#ffb547':'#4a5a6d'},svg);
+    r.style.transformBox='fill-box';r.style.transformOrigin='50% 100%';
+    A(r,[{transform:'scaleY(0)'},{transform:'scaleY(1)'}],{duration:700,delay:300+k*120,easing:'ease-out'});
+    T(svg,X(v)+5+bw/2,base+32,v.toFixed(1),{'text-anchor':'middle','font-size':22,fill:fast?'#ffb547':'#727d8b',class:'num','font-weight':fast?800:400});
+  });
+  T(svg,W,base+64,'km/h（0.5 刻み・回数）',{'text-anchor':'end','font-size':21,fill:'#727d8b'});
+  // 事実ブロック（左上の空き）
+  const fb=S('g',{},svg);
+  T(fb,L,top+40,DATA.fastest.kmh+' km/h',{'font-size':64,'font-weight':800,fill:'#ffb547',class:'num'});
+  const [fd,ft]=DATA.fastest.start.split(' ');
+  T(fb,L,top+86,`${fd.replace(/-/g,'.')} ${ft} ・ ${Math.round(DATA.fastest.min)} 分 ・ ${DATA.fastest.km} km`,{'font-size':26,fill:'#a6b0bd',class:'num'});
+  A(fb,[{opacity:0},{opacity:1}],{duration:700,delay:200});
+  // 最速ラベル
+  const fx=X(6.0)+5+bw/2;
+  const fl=S('g',{},svg);
+  T(fl,fx,base-60,'最速',{'text-anchor':'middle','font-size':26,'font-weight':800,fill:'#ffe0a3'});
+  T(fl,fx,base-26,'6.18',{'text-anchor':'middle','font-size':30,'font-weight':800,fill:'#ffb547',class:'num'});
+  A(fl,[{opacity:0},{opacity:1}],{duration:600,delay:2000});
+  // 中央値ライン
+  const mx=X(DATA.median_kmh);
+  const ml=S('g',{},svg);
+  S('line',{x1:mx,x2:mx,y1:top-14,y2:base,stroke:'#5cc8ff','stroke-width':3,'stroke-dasharray':'8 7'},ml);
+  T(ml,mx+12,top+6,'いつもの速さ（中央値）'+DATA.median_kmh,{'font-size':24,'font-weight':700,fill:'#5cc8ff'});
+  A(ml,[{opacity:0},{opacity:1}],{duration:600,delay:1800});
+  // かけっこ：同じ 1.96 km
+  const ry=360, tx0=250, tx1=1000, km=DATA.fastest.km;
+  const race=S('g',{},svg);
+  T(race,0,ry-24,`同じ ${km} km を歩くと`,{'font-size':26,'font-weight':700,fill:'#f2f4f7'});
+  const lanes=[
+    {y:ry+30,col:'#ffb547',lab:`最速 ${DATA.fastest.kmh}`,kmh:DATA.fastest.kmh},
+    {y:ry+100,col:'#5cc8ff',lab:`いつも ${DATA.median_kmh}`,kmh:DATA.median_kmh},
+  ];
+  A(race,[{opacity:0},{opacity:1}],{duration:500,delay:2600});
+  const T0=3000, start=3400;
+  lanes.forEach(l=>{
+    T(race,0,l.y+10,l.lab,{'font-size':26,'font-weight':800,fill:l.col,class:'num'});
+    S('line',{x1:tx0,x2:tx1,y1:l.y,y2:l.y,stroke:'#2e3742','stroke-width':4,'stroke-linecap':'round'},race);
+    S('line',{x1:tx1,x2:tx1,y1:l.y-22,y2:l.y+22,stroke:'#727d8b','stroke-width':3},race);
+    const dur=T0*DATA.fastest.kmh/l.kmh, min=Math.round(km/l.kmh*60);
+    const trail=S('line',{x1:tx0,x2:tx1,y1:l.y,y2:l.y,stroke:l.col,'stroke-width':4,'stroke-linecap':'round'},race);
+    trail.style.transformBox='fill-box';trail.style.transformOrigin='0 50%';
+    A(trail,[{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:dur,delay:start,easing:'linear'});
+    const dot=S('circle',{cx:tx0,cy:l.y,r:13,fill:l.col,style:`filter:drop-shadow(0 0 8px ${l.col})`},race);
+    A(dot,[{transform:'translateX(0)'},{transform:`translateX(${tx1-tx0}px)`}],{duration:dur,delay:start,easing:'linear'});
+    const fin=T(race,tx1+22,l.y+11,min+' 分',{'font-size':32,'font-weight':800,fill:l.col,class:'num'});
+    A(fin,[{opacity:0},{opacity:1}],{duration:400,delay:start+dur});
+  });
+};
+
+/* 5. 9 年カレンダー＋13 日の拡大 */
+ANIM.cal=sl=>{
+  const svg=sl.querySelector('#cal-svg');svg.innerHTML='';
+  const cal=DATA.calendar, yrs=[];for(let y=2017;y<=2026;y++)yrs.push(y);
+  const L=78,W=1120,cw=(W-L)/366,rh=21,gap=6,top=6;
+  const rowY=y=>top+(y-2017)*(rh+gap);
+  const rows=S('g',{},svg);
+  yrs.forEach((y,k)=>{
+    const g=S('g',{},rows);
+    S('rect',{x:L,y:rowY(y),width:W-L,height:rh,rx:3,fill:'#171c23'},g);
+    T(g,L-14,rowY(y)+rh-3,y,{'text-anchor':'end','font-size':20,'font-weight':700,fill:'#a6b0bd',class:'num'});
+    A(g,[{opacity:0},{opacity:1}],{duration:500,delay:200+k*130});
+  });
+  const cells=S('g',{},svg);
+  for(const d in cal){const [y]=ymd(d);
+    S('rect',{x:L+doy(d)*cw,y:rowY(y),width:Math.max(cw,2.6),height:rh,fill:heat(cal[d][1])},cells)}
+  A(cells,[{opacity:0},{opacity:1}],{duration:1200,delay:600});
+  // 月目盛
+  ['1月','4月','7月','10月'].forEach((m,k)=>{
+    const x=L+doy(`2021-${String(k*3+1).padStart(2,'0')}-01`)*cw;
+    T(svg,x,rowY(2026)+rh+30,m,{'font-size':19,fill:'#727d8b'});
+  });
+  // ストリーク枠（2026 行）
+  const st=DATA.longest_streak, sx0=L+doy(st.start)*cw, sx1=L+(doy(st.end)+1)*cw, sy=rowY(2026);
+  const box=S('rect',{x:sx0-4,y:sy-5,width:sx1-sx0+8,height:rh+10,rx:5,fill:'none',stroke:'#ffe0a3','stroke-width':3,
+    style:'filter:drop-shadow(0 0 6px #ffb547)'},svg);
+  A(box,[{opacity:0},{opacity:1}],{duration:500,delay:2200});
+  // 拡大パネル：9/12〜10/22
+  const z0=utc('2026-09-12'), zn=41, zc=24, zg=2.6, zx=(W-zn*(zc+zg))/2+20, zy=360;
+  const zoom=S('g',{},svg);
+  const zx0=zx+((utc(st.start)-z0)/864e5)*(zc+zg), zx1=zx0+st.days*(zc+zg)-zg;
+  S('path',{d:`M${sx0-4} ${sy+rh+5} L${zx0} ${zy-14} M${sx1+4} ${sy+rh+5} L${zx1} ${zy-14}`,
+    stroke:'#5b4520','stroke-width':2,fill:'none'},zoom);
+  const lit=[];
+  for(let k=0;k<zn;k++){
+    const d=iso(z0+k*864e5), v=cal[d], x=zx+k*(zc+zg);
+    const inS=d>=st.start&&d<=st.end;
+    const r=S('rect',{x,y:zy,width:zc,height:zc,rx:4,fill:v?heat(v[1]):'#1e242d'},zoom);
+    if(inS)lit.push(r);
+  }
+  T(zoom,zx0,zy+zc+34,'9/26',{'text-anchor':'start','font-size':24,'font-weight':800,fill:'#ffe0a3',class:'num'});
+  T(zoom,zx1,zy+zc+34,'10/8',{'text-anchor':'end','font-size':24,'font-weight':800,fill:'#ffe0a3',class:'num'});
+  T(zoom,zx-6,zy+zc+34,'9/12',{'text-anchor':'start','font-size':20,fill:'#727d8b',class:'num'});
+  T(zoom,zx+zn*(zc+zg)-zg,zy+zc+34,'10/22',{'text-anchor':'end','font-size':20,fill:'#727d8b',class:'num'});
+  A(zoom,[{opacity:0},{opacity:1}],{duration:700,delay:2800});
+  // 光る線：13 日をつなぐ
+  const ly=zy+zc/2;
+  const line=S('line',{x1:zx0+zc/2,x2:zx1-zc/2,y1:ly,y2:ly,stroke:'#fff3d6','stroke-width':6,'stroke-linecap':'round',
+    style:'filter:drop-shadow(0 0 8px #ffb547)'},svg);
+  line.style.transformBox='fill-box';line.style.transformOrigin='0 50%';
+  A(line,[{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:2600,delay:3600,easing:'linear'});
+  lit.forEach((r,k)=>A(r,[{stroke:'transparent'},{stroke:'#ffe0a3'}],{duration:200,delay:3600+k*(2600/12)}));
+  lit.forEach(r=>{r.setAttribute('stroke-width',3)});
+  // 10/7 最速の日
+  const fx=zx+((utc('2026-10-07')-z0)/864e5)*(zc+zg)+zc/2;
+  const fm=S('g',{},svg);
+  S('line',{x1:fx,x2:fx,y1:zy+zc+46,y2:zy+zc+62,stroke:'#ffb547','stroke-width':3},fm);
+  T(fm,fx,zy+zc+90,'10/7 は最速（6.18 km/h）の日',{'text-anchor':'middle','font-size':23,'font-weight':700,fill:'#ffb547'});
+  A(fm,[{opacity:0},{opacity:1}],{duration:600,delay:6600});
+  // 見出し数字
+  const ah=sl.querySelector('.ahead');let ex=ah.querySelector('.ex');
+  if(!ex){ex=document.createElement('span');ex.className='ex';ah.appendChild(ex)}
+  ex.innerHTML=`<b>${st.days} 日連続</b>歩いた日は計 ${DATA.days_walked} 日`;
+  fadeIn(ex,2400);
+};
+
+/* 6. 場所：1 か所 1 ページ。右に数字、左に軌跡図（データが来るまで占位） */
+function placeInfo(sl){
+  const p=CONFIG.places.find(x=>x.key===sl.dataset.p);
+  sl.querySelector('.rh').textContent=p.name;
+  const box=sl.querySelector('.kw');box.innerHTML='';
+  const head=document.createElement('div');head.className='phead';
+  head.innerHTML=`<div class="pcnt num">${p.count}<small>回</small></div>${p.kv.map(t=>`<div class="pkv">${t}</div>`).join('')}`;
+  box.appendChild(head);fadeIn(head,300,700);
+  return box;
+}
+ANIM.place=sl=>{
+  placeInfo(sl);
+  const key=sl.dataset.p, g=PLACEGEO&&PLACEGEO[key], ph=sl.querySelector('.map-ph');
+  if(!g){if(ph)fadeIn(ph,500,700);return}
+  if(ph)ph.style.display='none';
+  const svg=sl.querySelector('.bigmap svg');svg.innerHTML='';
+  const vb=[-10,-10,g.w+20,g.h+20];svg.setAttribute('viewBox',vb.join(' '));
+  const box=svg.parentNode, u=1/Math.min(box.clientWidth/vb[2],box.clientHeight/vb[3]);
+  const line=(d,col,w,op,delay,dur)=>{const el=S('path',{d,fill:'none',stroke:col,'stroke-width':w*u,'stroke-opacity':op,
+      'stroke-linecap':'round','stroke-linejoin':'round',pathLength:1,'stroke-dasharray':1},svg);
+    A(el,[{strokeDashoffset:1},{strokeDashoffset:0}],{duration:dur,delay,easing:'ease-in-out'})};
+  if(key==='roka'){
+    const o=S('path',{d:g.outline,fill:'#14231a',stroke:'#3f7a45','stroke-width':3*u,'stroke-linejoin':'round'},svg);
+    A(o,[{opacity:0},{opacity:1}],{duration:700,delay:200});
+    g.walks.forEach((w,i)=>w.d.forEach(d=>line(d,'#ffb547',3.2,.85,900+i*650,1300)));
+    const t=T(svg,g.w,g.h+6,'公園の境界：© OpenStreetMap contributors',{'text-anchor':'end','font-size':15*u,fill:'#727d8b'});
+  }else{
+    // 街道（OSM）：細い灰色の下地。主要道路は少し太く、鉄道は破線
+    drawStreets(svg,g,u,key);
+    T(svg,g.w,g.h+6,'街路：© OpenStreetMap contributors',{'text-anchor':'end','font-size':15*u,fill:'#727d8b'});
+    g.walks.forEach((w,i)=>w.d.forEach(d=>line(d,'#ffb547',3,.4,700+i*70,1100)));
+    const m=S('g',{},svg);
+    S('circle',{cx:g.mark.x,cy:g.mark.y,r:9*u,fill:'#ff5a4e',stroke:'#fff','stroke-width':3*u},m);
+    T(m,g.mark.x+16*u,g.mark.y+8*u,'東京タワー',{'font-size':24*u,'font-weight':800,fill:'#f2f4f7',
+      style:`paint-order:stroke;stroke:#0d1015;stroke-width:${7*u}px;stroke-linejoin:round`});
+    A(m,[{opacity:0},{opacity:1}],{duration:600,delay:300});
+  }
+};
+
+/* 街路（OSM）：細い灰色の下地。主要道路は少し太く、鉄道は破線。地図枠でクリップ */
+function drawStreets(svg,g,u,key){
+  if(!g.streets)return;
+  const cp=S('clipPath',{id:'clip-'+key},S('defs',{},svg));
+  S('rect',{x:-4,y:-4,width:g.w+8,height:g.h+8,rx:6*u},cp);
+  const st=S('g',{'clip-path':`url(#clip-${key})`},svg);
+  g.streets.forEach(([c,d])=>S('path',{d,fill:'none','stroke-linecap':'round','stroke-linejoin':'round',
+    stroke:c==='major'?'#2f3845':c==='rail'?'#3c4554':'#1e242c','stroke-width':(c==='major'?3:c==='rail'?2.2:1.5)*u,
+    'stroke-dasharray':c==='rail'?`${6*u} ${5*u}`:'none'},st));
+  A(st,[{opacity:0},{opacity:1}],{duration:800,delay:100});
+}
+
+/* 越谷の地図：河道（太・暗）→ 4 回の軌跡を年順に描く。w は線幅 */
+const KCOL=['#ffb547','#5cc8ff','#7ee0a1','#ff8fb1'];
+function drawKoshi(svg,t0,step,w){
+  svg.innerHTML='';
+  svg.setAttribute('viewBox',`-6 -6 ${KOSHI.w+12} ${KOSHI.h+12}`);
+  const box=svg.parentNode, u=1/Math.min(box.clientWidth/(KOSHI.w+12),box.clientHeight/(KOSHI.h+12));
+  drawStreets(svg,KOSHI,u,'koshi');
+  KOSHI.river.forEach(d=>S('path',{d,fill:'none',stroke:'#24496a','stroke-width':w.river,'stroke-linecap':'round','stroke-linejoin':'round'},svg));
+  KOSHI.walks.forEach((wk,i)=>wk.d.forEach(d=>{
+    const el=S('path',{d,fill:'none',stroke:KCOL[i],'stroke-width':w.walk,'stroke-linecap':'round',
+      'stroke-linejoin':'round',pathLength:1,'stroke-dasharray':1},svg);
+    A(el,[{strokeDashoffset:1},{strokeDashoffset:0}],{duration:step*2.4,delay:t0+i*step*2.6,easing:'ease-in-out'})}));
+}
+ANIM.koshi=sl=>{
+  const box=placeInfo(sl);
+  if(!KOSHI)return;
+  drawKoshi(sl.querySelector('.bigmap svg'),900,700,{river:6,walk:2.6});
+  KOSHI.walks.forEach((w,i)=>{
+    const it=document.createElement('div');it.className='it';
+    it.innerHTML=`<i style="background:${KCOL[i]}"></i><div><div class="d num" style="color:${KCOL[i]}">${w.date.replace(/-/g,'.')}</div>
+      <div class="m num">全 ${w.km} km ／ 川沿い <b>${w.rkm}</b> km</div></div>`;
+    box.appendChild(it);fadeIn(it,900+i*700*2.6,600);
+  });
+};
+
+/* 7. ルート：グループごとに地図＋一覧 */
+const RCOL=['#ffb547','#5cc8ff','#ff8fb1'];
+ANIM.route=sl=>{
+  if(!ROUTES)return;
+  const g=ROUTES.groups[+sl.dataset.g];
+  sl.querySelector('.rh').innerHTML=`${g.label}<small>${g.walks.length} 回</small>`;
+  const svg=sl.querySelector('.bigmap svg');svg.innerHTML='';
+  const vb=[-12,-12,g.w+24,g.h+24];svg.setAttribute('viewBox',vb.join(' '));
+  const box=svg.parentNode, u=1/Math.min(box.clientWidth/vb[2],box.clientHeight/vb[3]);
+  const step=1500;
+  g.walks.forEach((w,i)=>w.d.forEach(d=>{
+    const el=S('path',{d,fill:'none',stroke:RCOL[i],'stroke-width':[9,5.5,3][i]*u,'stroke-linecap':'round',
+      'stroke-linejoin':'round',pathLength:1,'stroke-dasharray':1},svg);
+    A(el,[{strokeDashoffset:1},{strokeDashoffset:0}],{duration:step*1.6,delay:800+i*step*1.7,easing:'ease-in-out'})}));
+  const stg=S('g',{},svg);
+  g.stations.forEach(st=>{
+    S('circle',{cx:st.x,cy:st.y,r:5*u,fill:'#0d1015',stroke:'#a6b0bd','stroke-width':2.5*u},stg);
+    T(stg,st.x+11*u,st.y+7*u,st.n,{'font-size':21*u,'font-weight':700,fill:'#a6b0bd',
+      style:`paint-order:stroke;stroke:#0d1015;stroke-width:${6*u}px;stroke-linejoin:round`});
+  });
+  A(stg,[{opacity:0},{opacity:1}],{duration:600,delay:200});
+  const lst=sl.querySelector('.kw');lst.innerHTML='';
+  g.walks.forEach((w,i)=>{
+    const it=document.createElement('div');it.className='it';
+    it.innerHTML=`<i style="background:${RCOL[i]}"></i><div><div class="d num" style="color:${RCOL[i]}">${w.date.replace(/-/g,'.')}</div>
+      <div class="v">${w.via}</div><div class="m num">${w.km} km ・ ${w.min} 分</div></div>`;
+    lst.appendChild(it);fadeIn(it,800+i*step*1.7,600);
+  });
+};
+
+function enter(sl){
+  if(sl.dataset.quiz)ANIM.quiz(sl);
+  const a=sl.dataset.anim;if(a&&ANIM[a])ANIM[a](sl);
+}
+
+fit();cur=-1;
+// 読み込み直後に作ったアニメが走らないことがあるので、最初の描画を待ってから入る
+addEventListener('load',()=>setTimeout(()=>go((parseInt(location.hash.slice(1))||1)-1,true),60));
+</script>
+</body>
+</html>

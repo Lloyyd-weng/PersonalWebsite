@@ -55,6 +55,14 @@ export interface SlideDeck {
 
 export const SLIDES: SlideDeck[] = [
   {
+    slug: "walk-9y",
+    title: "日本散歩、9年分",
+    blurb:
+      "社内晚会用的竞猜＋数据可视化:9 年 691 次散步,1469 km。4 道竞猜题、山手线换算、年度柱状、24 小时表盘、速度赛跑、9 年日历热力,再加三个常去地点和一条长散步的轨迹图。页面里没有原始经纬度。",
+    meta: "ja · 19 slides · quiz",
+    pubDate: new Date("2026-11-19"),
+  },
+  {
     slug: "oklch",
     title: "OKLCH — 最近気になってる色の話",
     blurb:
